@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" 
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+model Location {
+  id          Int             @id @default(autoincrement())
+  name        String          @unique 
+  users       User[]     
+  shifts      Shift[]    
+  timeCards   TimeCard[] 
+  templates   ShiftTemplate[] 
+  checklists  Checklist[]     
+}
+
+model User {
+  id          Int        @id @default(autoincrement())
+  name        String     
+  role        Role       @default(EMPLOYEE)
+  systemRoles String[]   @default(["Front Desk"]) 
+  locationId  Int?
+  location    Location?  @relation(fields: [ locationId ], references:[ id ])
+  shifts      Shift[]
+  timeCards   TimeCard[]
+  checklists  Checklist[]     
+  templates   ShiftTemplate[]
+  feedbacks   Feedback[]
+}
+
+model PayPeriod {
+  id           Int          @id @default(autoincrement())
+  year         Int        
+  periodNumber Int        
+  startDate    DateTime   
+  endDate      DateTime   
+  timeCards    TimeCard[]
+
+  @@unique([ year, periodNumber ])
+}
+
+model Shift {
+  id          Int        @id @default(autoincrement())
+  startTime   DateTime
+  endTime     DateTime
+  status      String     @default("OPEN") 
+  locationId  Int
+  location    Location   @relation(fields: [ locationId ], references: [ id ])
+  userId      Int?
+  assignedTo  User?      @relation(fields: [ userId ], references: [ id ])
+}
+
+model TimeCard {
+  id          Int          @id @default(autoincrement())
+  clockIn     DateTime
+  clockOut    DateTime?
+  totalHours  Float?     
+  userId      Int
+  user        User         @relation(fields: [ userId ], references: [ id ])
+  locationId  Int
+  location    Location     @relation(fields: [ locationId ], references: [ id ])
+  payPeriodId Int?
+  payPeriod   PayPeriod?   @relation(fields: [ payPeriodId ], references: [ id ])
+  
+  checklists  Checklist[] 
+}
+
+model Member {
+  id               Int         @id @default(autoincrement())
+  lastName         String
+  firstName        String
+  location         String?
+  notes            String?     
+  bonusNotes       String?     
+  family           String?
+  renewalDate      String?
+  totalPasses      Int         @default(12)
+  lastBeverageDate DateTime?   
+  usages           PassUsage[]
+  giftCards        GiftCard[]  
+}
+
+model PassUsage {
+  id         Int      @id @default(autoincrement())
+  dateUsed   String
+  amount     Int
+  initials   String?
+  memberId   Int
+  member     Member   @relation(fields: [ memberId ], references: [ id ])
+}
+
+model GiftCard {
+  id               Int      @id @default(autoincrement())
+  code             String   @unique
+  initialAmount    Float
+  remainingBalance Float
+  recipientName    String?  
+  memberId         Int?     
+  member           Member?  @relation(fields: [memberId], references: [id])
+  issuedAt         DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model ShiftTemplate {
+  id             Int      @id @default(autoincrement())
+  locationId     Int
+  location       Location @relation(fields: [locationId], references:[id])
+  dayOfWeek      Int      
+  startTime      String   
+  endTime        String   
+  startDate      String?  
+  endDate        String?  
+  checklistTasks String[] @default([]) 
+  userId         Int?     
+  user           User?    @relation(fields:[userId], references:[id])
+}
+
+model Checklist {
+  id             Int       @id @default(autoincrement())
+  date           DateTime  @default(now())
+  userId         Int
+  user           User      @relation(fields: [userId], references: [id])
+  locationId     Int
+  location       Location  @relation(fields: [locationId], references: [id])
+  timeCardId     Int?      
+  timeCard       TimeCard? @relation(fields:[timeCardId], references: [id]) 
+  notes          String?
+  completedTasks String[]  @default([])
+  missedTasks    String[]  @default([])
+}
+
+model GlobalTask {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+}
+
+model Feedback {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   
+  description String
+  status      String   @default("OPEN") 
+  devNotes    String?
+  createdAt   DateTime @default(now())
+}
