@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 
-export default function CalendarTab({ appState }) {
+export default function CalendarTab({ appState }: { appState: any }) {
   const {
     currentMonth, setCurrentMonth, currentYear, setCurrentYear, MONTHS, YEARS,
     calLocFilter, setCalLocFilter, locations, calEmpFilter, setCalEmpFilter, users,

@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 
-export default function StaffTab({ appState }) {
+export default function StaffTab({ appState }: { appState: any }) {
   const { 
     users, 
     locations, 

@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 
-export default function FeedbackTab({ appState }) {
+export default function FeedbackTab({ appState }: { appState: any }) {
   const { feedbacks, fetchFeedbacks, users } = appState;
 
   // State for handling inline editing

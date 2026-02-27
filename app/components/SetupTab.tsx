@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 
-export default function SetupTab({ appState }) {
+export default function SetupTab({ appState }: { appState: any }) {
   // State to control the sub-tabs ("templates" vs "tasks")
   const[activeTab, setActiveTab] = useState('templates');
 

@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 
-export default function DashboardTab({ appState }) {
+export default function DashboardTab({ appState }: { appState: any }) {
   const {
     isManager, handleImportTimecards, handleImportHistory, missingPunches,
     formatDateSafe, formatTimeSafe, dashHiddenWarnings, dashPeriodIndex,

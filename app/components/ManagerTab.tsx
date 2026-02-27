@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 
-export default function ManagerTab({ appState }) {
+export default function ManagerTab({ appState }: { appState: any }) {
   const {
     handleExportCSV, periods, manPeriods, toggleManPeriod, locations, manLocs, toggleManLoc,
     users, manEmps, toggleManEmp, hiddenWarnings, matrixRows, activeManPeriods, managerData,

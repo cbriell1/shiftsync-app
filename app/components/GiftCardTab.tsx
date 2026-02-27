@@ -12,7 +12,7 @@ interface GiftCardTabProps {
   };
 }
 
-export default function GiftCardTab({ appState }: GiftCardTabProps) {
+export default function GiftCardTab({ appState }: { appState: any }) {
   const { members, giftCards, handleIssueGiftCard, handleRedeemCard } = appState;
   
   const[isIssueOpen, setIsIssueOpen] = useState(false);

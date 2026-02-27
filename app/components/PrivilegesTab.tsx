@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function PrivilegesTab({ appState }) {
+export default function PrivilegesTab({ appState }: { appState: any }) {
   const {
     passSearch, setPassSearch, handleImportPasses, filteredMembers,
     handleRedeemBeverage, expandedMember, setExpandedMember,

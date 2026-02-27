@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 
-export default function ReportsTab({ appState }) {
+export default function ReportsTab({ appState }: { appState: any }) {
   const { checklists, timeCards, formatDateSafe, formatTimeSafe, locations, users } = appState;
 
   // Filter logic: Match checklist to timecard, then strictly hide if the timecard is ACTIVE.
