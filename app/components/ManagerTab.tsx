@@ -227,9 +227,9 @@ export default function ManagerTab({ appState }: { appState: any }) {
             const empGroups = groupedCards[locName];
 
             let locTotal = 0;
-            Object.values(empGroups).forEach(cards => {
-              cards.forEach(c => locTotal += (c.totalHours || 0));
-            });
+            Object.values(empGroups).forEach((cards: any) => {
+  cards.forEach((c: any) => locTotal += (c.totalHours || 0));
+});
 
             return (
               <div key={locName} className="bg-white border border-slate-300 rounded-2xl overflow-hidden shadow-sm">
