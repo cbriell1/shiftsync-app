@@ -1,66 +1,31 @@
-import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
     const feedbacks = await prisma.feedback.findMany({
       include: { user: true },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json(feedbacks);
   } catch (error) {
-    console.error("GET Feedback Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
   }
 }
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { userId, type, description } = await req.json();
-
-    if (!userId || !description) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-    }
-
-    const feedback = await prisma.feedback.create({
+    const body = await request.json();
+    const newFeedback = await prisma.feedback.create({
       data: {
-        user: { connect: { id: parseInt(userId, 10) } },
-        type,
-        description
+        userId: Number(body.userId),
+        type: body.type,
+        description: body.description,
+        status: 'OPEN',
       },
-      include: { user: true }
     });
-
-    return NextResponse.json(feedback);
+    return NextResponse.json(newFeedback, { status: 201 });
   } catch (error) {
-    console.error("POST Feedback Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-export async function PUT(req) {
-  try {
-    const body = await req.json();
-    const { id, status, developerNotes, devNotes } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: "Missing ID" }, { status: 400 });
-    }
-
-    // Map frontend 'developerNotes' to database 'devNotes'
-    const finalNotes = developerNotes !== undefined ? developerNotes : devNotes;
-
-    const updated = await prisma.feedback.update({
-      where: { id: parseInt(id, 10) },
-      data: { 
-        status: status, 
-        devNotes: finalNotes 
-      }
-    });
-
-    return NextResponse.json(updated);
-  } catch (error) {
-    console.error("PUT Feedback Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create' }, { status: 500 });
   }
 }

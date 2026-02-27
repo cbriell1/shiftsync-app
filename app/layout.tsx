@@ -1,20 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "ShiftSync",
-  description: "Scheduling and Feedback Management",
+  description: "Internal Scheduling App",
 };
 
 export default function RootLayout({
@@ -24,15 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      {/* 
-          1. Removed inline style from body to fix hydration error.
-          2. Added suppressHydrationWarning because browser extensions 
-             often inject attributes into the body tag.
-      */}
-      <body
-        suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body style={{ fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>
         {children}
       </body>
     </html>

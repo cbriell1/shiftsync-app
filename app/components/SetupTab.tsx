@@ -1,9 +1,20 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export default function SetupTab({ appState }) {
   // State to control the sub-tabs ("templates" vs "tasks")
-  const [activeTab, setActiveTab] = useState('templates');
+  const[activeTab, setActiveTab] = useState('templates');
+
+  // Filter Dropdown States
+  const[showLocFilter, setShowLocFilter] = useState(false);
+  const[showDayFilter, setShowDayFilter] = useState(false);
+
+  // Sorting State (Smart Cascading Sort)
+  const[sortConfig, setSortConfig] = useState({ key: 'location', direction: 'asc' });
+
+  // Click-outside references for the dropdowns
+  const locFilterRef = useRef(null);
+  const dayFilterRef = useRef(null);
 
   const {
     editingTplId, locations, tplLocs, toggleTplLoc,
@@ -11,11 +22,26 @@ export default function SetupTab({ appState }) {
     tplEnd, setTplEnd, tplStartDate, setTplStartDate,
     tplEndDate, setTplEndDate, setEditingTplId, setTplLocs, setTplDays,
     setTplTasks, tplViewLocs, toggleTplViewLoc, tplViewDays, toggleTplViewDay,
+    setTplViewLocs, setTplViewDays, // Used for clearing filters
     filteredTemplates, handleEditTemplate, handleDeleteTemplate, users,
     globalTasks, fetchGlobalTasks, tplTasks, toggleTplTask, handleSaveTemplate,
     newTaskStr, setNewTaskStr, tplUserId, setTplUserId,
     handleAddMasterTask, handleDeleteMasterTask
   } = appState;
+
+  // Handle clicking outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (locFilterRef.current && !locFilterRef.current.contains(event.target)) {
+        setShowLocFilter(false);
+      }
+      if (dayFilterRef.current && !dayFilterRef.current.contains(event.target)) {
+        setShowDayFilter(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  },[]);
 
   // Optimized Select All Logic
   const handleSelectAllTasks = () => {
@@ -38,6 +64,39 @@ export default function SetupTab({ appState }) {
     if (!isoString) return '';
     return isoString.split('T')[0];
   };
+
+  // Handle Header Click for Sorting
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Apply Smart Cascading Sort
+  const sortedTemplates = [...(filteredTemplates || [])].sort((a, b) => {
+    const dir = sortConfig.direction === 'asc' ? 1 : -1;
+    
+    const locA = a.location?.name || '';
+    const locB = b.location?.name || '';
+    const dayA = a.dayOfWeek ?? -1;
+    const dayB = b.dayOfWeek ?? -1;
+    const timeA = a.startTime || '';
+    const timeB = b.startTime || '';
+
+    // Primary Sort
+    if (sortConfig.key === 'location' && locA !== locB) return locA.localeCompare(locB) * dir;
+    if (sortConfig.key === 'dayOfWeek' && dayA !== dayB) return (dayA - dayB) * dir;
+    if (sortConfig.key === 'startTime' && timeA !== timeB) return timeA.localeCompare(timeB) * dir;
+
+    // Secondary & Tertiary Fallback Sorts (creates the "multiple" sorting effect seamlessly)
+    if (sortConfig.key !== 'location' && locA !== locB) return locA.localeCompare(locB);
+    if (sortConfig.key !== 'dayOfWeek' && dayA !== dayB) return dayA - dayB;
+    if (sortConfig.key !== 'startTime' && timeA !== timeB) return timeA.localeCompare(timeB);
+
+    return 0;
+  });
 
   return (
     <div className="bg-white p-4 rounded-xl border border-gray-300 shadow-md">
@@ -125,10 +184,10 @@ export default function SetupTab({ appState }) {
                 </div>
               </div>
 
-              {/* 4. Times */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">4. Start Time</label>
+              {/* 4. Times - items-end ensures horizontal alignment if labels ever wrap */}
+              <div className="grid grid-cols-2 gap-2 items-end">
+                <div className="flex flex-col justify-end h-full">
+                  <label className="block text-sm font-bold text-slate-700 mb-1 leading-tight">4. Start Time</label>
                   <input 
                     type="time" 
                     value={tplStart || ''} 
@@ -137,8 +196,8 @@ export default function SetupTab({ appState }) {
                     required
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">End Time</label>
+                <div className="flex flex-col justify-end h-full">
+                  <label className="block text-sm font-bold text-slate-700 mb-1 leading-tight">End Time</label>
                   <input 
                     type="time" 
                     value={tplEnd || ''} 
@@ -149,11 +208,12 @@ export default function SetupTab({ appState }) {
                 </div>
               </div>
 
-              {/* 5. Effective Dates */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">
-                    5. Start Date <span className="font-normal text-xs text-gray-500">(Leave blank for Always)</span>
+              {/* 5. Effective Dates - items-end + block spans ensure perfect horizontal alignment */}
+              <div className="grid grid-cols-2 gap-2 items-end">
+                <div className="flex flex-col justify-end h-full">
+                  <label className="block text-sm font-bold text-slate-700 mb-1 leading-tight">
+                    5. Start Date 
+                    <span className="block font-normal text-[11px] text-gray-500 mt-0.5">(Leave blank)</span>
                   </label>
                   <input 
                     type="date" 
@@ -162,9 +222,10 @@ export default function SetupTab({ appState }) {
                     className="w-full border border-gray-400 rounded p-2 text-sm text-slate-900 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">
-                    End Date <span className="font-normal text-xs text-gray-500">(Leave blank for Always)</span>
+                <div className="flex flex-col justify-end h-full">
+                  <label className="block text-sm font-bold text-slate-700 mb-1 leading-tight">
+                    End Date 
+                    <span className="block font-normal text-[11px] text-gray-500 mt-0.5">(Leave blank)</span>
                   </label>
                   <input 
                     type="date" 
@@ -236,44 +297,164 @@ export default function SetupTab({ appState }) {
 
           {/* COLUMN 2: TEMPLATES TABLE */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white p-4 rounded-xl border border-gray-300 shadow-sm overflow-hidden h-full">
+            <div className="bg-white p-4 rounded-xl border border-gray-300 shadow-sm overflow-hidden h-full flex flex-col">
               <h3 className="font-bold text-slate-700 mb-4 text-lg border-b pb-2">Saved Templates</h3>
-              <div className="overflow-x-auto max-h-[800px] overflow-y-auto">
-                <table className="w-full text-left text-sm text-slate-600">
-                  <thead className="bg-slate-100 text-slate-700 text-xs uppercase font-bold sticky top-0">
+              <div className="overflow-x-auto overflow-y-auto flex-1 min-h-[300px] max-h-[800px] pb-32">
+                <table className="w-full text-left text-sm text-slate-600 relative">
+                  <thead className="bg-slate-100 text-slate-700 text-xs uppercase font-bold sticky top-0 z-40 shadow-sm">
                     <tr>
-                      <th className="p-2">Location</th>
-                      <th className="p-2">Days</th>
-                      <th className="p-2">Time</th>
-                      <th className="p-2">Dates</th>
-                      <th className="p-2">Tasks</th>
-                      <th className="p-2 text-center">Actions</th>
+                      
+                      {/* HEADER: LOCATION (Sort & Filter) */}
+                      <th className="p-3 relative select-none" ref={locFilterRef}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="flex items-center gap-1 cursor-pointer hover:text-blue-700 transition-colors"
+                            onClick={() => handleSort('location')}
+                            title="Sort by Location"
+                          >
+                            LOCATION
+                            {sortConfig.key === 'location' && (
+                              <span className="text-blue-600 text-[10px]">{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                            )}
+                          </div>
+                          <div 
+                            className={`flex items-center justify-center cursor-pointer px-1.5 py-0.5 rounded transition-colors ${tplViewLocs?.length > 0 ? 'bg-blue-200 text-blue-800' : 'hover:bg-slate-200 text-slate-400 hover:text-blue-600'}`}
+                            onClick={() => setShowLocFilter(!showLocFilter)}
+                            title="Filter Locations"
+                          >
+                            {tplViewLocs?.length > 0 ? (
+                              <span className="text-[10px] font-black">{tplViewLocs.length}</span>
+                            ) : (
+                              <span className="text-[10px]">⧨</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {showLocFilter && (
+                          <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-300 rounded-lg shadow-2xl p-2 font-normal normal-case text-sm text-slate-800 flex flex-col z-[100]">
+                            <div className="max-h-48 overflow-y-auto space-y-1 mb-2">
+                              {locations?.map(loc => (
+                                <label key={loc.id} className="flex items-center space-x-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer transition-colors">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={tplViewLocs?.includes(loc.id) || false} 
+                                    onChange={() => toggleTplViewLoc(loc.id)} 
+                                    className="w-4 h-4 text-blue-600 rounded border-slate-300"
+                                  />
+                                  <span className="truncate font-semibold">{loc.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                            {tplViewLocs?.length > 0 && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setTplViewLocs([]); setShowLocFilter(false); }}
+                                className="text-xs font-bold text-red-600 border-t border-slate-100 pt-2 pb-1 hover:text-red-800 transition-colors"
+                              >
+                                Clear Selection
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </th>
+
+                      {/* HEADER: DAYS (Sort & Filter) */}
+                      <th className="p-3 relative select-none" ref={dayFilterRef}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="flex items-center gap-1 cursor-pointer hover:text-blue-700 transition-colors"
+                            onClick={() => handleSort('dayOfWeek')}
+                            title="Sort by Day"
+                          >
+                            DAYS
+                            {sortConfig.key === 'dayOfWeek' && (
+                              <span className="text-blue-600 text-[10px]">{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                            )}
+                          </div>
+                          <div 
+                            className={`flex items-center justify-center cursor-pointer px-1.5 py-0.5 rounded transition-colors ${tplViewDays?.length > 0 ? 'bg-blue-200 text-blue-800' : 'hover:bg-slate-200 text-slate-400 hover:text-blue-600'}`}
+                            onClick={() => setShowDayFilter(!showDayFilter)}
+                            title="Filter Days"
+                          >
+                            {tplViewDays?.length > 0 ? (
+                              <span className="text-[10px] font-black">{tplViewDays.length}</span>
+                            ) : (
+                              <span className="text-[10px]">⧨</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {showDayFilter && (
+                          <div className="absolute top-full left-0 mt-1 w-32 bg-white border border-slate-300 rounded-lg shadow-2xl p-2 font-normal normal-case text-sm text-slate-800 flex flex-col z-[100]">
+                            <div className="max-h-48 overflow-y-auto space-y-1 mb-2">
+                              {DAYS_OF_WEEK?.map((day, idx) => (
+                                <label key={day} className="flex items-center space-x-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer transition-colors">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={tplViewDays?.includes(idx) || false} 
+                                    onChange={() => toggleTplViewDay(idx)} 
+                                    className="w-4 h-4 text-blue-600 rounded border-slate-300"
+                                  />
+                                  <span className="font-semibold">{day.substring(0, 3)}</span>
+                                </label>
+                              ))}
+                            </div>
+                            {tplViewDays?.length > 0 && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setTplViewDays([]); setShowDayFilter(false); }}
+                                className="text-xs font-bold text-red-600 border-t border-slate-100 pt-2 pb-1 hover:text-red-800 transition-colors"
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </th>
+
+                      {/* HEADER: TIME (Sort Only) */}
+                      <th className="p-3 select-none">
+                        <div 
+                          className="flex items-center gap-1 cursor-pointer hover:text-blue-700 transition-colors w-max"
+                          onClick={() => handleSort('startTime')}
+                          title="Sort by Time"
+                        >
+                          TIME
+                          {sortConfig.key === 'startTime' && (
+                            <span className="text-blue-600 text-[10px]">{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                          )}
+                        </div>
+                      </th>
+
+                      <th className="p-3">Dates</th>
+                      <th className="p-3">Tasks</th>
+                      <th className="p-3 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTemplates?.length === 0 ? (
+                    {sortedTemplates?.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="p-4 text-center text-gray-500 italic">
-                          No templates found. Create one using the form on the left.
+                        <td colSpan="6" className="p-8 text-center text-gray-500 italic bg-slate-50/50">
+                          {tplViewLocs.length > 0 || tplViewDays.length > 0 
+                            ? "No templates match your active filters." 
+                            : "No templates found. Create one using the form on the left."}
                         </td>
                       </tr>
                     ) : (
-                      filteredTemplates?.map((tpl) => {
+                      sortedTemplates?.map((tpl) => {
                         const hasDates = tpl.startDate || tpl.endDate;
                         return (
-                          <tr key={tpl.id} className="border-b border-gray-200 hover:bg-slate-50">
+                          <tr key={tpl.id} className="border-b border-gray-200 hover:bg-slate-50 transition-colors">
                             {/* Access Prisma location relation properly */}
-                            <td className="p-2 max-w-[120px] truncate" title={tpl.location?.name}>
+                            <td className="p-3 max-w-[120px] truncate" title={tpl.location?.name}>
                               {tpl.location?.name || 'Unknown Location'}
                             </td>
                             {/* Convert Prisma integer day back to text string */}
-                            <td className="p-2">
+                            <td className="p-3">
                               {DAYS_OF_WEEK[tpl.dayOfWeek]?.substring(0, 3) || 'N/A'}
                             </td>
-                            <td className="p-2 whitespace-nowrap">
+                            <td className="p-3 whitespace-nowrap">
                               <span className="font-semibold text-slate-800">{tpl.startTime} - {tpl.endTime}</span>
                             </td>
-                            <td className="p-2 whitespace-nowrap">
+                            <td className="p-3 whitespace-nowrap">
                               {!hasDates ? (
                                 <span className="font-semibold text-green-700">Always</span>
                               ) : (
@@ -281,10 +462,10 @@ export default function SetupTab({ appState }) {
                               )}
                             </td>
                             {/* Count checklist tasks accurately */}
-                            <td className="p-2 max-w-[100px] truncate" title={tpl.checklistTasks?.join(', ')}>
+                            <td className="p-3 max-w-[100px] truncate" title={tpl.checklistTasks?.join(', ')}>
                               {tpl.checklistTasks?.length || 0} tasks
                             </td>
-                            <td className="p-2 text-center whitespace-nowrap">
+                            <td className="p-3 text-center whitespace-nowrap">
                               <button 
                                 type="button"
                                 onClick={() => {
@@ -296,14 +477,14 @@ export default function SetupTab({ appState }) {
                                     endDate: formatDateForInput(tpl.endDate)
                                   });
                                 }} 
-                                className="text-blue-600 hover:underline mr-3 font-bold"
+                                className="text-blue-600 hover:text-blue-800 hover:underline mr-4 font-bold transition-colors"
                               >
                                 Edit
                               </button>
                               <button 
                                 type="button"
                                 onClick={() => handleDeleteTemplate(tpl.id)} 
-                                className="text-red-600 hover:underline font-bold"
+                                className="text-red-600 hover:text-red-800 hover:underline font-bold transition-colors"
                               >
                                 Delete
                               </button>
