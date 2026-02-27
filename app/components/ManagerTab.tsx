@@ -284,7 +284,7 @@ export default function ManagerTab({ appState }: { appState: any }) {
                           {/* 4. Employee Accordion Body (Individual Time Cards) */}
                           {isEmpExpanded && (
                             <div className="p-3 md:p-4 space-y-3 bg-white">
-                              {cards.sort((a,b) => new Date(b.clockIn) - new Date(a.clockIn)).map(card => {
+                              {cards.sort((a: any, b: any) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map((card: any) => {
                                 const isActive = !card.clockOut || isNaN(new Date(card.clockOut).getTime()) || new Date(card.clockOut).getFullYear() === 1970;
 
                                 return (
