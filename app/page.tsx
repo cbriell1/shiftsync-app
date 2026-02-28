@@ -1,3 +1,4 @@
+// filepath: app/page.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
 import { 
@@ -6,68 +7,71 @@ import {
 } from '../lib/types';
 
 import CalendarTab from './components/CalendarTab';
+import ScheduleBuilderTab from './components/ScheduleBuilderTab';
 import TimeCardTab from './components/TimeCardTab';
 import DashboardTab from './components/DashboardTab';
-import ManagerTab from './components/ManagerTab';
+import TimesheetsTab from './components/TimesheetsTab';
 import PrivilegesTab from './components/PrivilegesTab';
-import ReportsTab from './components/ReportsTab';
 import SetupTab from './components/SetupTab';
 import StaffTab from './components/StaffTab';
 import GiftCardTab from './components/GiftCardTab';
 import FeedbackTab from './components/FeedbackTab'; 
 
 export default function SchedulingApp() {
-  const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState('setup'); 
+  const[isMounted, setIsMounted] = useState(false);
+  const[activeTab, setActiveTab] = useState('setup'); 
   
   const [users, setUsers] = useState<User[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const[timeCards, setTimeCards] = useState<TimeCard[]>([]);
-  const [shifts, setShifts] = useState<Shift[]>([]);
+  const[locations, setLocations] = useState<Location[]>([]);
+  const [timeCards, setTimeCards] = useState<TimeCard[]>([]);
+  const[shifts, setShifts] = useState<Shift[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
-  const [checklists, setChecklists] = useState<Checklist[]>([]);
-  const [globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
+  const[checklists, setChecklists] = useState<Checklist[]>([]);
+  const[globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
   
-  const[feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
 
-  const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
-  const [isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
+  const[giftCards, setGiftCards] = useState<GiftCard[]>([]);
+  const[isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
 
-  const[selectedUserId, setSelectedUserId] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const[currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
-  const[calLocFilter, setCalLocFilter] = useState('');
-  const [calEmpFilter, setCalEmpFilter] = useState('');
+  const [calLocFilter, setCalLocFilter] = useState('');
+  const[calEmpFilter, setCalEmpFilter] = useState('');
 
-  const [editingCardId, setEditingCardId] = useState<number | null>(null);
+  const getMonday = (d: Date) => { const dt = new Date(d); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); return new Date(dt.setDate(diff)).toISOString().split('T')[0]; };
+  const[builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
+
+  const[editingCardId, setEditingCardId] = useState<number | null>(null);
   const[formDate, setFormDate] = useState('');
-  const [formStartTime, setFormStartTime] = useState('');
+  const[formStartTime, setFormStartTime] = useState('');
   const[formEndTime, setFormEndTime] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState('');
+  const[selectedLocation, setSelectedLocation] = useState('');
 
   const[showChecklistModal, setShowChecklistModal] = useState(false);
   const [reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
   const[editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
   const[clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
   const [clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
-  const [clNotes, setClNotes] = useState('');
+  const[clNotes, setClNotes] = useState('');
 
   const[passSearch, setPassSearch] = useState('');
-  const [expandedMember, setExpandedMember] = useState<number | null>(null);
+  const[expandedMember, setExpandedMember] = useState<number | null>(null);
   const[pDate, setPDate] = useState('');
   const [pAmt, setPAmt] = useState<number | string>(1);
-  const [pInitials, setPInitials] = useState('');
-  const [editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
-  const [newRenewalDate, setNewRenewalDate] = useState('');
+  const[pInitials, setPInitials] = useState('');
+  const[editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
+  const[newRenewalDate, setNewRenewalDate] = useState('');
   const[editingTotalId, setEditingTotalId] = useState<number | null>(null);
   const[newTotalVal, setNewTotalVal] = useState<number | string>(12);
   const[newBonusNotes, setNewBonusNotes] = useState('');
 
-  const [editingTplId, setEditingTplId] = useState<number | null>(null); 
-  const [tplLocs, setTplLocs] = useState<number[]>([]);
+  const[editingTplId, setEditingTplId] = useState<number | null>(null); 
+  const[tplLocs, setTplLocs] = useState<number[]>([]);
   const [tplDays, setTplDays] = useState<(string | number)[]>([]);
   const [tplStart, setTplStart] = useState('');
   const [tplEnd, setTplEnd] = useState('');
@@ -95,20 +99,15 @@ export default function SchedulingApp() {
   };
 
   const [periods] = useState(generatePeriods());
-  const [dashPeriodIndex, setDashPeriodIndex] = useState(0);
-  const[dashLocs, setDashLocs] = useState<number[]>([]); 
-  const [dashEmployees, setDashEmployees] = useState<number[]>([]);
-  const [dashData, setDashData] = useState<any>({ totals: [], timeCards:[] });
-
-  const [manPeriods, setManPeriods] = useState<number[]>([0]); 
+  const[manPeriods, setManPeriods] = useState<number[]>([0]); 
   const[manLocs, setManLocs] = useState<number[]>([]);
-  const[manEmps, setManEmps] = useState<number[]>([]);
+  const [manEmps, setManEmps] = useState<number[]>([]);
   const [managerData, setManagerData] = useState<TimeCard[]>([]);
 
-  const DAYS_OF_WEEK =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const YEARS = [2025, 2026, 2027];
-  const AVAILABLE_ROLES = ['Administrator', 'Manager', 'Front Desk', 'Trainer'];
+  const YEARS =[2025, 2026, 2027];
+  const AVAILABLE_ROLES =['Administrator', 'Manager', 'Front Desk', 'Trainer'];
 
   const formatTimeSafe = (dStr: string) => {
     if (!dStr) return 'Active';
@@ -161,11 +160,7 @@ export default function SchedulingApp() {
     fetchShifts();
   },[]);
 
-  useEffect(() => {
-    if (activeTab === 'dashboard') fetchDashboard();
-    if (activeTab === 'manager') fetchManagerData();
-  },[activeTab, dashPeriodIndex, dashLocs, dashEmployees, manPeriods, manLocs, manEmps, selectedUserId]);
-
+  // Dynamically calculate permissions based on active dropdown selection
   const activeUserObj = users.find(u => u.id === parseInt(selectedUserId));
   const activeRoles = activeUserObj && activeUserObj.systemRoles ? activeUserObj.systemRoles :[];
 
@@ -176,42 +171,56 @@ export default function SchedulingApp() {
 
   const systemHasAdmin = users.some(u => u.systemRoles && u.systemRoles.includes('Administrator'));
   const showDashboard = isManager || isFrontDesk; 
-  const showManagerView = isManager;
+  const showTimesheets = isManager;
   const showSetup = isManager;
-  const showReports = isManager; 
-  const showStaff = isAdmin || !systemHasAdmin;
+  const showBuilder = isManager; 
+  const showStaff = isManager || isAdmin || !systemHasAdmin; 
   const showPasses = isFrontDesk; 
   const showGiftCards = isFrontDesk; 
+
+  // Watch for dependent variable changes to trigger fetches
+  useEffect(() => {
+    if (activeTab === 'dashboard' || activeTab === 'timesheets') fetchManagerData();
+  },[activeTab, manPeriods, manLocs, manEmps, selectedUserId, isManager]);
 
   useEffect(() => {
     if (!isMounted) return;
     if (activeTab === 'dashboard' && !showDashboard) setActiveTab('calendar');
-    if (activeTab === 'manager' && !showManagerView) setActiveTab('calendar');
+    if (activeTab === 'timesheets' && !showTimesheets) setActiveTab('calendar');
+    if (activeTab === 'builder' && !showBuilder) setActiveTab('calendar');
     if (activeTab === 'privileges' && !showPasses) setActiveTab('calendar');
     if (activeTab === 'giftcards' && !showGiftCards) setActiveTab('calendar'); 
     if (activeTab === 'setup' && !showSetup) setActiveTab('calendar');
     if (activeTab === 'staff' && !showStaff) setActiveTab('calendar');
-    if (activeTab === 'reports' && !showReports) setActiveTab('calendar');
-  },[selectedUserId, users, activeTab]);
-
-  const fetchDashboard = async () => {
-    const p = periods[dashPeriodIndex];
-    let targetEmployees = dashEmployees;
-    if (!isManager && selectedUserId) targetEmployees = [parseInt(selectedUserId)];
-    const res = await fetch('/api/dashboard?t=' + new Date().getTime(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ startDate: p.start, endDate: p.end, userIds: targetEmployees, locationIds: dashLocs }) });
-    const data = await res.json();
-    setDashData(data); 
-  };
+  }, [selectedUserId, users, activeTab]);
 
   const fetchManagerData = async () => {
     const selectedPeriods = manPeriods.map(idx => periods[idx]);
-    const res = await fetch('/api/manager?t=' + new Date().getTime(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ periods: selectedPeriods, userIds: manEmps }) });
+    let targetEmployees = manEmps;
+    if (!isManager && selectedUserId) {
+      targetEmployees = [parseInt(selectedUserId)];
+    }
+    const res = await fetch('/api/manager?t=' + new Date().getTime(), { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ periods: selectedPeriods, userIds: targetEmployees }) 
+    });
     const data = await res.json();
     setManagerData(data);
   };
 
-  const toggleDashLoc = (id: number) => dashLocs.includes(id) ? setDashLocs(dashLocs.filter(x => x !== id)) : setDashLocs([...dashLocs, id]);
-  const toggleDashEmp = (id: number) => dashEmployees.includes(id) ? setDashEmployees(dashEmployees.filter(x => x !== id)) : setDashEmployees([...dashEmployees, id]);
+  const handleUpdateShiftTime = async (shiftId: number, startTime: string, endTime: string, userId: number | null) => {
+    setShifts(prev => prev.map(s => s.id === shiftId ? { ...s, startTime, endTime, userId, status: userId === null ? 'OPEN' : 'CLAIMED' } : s));
+    await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId, userId, startTime, endTime, action: 'UPDATE' }) });
+    fetchShifts(); 
+  };
+
+  const handleUpdateCardStatus = async (ids: number[], status: string) => {
+    await fetch('/api/timecards/status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, status }) });
+    fetchManagerData();
+    fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(data));
+  };
+
   const toggleManPeriod = (idx: number) => manPeriods.includes(idx) ? setManPeriods(manPeriods.filter(x => x !== idx)) : setManPeriods([...manPeriods, idx]);
   const toggleManLoc = (id: number) => manLocs.includes(id) ? setManLocs(manLocs.filter(x => x !== id)) : setManLocs([...manLocs, id]);
   const toggleManEmp = (id: number) => manEmps.includes(id) ? setManEmps(manEmps.filter(x => x !== id)) : setManEmps([...manEmps, id]);
@@ -220,6 +229,20 @@ export default function SchedulingApp() {
   const toggleTplViewLoc = (id: number) => tplViewLocs.includes(id) ? setTplViewLocs(tplViewLocs.filter(x => x !== id)) : setTplViewLocs([...tplViewLocs, id]);
   const toggleTplViewDay = (idx: number) => tplViewDays.includes(idx) ? setTplViewDays(tplViewDays.filter(x => x !== idx)) : setTplViewDays([...tplViewDays, idx]);
   const toggleTplTask = (taskName: string) => { if (tplTasks.includes(taskName)) setTplTasks(tplTasks.filter(t => t !== taskName)); else setTplTasks([...tplTasks, taskName]); };
+
+  const handleAddUser = async (userData: any) => {
+    const res = await fetch('/api/users', { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify(userData) 
+    });
+    if (res.ok) {
+      fetchUsers();
+    } else {
+      const err = await res.json();
+      alert(`Failed to add user: ${err.error || 'Unknown error'}`);
+    }
+  };
 
   const handleRoleToggle = async (targetUserId: number, roleName: string) => {
     const targetUser = users.find(u => u.id === targetUserId);
@@ -238,7 +261,7 @@ export default function SchedulingApp() {
 
   const handleSeedEmployees = async () => { if(!confirm("Add all new employees?")) return; const res = await fetch('/api/users/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} new employees added.`); fetchUsers(); };
   const handleImportHistory = async () => { if(!confirm("Import Garner Schedule History?")) return; const res = await fetch('/api/shifts/import-history', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} shifts synced.`); fetchShifts(); };
-  const handleImportTimecards = async () => { if(!confirm("Import Jan/Feb Worked Timecards?")) return; const res = await fetch('/api/timecards/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} missing timecards logged.`); fetch('/api/timecards').then(r => r.json()).then(d => setTimeCards(d)); if (activeTab === 'dashboard') fetchDashboard(); };
+  const handleImportTimecards = async () => { if(!confirm("Import Jan/Feb Worked Timecards?")) return; const res = await fetch('/api/timecards/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} missing timecards logged.`); fetch('/api/timecards').then(r => r.json()).then(d => setTimeCards(d)); if (activeTab === 'dashboard') fetchManagerData(); };
   const handleImportPasses = async () => { if(!confirm("Import Platinum Guest Passes CSV?")) return; const res = await fetch('/api/members/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! Added ${data.members} members.`); fetchMembers(); };
 
   const handleClaimShift = async (shiftId: number) => { if(!selectedUserId) return alert("Select an employee first!"); await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, userId: parseInt(selectedUserId), action: 'CLAIM' }) }); fetchShifts(); };
@@ -261,6 +284,8 @@ export default function SchedulingApp() {
     await fetch('/api/timecards', { method: editingCardId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     setEditingCardId(null); setFormStartTime(''); setFormEndTime('');
     fetch('/api/timecards').then(res => res.json()).then(data => setTimeCards(data));
+    fetchManagerData();
+    setActiveTab('timesheets');
   };
 
   const handleOpenReport = (card: TimeCard) => {
@@ -309,6 +334,21 @@ export default function SchedulingApp() {
     }
   };
 
+  const handleEditMasterTask = async (id: number, newName: string) => {
+    const res = await fetch('/api/tasks', { 
+      method: 'PUT', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ id, name: newName }) 
+    });
+    if (res.ok) {
+      fetchGlobalTasks();
+      fetchTemplates(); // Cascade the name change to the UI 
+    } else {
+      const data = await res.json();
+      alert(data.error || "Failed to edit task.");
+    }
+  };
+
   const handleDeleteMasterTask = async (taskId: number) => {
     if(!confirm("Delete this master task completely?")) return;
     const res = await fetch('/api/tasks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: taskId }) });
@@ -336,10 +376,10 @@ export default function SchedulingApp() {
     setFormDate(inD.toISOString().split('T')[0]); setFormStartTime(inD.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }));
     if (card.clockOut) setFormEndTime(new Date(card.clockOut).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }));
     else setFormEndTime('');
-    setSelectedLocation(card.locationId.toString()); setSelectedUserId(card.userId.toString()); setEditingCardId(card.id); setActiveTab('manual'); window.scrollTo(0, 0);
+    setSelectedLocation(card.locationId.toString()); setSelectedUserId(card.userId.toString()); setEditingCardId(card.id); setActiveTab('timesheets'); window.scrollTo(0, 0);
   };
 
-  const handleDeleteClick = async (cardId: number) => { if(!confirm("Delete?")) return; await fetch('/api/timecards', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: cardId }) }); fetch('/api/timecards').then(res => res.json()).then(data => setTimeCards(data)); };
+  const handleDeleteClick = async (cardId: number) => { if(!confirm("Delete?")) return; await fetch('/api/timecards', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: cardId }) }); fetch('/api/timecards').then(res => res.json()).then(data => setTimeCards(data)); fetchManagerData(); };
 
   const handleExportCSV = () => {
     let csv = "Pay Period,Location,Employee,Hours\n";
@@ -368,17 +408,15 @@ export default function SchedulingApp() {
     fetchFeedbacks(); return { success: res.ok };
   };
 
-  // --- TAB LABELS MAPPING ---
-  // This explicitly sets what the buttons should say to avoid user confusion
   const TAB_LABELS: Record<string, string> = {
     calendar: 'Calendar',
-    manual: 'Time Cards',     // <-- This maps the internal key "manual" to the beautiful "Time Cards" label
-    dashboard: 'Dashboard',
-    manager: 'Manager',
+    builder: 'Builder', 
+    manual: 'My Time', 
+    timesheets: 'Timesheets',
+    dashboard: 'Payroll',
     privileges: 'Passes',
     giftcards: 'Gift Cards',
     feedback: '💬 Feedback',
-    reports: 'Reports',
     setup: 'Shift Setup',
     staff: 'Staff'
   };
@@ -407,8 +445,11 @@ export default function SchedulingApp() {
     });
   });
 
+  const pendingCards = isManager ? managerData.filter(c => (!c.status || c.status === 'PENDING') && c.clockOut) :[];
+  const unapprovedCount = pendingCards.length;
+
   const appState: AppState = {
-    isMounted, activeTab, setActiveTab, users, locations, timeCards, shifts, members, templates, checklists,
+    isMounted, activeTab, setActiveTab, users, locations, timeCards, shifts, setShifts, members, templates, checklists,
     selectedUserId, setSelectedUserId, currentMonth, setCurrentMonth, currentYear, setCurrentYear,
     calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter, editingCardId, setEditingCardId,
     formDate, setFormDate, formStartTime, setFormStartTime, formEndTime, setFormEndTime,
@@ -416,17 +457,18 @@ export default function SchedulingApp() {
     pDate, setPDate, pAmt, setPAmt, pInitials, setPInitials, editingTplId, setEditingTplId,
     tplLocs, setTplLocs, tplDays, setTplDays, tplStart, setTplStart, tplEnd, setTplEnd,
     tplStartDate, setTplStartDate, tplEndDate, setTplEndDate, tplTasks, setTplTasks, tplUserId, setTplUserId,
-    tplViewLocs, setTplViewLocs, tplViewDays, setTplViewDays, dashPeriodIndex, setDashPeriodIndex, 
-    dashLocs, setDashLocs, dashEmployees, setDashEmployees, manPeriods, setManPeriods, manLocs, setManLocs, 
+    tplViewLocs, setTplViewLocs, tplViewDays, setTplViewDays,
+    manPeriods, setManPeriods, manLocs, setManLocs, 
     manEmps, setManEmps, managerData, DAYS_OF_WEEK, MONTHS, YEARS, AVAILABLE_ROLES, formatTimeSafe, 
-    formatDateSafe, getLocationColor, showDashboard, showManagerView, showSetup, showReports, showStaff, 
-    showPasses, isManager, isAdmin, toggleDashLoc, toggleDashEmp, toggleManPeriod, toggleManLoc, toggleManEmp, 
-    toggleTplLoc, toggleTplDay, toggleTplViewLoc, toggleTplViewDay, toggleTplTask, handleRoleToggle, 
+    formatDateSafe, getLocationColor, showDashboard, showTimesheets, showSetup, showStaff, 
+    showPasses, showBuilder, isManager, isAdmin, toggleManPeriod, toggleManLoc, toggleManEmp, 
+    toggleTplLoc, toggleTplDay, toggleTplViewLoc, toggleTplViewDay, toggleTplTask, 
+    handleAddUser, handleRoleToggle, 
     handleUpdateUser, handleSeedEmployees, handleImportHistory, handleImportTimecards, handleImportPasses, handleClaimShift, 
     handleUnclaimShift, handleGenerateSchedule, handleManualSubmit, handleOpenReport, toggleChecklistTask, 
-    submitShiftReport, handleAddMasterTask, handleDeleteMasterTask, handleEditTemplate, handleSaveTemplate, handleDeleteTemplate, handleRedeemBeverage, 
-    handleLogPass, handleEditClick, handleDeleteClick, handleExportCSV, periods, 
-    dashData: { timeCards: dashData.timeCards ||[] }, showChecklistModal, 
+    submitShiftReport, handleAddMasterTask, handleEditMasterTask, handleDeleteMasterTask, handleEditTemplate, handleSaveTemplate, handleDeleteTemplate, handleRedeemBeverage, 
+    handleLogPass, handleEditClick, handleDeleteClick, handleExportCSV, handleUpdateCardStatus, handleUpdateShiftTime, periods, 
+    showChecklistModal, 
     setShowChecklistModal, reportTargetCard, setReportTargetCard, editingChecklistId, setEditingChecklistId,
     clDynamicTasks, setClDynamicTasks, clCompletedTasks, setClCompletedTasks, clNotes, setClNotes,
     globalTasks, setGlobalTasks, fetchGlobalTasks, editingRenewalId, setEditingRenewalId, newRenewalDate, setNewRenewalDate,
@@ -436,13 +478,18 @@ export default function SchedulingApp() {
     isFeedbacksLoading, calendarCells, 
     activeCalColor: calLocFilter ? getLocationColor(calLocFilter) : { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-800' },
     activeManPeriods, matrixRows: Array.from(matrixMap.values()), hiddenWarnings: Array.from(hiddenWarningsMap.entries()).map(([k, v]) => `${k} (${Array.from(v).join(', ')})`),
-    missingPunches: [], dashVisibleData: [], dashHiddenWarnings:[],
+    missingPunches:[],
     activeUserTimeCards: timeCards.filter(c => c.userId === parseInt(selectedUserId)),
     filteredMembers: members.filter(m => m.lastName.toLowerCase().includes(passSearch.toLowerCase())),
-    filteredTemplates: templates
+    filteredTemplates: templates,
+    unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart
   };
 
   if (!isMounted) return <div className="p-10 text-center font-bold">Loading...</div>;
+
+  // Split tabs into Staff vs Admin/Manager Spaces
+  const generalTabs =['calendar', 'manual', 'privileges', 'giftcards', 'feedback'];
+  const adminTabs = ['builder', 'timesheets', 'dashboard', 'setup', 'staff'];
 
   return (
     <div className="min-h-screen bg-gray-100 p-2 md:p-6 font-sans relative">
@@ -483,46 +530,76 @@ export default function SchedulingApp() {
             </select>
           </div>
 
-          <div className="flex flex-wrap gap-2 justify-center">
-            {['calendar', 'manual', 'dashboard', 'manager', 'privileges', 'giftcards', 'feedback', 'reports', 'setup', 'staff'].map(tab => {
-              
-              // Only render the tabs the current user has access to see
-              const visible = (tab === 'calendar' || tab === 'manual' || tab === 'feedback') || 
-                              (tab === 'dashboard' && showDashboard) || 
-                              (tab === 'manager' && showManagerView) || 
-                              (tab === 'privileges' && showPasses) || 
-                              (tab === 'giftcards' && showGiftCards) || 
-                              (tab === 'reports' && showReports) || 
-                              (tab === 'setup' && showSetup) || 
-                              (tab === 'staff' && showStaff);
-              
-              if (!visible) return null;
-              
-              return (
-                <button 
-                  key={tab} 
-                  onClick={() => setActiveTab(tab)} 
-                  className={`px-3 py-2 rounded-lg font-black uppercase text-xs transition shadow-sm ${
-                    activeTab === tab 
-                      ? 'bg-yellow-400 text-slate-900' 
-                      : 'bg-slate-800 hover:bg-green-800 text-white'
-                  }`}
-                >
-                  {/* Maps internal key "manual" to output "Time Cards" visually! */}
-                  {TAB_LABELS[tab]}
-                </button>
-              );
-            })}
+          {/* TWO-TIERED NAVIGATION TABS */}
+          <div className="flex flex-col items-center xl:items-end gap-3">
+            
+            {/* 1. General Staff Space */}
+            <div className="flex flex-wrap gap-2 justify-center items-center bg-slate-800/50 p-2 rounded-xl">
+              {isManager && <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden md:block px-2">Staff Space</span>}
+              {generalTabs.map(tab => {
+                const visible = (tab === 'calendar' || tab === 'manual' || tab === 'feedback') || 
+                                (tab === 'privileges' && showPasses) || 
+                                (tab === 'giftcards' && showGiftCards);
+                if (!visible) return null;
+                
+                return (
+                  <button 
+                    key={tab} 
+                    onClick={() => setActiveTab(tab)} 
+                    className={`relative px-3 py-2 rounded-lg font-black uppercase text-xs transition shadow-sm ${
+                      activeTab === tab ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'
+                    }`}
+                  >
+                    {TAB_LABELS[tab]}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 2. Admin/Manager Space */}
+            {isManager && (
+              <div className="flex flex-wrap gap-2 justify-center items-center bg-slate-800/80 p-2 rounded-xl border border-slate-700 shadow-inner">
+                <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest hidden md:block px-2">Manager Space</span>
+                {adminTabs.map(tab => {
+                  const visible = (tab === 'builder' && showBuilder) || 
+                                  (tab === 'dashboard' && showDashboard) || 
+                                  (tab === 'timesheets' && showTimesheets) || 
+                                  (tab === 'setup' && showSetup) || 
+                                  (tab === 'staff' && showStaff);
+                  if (!visible) return null;
+                  
+                  return (
+                    <button 
+                      key={tab} 
+                      onClick={() => setActiveTab(tab)} 
+                      className={`relative px-3 py-2 rounded-lg font-black uppercase text-xs transition shadow-sm ${
+                        activeTab === tab ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'
+                      }`}
+                    >
+                      {TAB_LABELS[tab]}
+                      
+                      {/* Approval Notification Bubble - Only visible to managers */}
+                      {tab === 'timesheets' && unapprovedCount > 0 && isManager && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black">
+                          {unapprovedCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
         </div>
 
         <div className="p-4 md:p-8 bg-gray-50">
           {activeTab === 'calendar' && <CalendarTab appState={appState} />}
+          {activeTab === 'builder' && <ScheduleBuilderTab appState={appState} />}
           {activeTab === 'manual' && <TimeCardTab appState={appState} />}
           {activeTab === 'dashboard' && <DashboardTab appState={appState} />}
-          {activeTab === 'manager' && <ManagerTab appState={appState} />}
+          {activeTab === 'timesheets' && <TimesheetsTab appState={appState} />}
           {activeTab === 'privileges' && <PrivilegesTab appState={appState} />}
-          {activeTab === 'reports' && <ReportsTab appState={appState} />}
           {activeTab === 'setup' && <SetupTab appState={appState} />}
           {activeTab === 'staff' && <StaffTab appState={appState} />}
           {activeTab === 'giftcards' && <GiftCardTab appState={appState} />}

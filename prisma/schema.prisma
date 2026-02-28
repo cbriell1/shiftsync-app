@@ -1,3 +1,4 @@
+// filepath: prisma/schema.prisma
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -24,22 +25,27 @@ model Location {
 }
 
 model User {
-  id          Int        @id @default(autoincrement())
-  name        String     
-  pinCode     String?    
-  role        Role       @default(EMPLOYEE)
-  systemRoles String[]   @default(["Front Desk"]) 
+  id             Int        @id @default(autoincrement())
+  name           String     
+  pinCode        String?    
+  role           Role       @default(EMPLOYEE)
+  systemRoles    String[]   @default(["Front Desk"]) 
   
-  // Added array to support multiple locations natively
-  locationIds Int[]      @default([])
+  locationIds    Int[]      @default([])
 
-  locationId  Int?
-  location    Location?  @relation(fields: [ locationId ], references:[ id ])
-  shifts      Shift[]
-  timeCards   TimeCard[]
-  checklists  Checklist[]     
-  templates   ShiftTemplate[]
-  feedbacks   Feedback[]
+  locationId     Int?
+  location       Location?  @relation(fields: [ locationId ], references:[ id ])
+  
+  // New Contact & Integration Fields
+  courtReserveId String?
+  phoneNumber    String?
+  emailAddress   String?
+
+  shifts         Shift[]
+  timeCards      TimeCard[]
+  checklists     Checklist[]     
+  templates      ShiftTemplate[]
+  feedbacks      Feedback[]
 }
 
 model PayPeriod {
@@ -68,7 +74,8 @@ model TimeCard {
   id          Int          @id @default(autoincrement())
   clockIn     DateTime
   clockOut    DateTime?
-  totalHours  Float?     
+  totalHours  Float?
+  status      String       @default("PENDING")
   userId      Int
   user        User         @relation(fields: [ userId ], references: [ id ])
   locationId  Int
@@ -100,7 +107,7 @@ model PassUsage {
   amount     Int
   initials   String?
   memberId   Int
-  member     Member   @relation(fields: [ memberId ], references: [ id ])
+  member     Member   @relation(fields: [ memberId ], references:[ id ])
 }
 
 model GiftCard {
@@ -135,9 +142,9 @@ model Checklist {
   userId         Int
   user           User      @relation(fields: [userId], references:[id])
   locationId     Int
-  location       Location  @relation(fields: [locationId], references: [id])
+  location       Location  @relation(fields: [locationId], references:[id])
   timeCardId     Int?      
-  timeCard       TimeCard? @relation(fields:[timeCardId], references: [id]) 
+  timeCard       TimeCard? @relation(fields:[timeCardId], references:[id]) 
   notes          String?
   completedTasks String[]  @default([])
   missedTasks    String[]  @default([])

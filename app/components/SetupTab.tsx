@@ -1,3 +1,4 @@
+// filepath: app/components/SetupTab.tsx
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, Location, GlobalTask } from '../lib/types';
@@ -7,6 +8,10 @@ export default function SetupTab({ appState }: { appState: AppState }) {
   const[showLocFilter, setShowLocFilter] = useState(false);
   const [showDayFilter, setShowDayFilter] = useState(false);
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'}>({ key: 'location', direction: 'asc' });
+
+  // Editing State for Master Tasks
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editTaskStr, setEditTaskStr] = useState('');
 
   const locFilterRef = useRef<HTMLTableHeaderCellElement>(null);
   const dayFilterRef = useRef<HTMLTableHeaderCellElement>(null);
@@ -19,7 +24,7 @@ export default function SetupTab({ appState }: { appState: AppState }) {
     setTplViewLocs, setTplViewDays, filteredTemplates, handleEditTemplate, 
     handleDeleteTemplate, users, globalTasks, tplTasks, toggleTplTask, 
     handleSaveTemplate, newTaskStr, setNewTaskStr, tplUserId, setTplUserId,
-    handleAddMasterTask, handleDeleteMasterTask
+    handleAddMasterTask, handleEditMasterTask, handleDeleteMasterTask
   } = appState;
 
   useEffect(() => {
@@ -463,62 +468,132 @@ export default function SetupTab({ appState }: { appState: AppState }) {
         </div>
       )}
 
-      {/* --- VIEW 2: FACILITY MASTER TASKS --- */}
+      {/* --- VIEW 2: FACILITY MASTER TASKS (ULTRA COMPACT SPREADSHEET) --- */}
       {activeTab === 'tasks' && (
-        <div className="max-w-4xl mx-auto space-y-6 mt-4">
-          <div className="bg-slate-900 text-white p-8 rounded-2xl shadow-xl border border-slate-800">
-            <h3 className="font-black text-xl uppercase tracking-widest mb-1 text-yellow-400">
-              Facility Master Tasks
-            </h3>
-            <p className="text-sm text-slate-300 mb-8 font-bold leading-relaxed">
-              Create and manage tasks globally. Tasks added here will be available to select when creating new Shift Templates.
-            </p>
+        <div className="max-w-4xl mx-auto mt-2">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-300 overflow-hidden flex flex-col h-full">
             
-            <div className="flex flex-col sm:flex-row gap-3 mb-8">
-              <input 
-                value={newTaskStr || ''}
-                onChange={(e) => setNewTaskStr(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (newTaskStr?.trim() && handleAddMasterTask) handleAddMasterTask();
-                  }
-                }}
-                className="flex-grow bg-slate-800 border-2 border-slate-700 rounded-xl px-5 py-3.5 text-base font-bold text-white focus:outline-none focus:border-yellow-500 placeholder-slate-400 transition-colors" 
-                placeholder="Type a new task and press Enter..." 
-              />
-              <button 
-                type="button"
-                onClick={() => handleAddMasterTask && handleAddMasterTask()} 
-                disabled={!newTaskStr?.trim()}
-                className="bg-yellow-500 text-slate-900 font-black px-8 py-3.5 rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-yellow-400 transition shadow-lg"
-              >
-                ADD TASK
-              </button>
+            <div className="p-5 md:p-6 border-b border-slate-200 bg-slate-50">
+              <h3 className="font-black text-slate-900 text-xl tracking-tight mb-1">
+                Facility Master Tasks
+              </h3>
+              <p className="text-sm text-slate-600 font-bold mb-5">
+                Create and manage global tasks. These will be available when creating Shift Templates.
+              </p>
+              
+              {/* Add Task Input Row */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input 
+                  value={newTaskStr || ''}
+                  onChange={(e) => setNewTaskStr(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (newTaskStr?.trim() && handleAddMasterTask) handleAddMasterTask();
+                    }
+                  }}
+                  className="flex-grow bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm transition-all placeholder-slate-400" 
+                  placeholder="Type a new task description and press Enter..." 
+                />
+                <button 
+                  type="button"
+                  onClick={() => handleAddMasterTask && handleAddMasterTask()} 
+                  disabled={!newTaskStr?.trim()}
+                  className="bg-slate-900 text-white font-black px-6 py-2.5 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black transition-colors shadow-sm whitespace-nowrap"
+                >
+                  + Add Task
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto max-h-[60vh] pr-2">
-              {globalTasks?.map((task: GlobalTask) => (
-                <div 
-                  key={task.id} 
-                  className="bg-slate-800 border-2 border-slate-700 hover:border-slate-500 transition-colors rounded-xl px-5 py-4 flex items-center justify-between gap-3 shadow-md"
-                >
-                  <span className="text-sm font-bold text-slate-100 truncate" title={task.name}>{task.name}</span>
-                  <button 
-                    type="button" 
-                    onClick={() => handleDeleteMasterTask && handleDeleteMasterTask(task.id)} 
-                    className="text-red-400 hover:text-red-300 font-black text-2xl leading-none px-2 focus:outline-none transition-colors"
-                    title="Delete Task"
-                  >
-                    &times;
-                  </button>
-                </div>
-              ))}
-              {globalTasks?.length === 0 && (
-                <div className="col-span-full text-slate-400 font-bold italic py-8 text-center bg-slate-800/50 rounded-xl border border-dashed border-slate-700">
-                  No master tasks created yet.
-                </div>
-              )}
+            {/* Ultra Compact Spreadsheet Table */}
+            <div className="overflow-x-auto max-h-[65vh] overflow-y-auto bg-white">
+              <table className="w-full text-left text-sm text-slate-800">
+                <thead className="bg-slate-100 text-slate-500 text-[10px] uppercase tracking-widest font-black sticky top-0 z-10 shadow-sm border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-2 w-full">Task Description</th>
+                    <th className="px-4 py-2 text-center whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {globalTasks?.map((task: GlobalTask) => (
+                    <tr key={task.id} className="hover:bg-slate-50 transition-colors group">
+                      <td className="px-4 py-1">
+                        {editingTaskId === task.id ? (
+                          <input
+                            value={editTaskStr}
+                            onChange={(e) => setEditTaskStr(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (editTaskStr.trim() && appState.handleEditMasterTask) {
+                                  appState.handleEditMasterTask(task.id, editTaskStr.trim());
+                                  setEditingTaskId(null);
+                                }
+                              }
+                            }}
+                            autoFocus
+                            className="w-full bg-white border border-blue-400 rounded px-2 py-1 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-100 shadow-inner"
+                          />
+                        ) : (
+                          <span className="font-bold text-slate-800 text-xs block py-0.5">{task.name}</span>
+                        )}
+                      </td>
+                      
+                      <td className="px-4 py-1 text-center whitespace-nowrap">
+                        {editingTaskId === task.id ? (
+                          <div className="flex justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (editTaskStr.trim() && appState.handleEditMasterTask) {
+                                  appState.handleEditMasterTask(task.id, editTaskStr.trim());
+                                  setEditingTaskId(null);
+                                }
+                              }}
+                              className="text-green-600 hover:text-green-800 font-black text-[10px] uppercase tracking-wider transition-colors"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingTaskId(null)}
+                              className="text-slate-400 hover:text-slate-600 font-black text-[10px] uppercase tracking-wider transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex justify-center gap-3">
+                            <button 
+                              type="button" 
+                              onClick={() => { setEditingTaskId(task.id); setEditTaskStr(task.name); }}
+                              className="text-blue-600 hover:text-blue-800 hover:underline font-black text-[10px] uppercase tracking-wider transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => handleDeleteMasterTask && handleDeleteMasterTask(task.id)} 
+                              className="text-red-600 hover:text-red-800 hover:underline font-black text-[10px] uppercase tracking-wider transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  
+                  {globalTasks?.length === 0 && (
+                    <tr>
+                      <td colSpan={2} className="p-10 text-center text-slate-500 font-bold italic bg-slate-50">
+                        No master tasks created yet. Use the form above to add your first task.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
             
           </div>

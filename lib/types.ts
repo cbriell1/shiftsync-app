@@ -1,3 +1,4 @@
+// filepath: lib/types.ts
 export type Role = 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
 
 export interface Location {
@@ -14,6 +15,9 @@ export interface User {
   locationId?: number | null;
   locationIds?: number[];
   location?: Location;
+  courtReserveId?: string | null;
+  phoneNumber?: string | null;
+  emailAddress?: string | null;
 }
 
 export interface Shift {
@@ -32,6 +36,7 @@ export interface TimeCard {
   clockIn: string;
   clockOut?: string | null;
   totalHours?: number | null;
+  status?: string;
   userId: number;
   user?: User;
   locationId: number;
@@ -123,6 +128,7 @@ export interface AppState {
   locations: Location[];
   timeCards: TimeCard[];
   shifts: Shift[];
+  setShifts: React.Dispatch<React.SetStateAction<Shift[]>>;
   members: Member[];
   templates: ShiftTemplate[];
   checklists: Checklist[];
@@ -178,12 +184,7 @@ export interface AppState {
   setTplViewLocs: (ids: number[]) => void;
   tplViewDays: number[];
   setTplViewDays: (days: number[]) => void;
-  dashPeriodIndex: number;
-  setDashPeriodIndex: (i: number) => void;
-  dashLocs: number[];
-  setDashLocs: (ids: number[]) => void;
-  dashEmployees: number[];
-  setDashEmployees: (ids: number[]) => void;
+
   manPeriods: number[];
   setManPeriods: (ids: number[]) => void;
   manLocs: number[];
@@ -191,6 +192,7 @@ export interface AppState {
   manEmps: number[];
   setManEmps: (ids: number[]) => void;
   managerData: TimeCard[];
+
   DAYS_OF_WEEK: string[];
   MONTHS: string[];
   YEARS: number[];
@@ -199,15 +201,14 @@ export interface AppState {
   formatDateSafe: (dStr: string) => string;
   getLocationColor: (locId: number | string) => any;
   showDashboard: boolean;
-  showManagerView: boolean;
+  showTimesheets: boolean;
   showSetup: boolean;
-  showReports: boolean;
   showStaff: boolean;
   showPasses: boolean;
+  showBuilder: boolean;
   isManager: boolean;
   isAdmin: boolean;
-  toggleDashLoc: (id: number) => void;
-  toggleDashEmp: (id: number) => void;
+
   toggleManPeriod: (idx: number) => void;
   toggleManLoc: (id: number) => void;
   toggleManEmp: (id: number) => void;
@@ -216,6 +217,7 @@ export interface AppState {
   toggleTplViewLoc: (id: number) => void;
   toggleTplViewDay: (idx: number) => void;
   toggleTplTask: (taskName: string) => void;
+  handleAddUser: (userData: any) => Promise<void>;
   handleRoleToggle: (userId: number, role: string) => Promise<void>;
   handleUpdateUser: (userId: number, updates: any) => Promise<void>;
   handleSeedEmployees: () => Promise<void>;
@@ -237,8 +239,13 @@ export interface AppState {
   handleEditClick: (card: TimeCard) => void;
   handleDeleteClick: (cardId: number) => Promise<void>;
   handleExportCSV: () => void;
+  handleAddMasterTask: () => Promise<void>;
+  handleEditMasterTask: (id: number, newName: string) => Promise<void>;
+  handleDeleteMasterTask: (id: number) => Promise<void>;
+  handleUpdateCardStatus: (ids: number[], status: string) => Promise<void>;
+  handleUpdateShiftTime: (shiftId: number, startTime: string, endTime: string, userId: number | null) => Promise<void>;
+  
   periods: { label: string; start: string; end: string }[];
-  dashData: { timeCards: TimeCard[] };
   showChecklistModal: boolean;
   setShowChecklistModal: (s: boolean) => void;
   reportTargetCard: TimeCard | null;
@@ -283,9 +290,11 @@ export interface AppState {
   matrixRows: any[];
   hiddenWarnings: string[];
   missingPunches: Shift[];
-  dashVisibleData: any[];
-  dashHiddenWarnings: string[];
   activeUserTimeCards: TimeCard[];
   filteredMembers: Member[];
   filteredTemplates: ShiftTemplate[];
+  unapprovedCount: number;
+  pendingCards: TimeCard[];
+  builderWeekStart: string;
+  setBuilderWeekStart: (d: string) => void;
 }

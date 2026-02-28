@@ -1,3 +1,4 @@
+// filepath: app/api/timecards/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -8,7 +9,15 @@ const timeCardSchema = z.object({
   locationId: z.coerce.number(),
   clockIn: z.string().datetime(),
   clockOut: z.string().datetime().nullable().optional(),
+  status: z.string().optional(),
 });
+
+// Helper function to calculate duration in hours
+const calculateTotalHours = (clockIn: string, clockOut?: string | null) => {
+  if (!clockOut) return null;
+  const msDiff = new Date(clockOut).getTime() - new Date(clockIn).getTime();
+  return parseFloat((msDiff / (1000 * 60 * 60)).toFixed(2));
+};
 
 export async function GET() {
   try {
@@ -37,6 +46,7 @@ export async function POST(req: Request) {
         locationId: data.locationId,
         clockIn: new Date(data.clockIn),
         clockOut: data.clockOut ? new Date(data.clockOut) : null,
+        totalHours: calculateTotalHours(data.clockIn, data.clockOut), // Computes hours instantly
       }
     });
     return NextResponse.json(tc);
@@ -53,14 +63,19 @@ export async function PUT(req: Request) {
 
     if (!data.id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
+    const updateData: any = {
+      userId: data.userId,
+      locationId: data.locationId,
+      clockIn: new Date(data.clockIn),
+      clockOut: data.clockOut ? new Date(data.clockOut) : null,
+      totalHours: calculateTotalHours(data.clockIn, data.clockOut), // Computes hours instantly
+    };
+
+    if (data.status) updateData.status = data.status;
+
     const tc = await prisma.timeCard.update({
       where: { id: data.id },
-      data: {
-        userId: data.userId,
-        locationId: data.locationId,
-        clockIn: new Date(data.clockIn),
-        clockOut: data.clockOut ? new Date(data.clockOut) : null,
-      }
+      data: updateData
     });
     return NextResponse.json(tc);
   } catch (error: any) {
