@@ -7,8 +7,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// ... keep all your models (User, Feedback, etc.) exactly as they are below this
-
 enum Role {
   ADMIN
   MANAGER
@@ -28,8 +26,13 @@ model Location {
 model User {
   id          Int        @id @default(autoincrement())
   name        String     
+  pinCode     String?    
   role        Role       @default(EMPLOYEE)
   systemRoles String[]   @default(["Front Desk"]) 
+  
+  // Added array to support multiple locations natively
+  locationIds Int[]      @default([])
+
   locationId  Int?
   location    Location?  @relation(fields: [ locationId ], references:[ id ])
   shifts      Shift[]
@@ -71,7 +74,7 @@ model TimeCard {
   locationId  Int
   location    Location     @relation(fields: [ locationId ], references: [ id ])
   payPeriodId Int?
-  payPeriod   PayPeriod?   @relation(fields: [ payPeriodId ], references: [ id ])
+  payPeriod   PayPeriod?   @relation(fields: [ payPeriodId ], references:[ id ])
   
   checklists  Checklist[] 
 }
@@ -107,7 +110,7 @@ model GiftCard {
   remainingBalance Float
   recipientName    String?  
   memberId         Int?     
-  member           Member?  @relation(fields: [memberId], references: [id])
+  member           Member?  @relation(fields: [memberId], references:[id])
   issuedAt         DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
@@ -130,7 +133,7 @@ model Checklist {
   id             Int       @id @default(autoincrement())
   date           DateTime  @default(now())
   userId         Int
-  user           User      @relation(fields: [userId], references: [id])
+  user           User      @relation(fields: [userId], references:[id])
   locationId     Int
   location       Location  @relation(fields: [locationId], references: [id])
   timeCardId     Int?      

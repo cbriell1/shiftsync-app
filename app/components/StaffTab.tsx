@@ -1,7 +1,8 @@
 "use client";
 import React from 'react';
+import { AppState, User } from '../lib/types';
 
-export default function StaffTab({ appState }: { appState: any }) {
+export default function StaffTab({ appState }: { appState: AppState }) {
   const { 
     users, 
     locations, 
@@ -11,27 +12,19 @@ export default function StaffTab({ appState }: { appState: any }) {
     isAdmin 
   } = appState;
 
-  // Function to handle toggling a location for a user
-  const toggleLocation = async (user, locationId) => {
-    // 1. Ensure locationIds is an array (fallback to empty)
-    // 2. Convert all IDs to numbers for consistent comparison
-    const currentLocs = Array.isArray(user.locationIds) 
-      ? user.locationIds.map(id => parseInt(id, 10)) 
-      : [];
-    
-    const targetId = parseInt(locationId, 10);
-    let newLocs;
+  // Function to handle toggling a location array for a user
+  const toggleLocation = async (user: User, locationId: number) => {
+    const currentLocs = user.locationIds ? [...user.locationIds] :[];
+    let newLocs: number[];
 
-    if (currentLocs.includes(targetId)) {
+    if (currentLocs.includes(locationId)) {
       // Remove the location
-      newLocs = currentLocs.filter(id => id !== targetId);
+      newLocs = currentLocs.filter(id => id !== locationId);
     } else {
       // Add the location
-      newLocs = [...currentLocs, targetId];
+      newLocs = [...currentLocs, locationId];
     }
 
-    // Update the user in the global state and database
-    // We send 'locationIds' as the key to match standard Prisma/API naming
     await handleUpdateUser(user.id, { locationIds: newLocs });
   };
 
@@ -39,7 +32,7 @@ export default function StaffTab({ appState }: { appState: any }) {
     return (
       <div className="p-8 text-center bg-white rounded-2xl border border-gray-200">
         <h2 className="text-xl font-black text-slate-900 uppercase tracking-widest">Access Denied</h2>
-        <p className="text-slate-500 font-bold mt-2">Only Administrators can manage staff assignments.</p>
+        <p className="text-slate-600 font-bold mt-2">Only Administrators can manage staff assignments.</p>
       </div>
     );
   }
@@ -49,18 +42,16 @@ export default function StaffTab({ appState }: { appState: any }) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tight uppercase italic">Staff Management</h2>
-          <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">Roles & Location Permissions</p>
+          <p className="text-slate-600 font-bold text-sm uppercase tracking-widest">Roles & Location Permissions</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        {users.sort((a, b) => a.name.localeCompare(b.name)).map(user => {
-          const userLocs = Array.isArray(user.locationIds) 
-            ? user.locationIds.map(id => parseInt(id, 10)) 
-            : [];
+        {[...users].sort((a, b) => a.name.localeCompare(b.name)).map(user => {
+          const userLocs = user.locationIds ||[];
 
           return (
-            <div key={user.id} className="bg-white rounded-3xl border-2 border-slate-100 p-6 shadow-sm hover:shadow-md transition-all">
+            <div key={user.id} className="bg-white rounded-3xl border-2 border-slate-200 p-6 shadow-sm hover:shadow-md transition-all">
               <div className="flex flex-col lg:flex-row gap-8">
                 
                 {/* User Info Section */}
@@ -71,14 +62,14 @@ export default function StaffTab({ appState }: { appState: any }) {
                     </div>
                     <div>
                       <h3 className="text-lg font-black text-slate-900 leading-tight">{user.name}</h3>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Employee ID: {user.id}</p>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Employee ID: {user.id}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* System Roles Section */}
                 <div className="lg:w-1/3">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">System Roles</h4>
+                  <h4 className="text-xs font-black text-slate-600 uppercase tracking-[0.2em] mb-4">System Roles</h4>
                   <div className="flex flex-wrap gap-2">
                     {AVAILABLE_ROLES.map(role => {
                       const hasRole = user.systemRoles?.includes(role);
@@ -89,7 +80,7 @@ export default function StaffTab({ appState }: { appState: any }) {
                           className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all border-2 ${
                             hasRole 
                               ? 'bg-slate-900 border-slate-900 text-white shadow-lg shadow-slate-200' 
-                              : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300'
+                              : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800'
                           }`}
                         >
                           {role}
@@ -101,10 +92,10 @@ export default function StaffTab({ appState }: { appState: any }) {
 
                 {/* Assigned Locations Section */}
                 <div className="lg:w-2/5">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Workable Locations</h4>
+                  <h4 className="text-xs font-black text-slate-600 uppercase tracking-[0.2em] mb-4">Workable Locations</h4>
                   <div className="flex flex-wrap gap-2">
                     {locations.map(loc => {
-                      const isAssigned = userLocs.includes(parseInt(loc.id, 10));
+                      const isAssigned = userLocs.includes(loc.id);
                       return (
                         <button
                           key={loc.id}
@@ -112,10 +103,10 @@ export default function StaffTab({ appState }: { appState: any }) {
                           className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black transition-all border-2 ${
                             isAssigned 
                               ? 'bg-blue-50 border-blue-600 text-blue-700 shadow-sm' 
-                              : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
+                              : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800'
                           }`}
                         >
-                          <div className={`w-2 h-2 rounded-full ${isAssigned ? 'bg-blue-600' : 'bg-slate-200'}`} />
+                          <div className={`w-2 h-2 rounded-full ${isAssigned ? 'bg-blue-600' : 'bg-slate-300'}`} />
                           {loc.name}
                           {isAssigned && (
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
@@ -127,7 +118,7 @@ export default function StaffTab({ appState }: { appState: any }) {
                     })}
                   </div>
                   {userLocs.length === 0 && (
-                    <p className="text-[10px] font-bold text-red-400 mt-2 uppercase italic">No locations assigned - this user cannot see any shifts on the calendar.</p>
+                    <p className="text-xs font-bold text-red-600 mt-3 uppercase italic">No locations assigned - this user cannot see any shifts on the calendar.</p>
                   )}
                 </div>
 

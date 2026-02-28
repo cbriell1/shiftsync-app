@@ -1,5 +1,14 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
+
+const timeCardSchema = z.object({
+  id: z.number().optional(),
+  userId: z.coerce.number(),
+  locationId: z.coerce.number(),
+  clockIn: z.string().datetime(),
+  clockOut: z.string().datetime().nullable().optional(),
+});
 
 export async function GET() {
   try {
@@ -12,67 +21,70 @@ export async function GET() {
       orderBy: { clockIn: 'desc' }
     });
     return NextResponse.json(timeCards);
-  } catch (error) {
-    console.error("GET Timecards Error:", error);
+  } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-export async function POST(req) {
+export async function POST(req: Request) {
   try {
-    const data = await req.json();
+    const body = await req.json();
+    const data = timeCardSchema.parse(body);
+
     const tc = await prisma.timeCard.create({
       data: {
-        userId: parseInt(data.userId, 10),
-        locationId: parseInt(data.locationId, 10),
+        userId: data.userId,
+        locationId: data.locationId,
         clockIn: new Date(data.clockIn),
         clockOut: data.clockOut ? new Date(data.clockOut) : null,
       }
     });
     return NextResponse.json(tc);
-  } catch (error) {
-    console.error("POST Timecards Error:", error);
+  } catch (error: any) {
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-export async function PUT(req) {
+export async function PUT(req: Request) {
   try {
-    const data = await req.json();
+    const body = await req.json();
+    const data = timeCardSchema.parse(body);
+
+    if (!data.id) return NextResponse.json({ error: "ID required" }, { status: 400 });
+
     const tc = await prisma.timeCard.update({
-      where: { id: parseInt(data.id, 10) },
+      where: { id: data.id },
       data: {
-        userId: parseInt(data.userId, 10),
-        locationId: parseInt(data.locationId, 10),
+        userId: data.userId,
+        locationId: data.locationId,
         clockIn: new Date(data.clockIn),
         clockOut: data.clockOut ? new Date(data.clockOut) : null,
       }
     });
     return NextResponse.json(tc);
-  } catch (error) {
-    console.error("PUT Timecards Error:", error);
+  } catch (error: any) {
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-export async function DELETE(req) {
+export async function DELETE(req: Request) {
   try {
     const data = await req.json();
-    const id = parseInt(data.id, 10);
+    const id = z.coerce.number().parse(data.id);
     
-    // 1. Safely delete associated checklists (Shift Reports) first to prevent Database Crashes!
+    // Safety: Delete children first
     await prisma.checklist.deleteMany({
       where: { timeCardId: id }
     });
 
-    // 2. Now it is safe to delete the TimeCard
     await prisma.timeCard.delete({
       where: { id: id }
     });
     
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("DELETE Timecards Error:", error);
+  } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

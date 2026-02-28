@@ -1,5 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { 
+  User, Location, TimeCard, Shift, Member, ShiftTemplate, 
+  Checklist, GlobalTask, GiftCard, Feedback, AppState 
+} from '../lib/types';
 
 import CalendarTab from './components/CalendarTab';
 import TimeCardTab from './components/TimeCardTab';
@@ -13,72 +17,71 @@ import GiftCardTab from './components/GiftCardTab';
 import FeedbackTab from './components/FeedbackTab'; 
 
 export default function SchedulingApp() {
-  const { 0: isMounted, 1: setIsMounted } = useState(false);
-  const { 0: activeTab, 1: setActiveTab } = useState('setup'); 
+  const [isMounted, setIsMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState('setup'); 
   
-  const { 0: users, 1: setUsers } = useState(new Array());
-  const { 0: locations, 1: setLocations } = useState(new Array());
-  const { 0: timeCards, 1: setTimeCards } = useState(new Array());
-  const { 0: shifts, 1: setShifts } = useState(new Array());
-  const { 0: members, 1: setMembers } = useState(new Array());
-  const { 0: templates, 1: setTemplates } = useState(new Array());
-  const { 0: checklists, 1: setChecklists } = useState(new Array());
-  const { 0: globalTasks, 1: setGlobalTasks } = useState(new Array());
+  const [users, setUsers] = useState<User[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const[timeCards, setTimeCards] = useState<TimeCard[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
+  const [checklists, setChecklists] = useState<Checklist[]>([]);
+  const [globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
   
-  // NEW: Feedback State
-  const { 0: feedbacks, 1: setFeedbacks } = useState(new Array());
-  const { 0: isFeedbacksLoading, 1: setIsFeedbacksLoading } = useState(true);
+  const[feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
 
-  const { 0: giftCards, 1: setGiftCards } = useState(new Array());
-  const { 0: isGiftCardsLoading, 1: setIsGiftCardsLoading } = useState(true);
+  const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
+  const [isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
 
-  const { 0: selectedUserId, 1: setSelectedUserId } = useState('');
-  const { 0: currentMonth, 1: setCurrentMonth } = useState(new Date().getMonth());
-  const { 0: currentYear, 1: setCurrentYear } = useState(new Date().getFullYear());
+  const[selectedUserId, setSelectedUserId] = useState('');
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
-  const { 0: calLocFilter, 1: setCalLocFilter } = useState('');
-  const { 0: calEmpFilter, 1: setCalEmpFilter } = useState('');
+  const[calLocFilter, setCalLocFilter] = useState('');
+  const [calEmpFilter, setCalEmpFilter] = useState('');
 
-  const { 0: editingCardId, 1: setEditingCardId } = useState(null);
-  const { 0: formDate, 1: setFormDate } = useState('');
-  const { 0: formStartTime, 1: setFormStartTime } = useState('');
-  const { 0: formEndTime, 1: setFormEndTime } = useState('');
-  const { 0: selectedLocation, 1: setSelectedLocation } = useState('');
+  const [editingCardId, setEditingCardId] = useState<number | null>(null);
+  const[formDate, setFormDate] = useState('');
+  const [formStartTime, setFormStartTime] = useState('');
+  const[formEndTime, setFormEndTime] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
 
-  const { 0: showChecklistModal, 1: setShowChecklistModal } = useState(false);
-  const { 0: reportTargetCard, 1: setReportTargetCard } = useState(null); 
-  const { 0: editingChecklistId, 1: setEditingChecklistId } = useState(null); 
-  const { 0: clDynamicTasks, 1: setClDynamicTasks } = useState(new Array()); 
-  const { 0: clCompletedTasks, 1: setClCompletedTasks } = useState(new Array()); 
-  const { 0: clNotes, 1: setClNotes } = useState('');
+  const[showChecklistModal, setShowChecklistModal] = useState(false);
+  const [reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
+  const[editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
+  const[clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
+  const [clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
+  const [clNotes, setClNotes] = useState('');
 
-  const { 0: passSearch, 1: setPassSearch } = useState('');
-  const { 0: expandedMember, 1: setExpandedMember } = useState(null);
-  const { 0: pDate, 1: setPDate } = useState('');
-  const { 0: pAmt, 1: setPAmt } = useState(1);
-  const { 0: pInitials, 1: setPInitials } = useState('');
-  const { 0: editingRenewalId, 1: setEditingRenewalId } = useState(null);
-  const { 0: newRenewalDate, 1: setNewRenewalDate } = useState('');
-  const { 0: editingTotalId, 1: setEditingTotalId } = useState(null);
-  const { 0: newTotalVal, 1: setNewTotalVal } = useState(12);
-  const { 0: newBonusNotes, 1: setNewBonusNotes } = useState('');
+  const[passSearch, setPassSearch] = useState('');
+  const [expandedMember, setExpandedMember] = useState<number | null>(null);
+  const[pDate, setPDate] = useState('');
+  const [pAmt, setPAmt] = useState<number | string>(1);
+  const [pInitials, setPInitials] = useState('');
+  const [editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
+  const [newRenewalDate, setNewRenewalDate] = useState('');
+  const[editingTotalId, setEditingTotalId] = useState<number | null>(null);
+  const[newTotalVal, setNewTotalVal] = useState<number | string>(12);
+  const[newBonusNotes, setNewBonusNotes] = useState('');
 
-  const { 0: editingTplId, 1: setEditingTplId } = useState(null); 
-  const { 0: tplLocs, 1: setTplLocs } = useState(new Array());
-  const { 0: tplDays, 1: setTplDays } = useState(new Array());
-  const { 0: tplStart, 1: setTplStart } = useState('');
-  const { 0: tplEnd, 1: setTplEnd } = useState('');
-  const { 0: tplStartDate, 1: setTplStartDate } = useState(''); 
-  const { 0: tplEndDate, 1: setTplEndDate } = useState('');     
-  const { 0: tplTasks, 1: setTplTasks } = useState(new Array()); 
-  const { 0: newTaskStr, 1: setNewTaskStr } = useState(''); 
-  const { 0: tplUserId, 1: setTplUserId } = useState(''); 
+  const [editingTplId, setEditingTplId] = useState<number | null>(null); 
+  const [tplLocs, setTplLocs] = useState<number[]>([]);
+  const [tplDays, setTplDays] = useState<(string | number)[]>([]);
+  const [tplStart, setTplStart] = useState('');
+  const [tplEnd, setTplEnd] = useState('');
+  const [tplStartDate, setTplStartDate] = useState(''); 
+  const [tplEndDate, setTplEndDate] = useState('');     
+  const [tplTasks, setTplTasks] = useState<string[]>([]); 
+  const [newTaskStr, setNewTaskStr] = useState(''); 
+  const[tplUserId, setTplUserId] = useState(''); 
 
-  const { 0: tplViewLocs, 1: setTplViewLocs } = useState(new Array());
-  const { 0: tplViewDays, 1: setTplViewDays } = useState(new Array());
+  const [tplViewLocs, setTplViewLocs] = useState<number[]>([]);
+  const [tplViewDays, setTplViewDays] = useState<number[]>([]);
 
   const generatePeriods = () => {
-    const p = new Array();
+    const p =[];
     const today = new Date();
     let curM = today.getMonth();
     let curY = today.getFullYear();
@@ -86,63 +89,62 @@ export default function SchedulingApp() {
     for(let i=0; i<6; i++) {
       const s = new Date(curY, curM - i, 28);
       const e = new Date(curY, curM - i + 1, 27);
-      p.push({ label: s.toLocaleDateString() + ' - ' + e.toLocaleDateString(), start: s.toISOString(), end: e.toISOString() });
+      p.push({ label: `${s.toLocaleDateString()} - ${e.toLocaleDateString()}`, start: s.toISOString(), end: e.toISOString() });
     }
     return p;
   };
 
-  const { 0: periods } = useState(generatePeriods());
-  const { 0: dashPeriodIndex, 1: setDashPeriodIndex } = useState(0);
-  const { 0: dashLocs, 1: setDashLocs } = useState(new Array()); 
-  const { 0: dashEmployees, 1: setDashEmployees } = useState(new Array());
-  const { 0: dashData, 1: setDashData } = useState({ totals: new Array(), timeCards: new Array() });
+  const [periods] = useState(generatePeriods());
+  const [dashPeriodIndex, setDashPeriodIndex] = useState(0);
+  const[dashLocs, setDashLocs] = useState<number[]>([]); 
+  const [dashEmployees, setDashEmployees] = useState<number[]>([]);
+  const [dashData, setDashData] = useState<any>({ totals: [], timeCards:[] });
 
-  const { 0: manPeriods, 1: setManPeriods } = useState(new Array().concat(0)); 
-  const { 0: manLocs, 1: setManLocs } = useState(new Array());
-  const { 0: manEmps, 1: setManEmps } = useState(new Array());
-  const { 0: managerData, 1: setManagerData } = useState(new Array());
+  const [manPeriods, setManPeriods] = useState<number[]>([0]); 
+  const[manLocs, setManLocs] = useState<number[]>([]);
+  const[manEmps, setManEmps] = useState<number[]>([]);
+  const [managerData, setManagerData] = useState<TimeCard[]>([]);
 
-  const DAYS_OF_WEEK = new Array('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat');
-  const MONTHS = new Array('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December');
-  const YEARS = new Array(2025, 2026, 2027);
-  const AVAILABLE_ROLES = new Array('Administrator', 'Manager', 'Front Desk', 'Trainer');
+  const DAYS_OF_WEEK =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const YEARS = [2025, 2026, 2027];
+  const AVAILABLE_ROLES = ['Administrator', 'Manager', 'Front Desk', 'Trainer'];
 
-  const formatTimeSafe = (dStr) => {
+  const formatTimeSafe = (dStr: string) => {
     if (!dStr) return 'Active';
     const d = new Date(dStr);
     if (isNaN(d.getTime())) return 'Active';
     return d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'});
   };
 
-  const formatDateSafe = (dStr) => {
+  const formatDateSafe = (dStr: string) => {
     if (!dStr) return 'Unknown';
     const d = new Date(dStr);
     if (isNaN(d.getTime())) return 'Unknown';
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  const getLocationColor = (locId) => {
-    const colors = new Array(
+  const getLocationColor = (locId: number | string) => {
+    const colors =[
       { bg: 'bg-blue-100', border: 'border-blue-500', text: 'text-blue-900', claim: 'bg-blue-600 hover:bg-blue-700', badge: 'bg-blue-100 text-blue-900 border-blue-300' },
       { bg: 'bg-purple-100', border: 'border-purple-500', text: 'text-purple-900', claim: 'bg-purple-600 hover:bg-purple-700', badge: 'bg-purple-100 text-purple-900 border-purple-300' },
       { bg: 'bg-orange-100', border: 'border-orange-500', text: 'text-orange-900', claim: 'bg-orange-600 hover:bg-orange-700', badge: 'bg-orange-100 text-orange-900 border-orange-300' },
       { bg: 'bg-teal-100', border: 'border-teal-500', text: 'text-teal-900', claim: 'bg-teal-600 hover:bg-teal-700', badge: 'bg-teal-100 text-teal-900 border-teal-300' },
       { bg: 'bg-pink-100', border: 'border-pink-500', text: 'text-pink-900', claim: 'bg-pink-600 hover:bg-pink-700', badge: 'bg-pink-100 text-pink-900 border-pink-300' }
-    );
-    if(!locId) return colors.at(0);
-    const index = parseInt(locId) % colors.length;
-    return colors.at(index);
+    ];
+    const id = typeof locId === 'string' ? parseInt(locId) : locId;
+    if(!id) return colors[0];
+    const index = id % colors.length;
+    return colors[index];
   };
 
-  const fetchUsers = () => fetch('/api/users?t=' + new Date().getTime()).then(res => res.json()).then(data => { setUsers(data); if(data && data.length > 0 && !selectedUserId) setSelectedUserId(data.at(0).id); });
+  const fetchUsers = () => fetch('/api/users?t=' + new Date().getTime()).then(res => res.json()).then(data => { setUsers(data); if(data && data.length > 0 && !selectedUserId) setSelectedUserId(data[0].id.toString()); });
   const fetchMembers = () => fetch('/api/members?t=' + new Date().getTime()).then(res => res.json()).then(data => setMembers(data));
   const fetchShifts = () => fetch('/api/shifts?t=' + new Date().getTime()).then(res => res.json()).then(data => setShifts(data));
   const fetchTemplates = () => fetch('/api/templates?t=' + new Date().getTime()).then(res => res.json()).then(data => setTemplates(data));
   const fetchChecklists = () => fetch('/api/checklists?t=' + new Date().getTime()).then(res => res.json()).then(data => setChecklists(data));
   const fetchGlobalTasks = () => fetch('/api/tasks?t=' + new Date().getTime()).then(res => res.json()).then(data => setGlobalTasks(data));
   const fetchGiftCards = () => fetch('/api/giftcards?t=' + new Date().getTime()).then(res => res.json()).then(data => { setGiftCards(data); setIsGiftCardsLoading(false); }).catch(() => setIsGiftCardsLoading(false));
-
-  // THE NEW FETCHER: Feedback
   const fetchFeedbacks = () => fetch('/api/feedback?t=' + new Date().getTime()).then(res => res.json()).then(data => { setFeedbacks(data); setIsFeedbacksLoading(false); }).catch(() => setIsFeedbacksLoading(false));
 
   useEffect(() => {
@@ -153,21 +155,21 @@ export default function SchedulingApp() {
     fetchChecklists(); 
     fetchGlobalTasks();
     fetchGiftCards(); 
-    fetchFeedbacks(); // Initial fetch for feedback
-    fetch('/api/locations?t=' + new Date().getTime()).then(res => res.json()).then(data => { setLocations(data); if(data && data.length > 0) setSelectedLocation(data.at(0).id); });
+    fetchFeedbacks();
+    fetch('/api/locations?t=' + new Date().getTime()).then(res => res.json()).then(data => { setLocations(data); if(data && data.length > 0) setSelectedLocation(data[0].id.toString()); });
     fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(data));
     fetchShifts();
-  }, new Array());
+  },[]);
 
   useEffect(() => {
     if (activeTab === 'dashboard') fetchDashboard();
     if (activeTab === 'manager') fetchManagerData();
-  }, new Array(activeTab, dashPeriodIndex, dashLocs, dashEmployees, manPeriods, manLocs, manEmps, selectedUserId));
+  },[activeTab, dashPeriodIndex, dashLocs, dashEmployees, manPeriods, manLocs, manEmps, selectedUserId]);
 
   const activeUserObj = users.find(u => u.id === parseInt(selectedUserId));
-  const activeRoles = activeUserObj && activeUserObj.systemRoles ? activeUserObj.systemRoles : new Array();
+  const activeRoles = activeUserObj && activeUserObj.systemRoles ? activeUserObj.systemRoles :[];
 
-  const hasRole = (roleName) => activeRoles.includes(roleName);
+  const hasRole = (roleName: string) => activeRoles.includes(roleName);
   const isAdmin = hasRole('Administrator');
   const isManager = hasRole('Manager') || isAdmin;
   const isFrontDesk = hasRole('Front Desk') || isManager || isAdmin;
@@ -190,238 +192,222 @@ export default function SchedulingApp() {
     if (activeTab === 'setup' && !showSetup) setActiveTab('calendar');
     if (activeTab === 'staff' && !showStaff) setActiveTab('calendar');
     if (activeTab === 'reports' && !showReports) setActiveTab('calendar');
-  }, new Array(selectedUserId, users, activeTab));
+  },[selectedUserId, users, activeTab]);
 
   const fetchDashboard = async () => {
-    const p = periods.at(dashPeriodIndex);
+    const p = periods[dashPeriodIndex];
     let targetEmployees = dashEmployees;
-    if (!isManager && selectedUserId) targetEmployees = new Array().concat(parseInt(selectedUserId));
+    if (!isManager && selectedUserId) targetEmployees = [parseInt(selectedUserId)];
     const res = await fetch('/api/dashboard?t=' + new Date().getTime(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ startDate: p.start, endDate: p.end, userIds: targetEmployees, locationIds: dashLocs }) });
     const data = await res.json();
     setDashData(data); 
   };
 
   const fetchManagerData = async () => {
-    const selectedPeriods = new Array();
-    manPeriods.forEach(idx => selectedPeriods.push(periods.at(idx)));
+    const selectedPeriods = manPeriods.map(idx => periods[idx]);
     const res = await fetch('/api/manager?t=' + new Date().getTime(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ periods: selectedPeriods, userIds: manEmps }) });
     const data = await res.json();
     setManagerData(data);
   };
 
-  const toggleDashLoc = (id) => dashLocs.includes(id) ? setDashLocs(dashLocs.filter(x => x !== id)) : setDashLocs(dashLocs.concat(id));
-  const toggleDashEmp = (id) => dashEmployees.includes(id) ? setDashEmployees(dashEmployees.filter(x => x !== id)) : setDashEmployees(dashEmployees.concat(id));
-  const toggleManPeriod = (idx) => manPeriods.includes(idx) ? setManPeriods(manPeriods.filter(x => x !== idx)) : setManPeriods(manPeriods.concat(idx));
-  const toggleManLoc = (id) => manLocs.includes(id) ? setManLocs(manLocs.filter(x => x !== id)) : setManLocs(manLocs.concat(id));
-  const toggleManEmp = (id) => manEmps.includes(id) ? setManEmps(manEmps.filter(x => x !== id)) : setManEmps(manEmps.concat(id));
-  const toggleTplLoc = (id) => { if (editingTplId) return setTplLocs(new Array().concat(id)); tplLocs.includes(id) ? setTplLocs(tplLocs.filter(x => x !== id)) : setTplLocs(tplLocs.concat(id)); };
-  const toggleTplDay = (idx) => { if (editingTplId) return setTplDays(new Array().concat(idx)); tplDays.includes(idx) ? setTplDays(tplDays.filter(x => x !== idx)) : setTplDays(tplDays.concat(idx)); };
-  const toggleTplViewLoc = (id) => tplViewLocs.includes(id) ? setTplViewLocs(tplViewLocs.filter(x => x !== id)) : setTplViewLocs(tplViewLocs.concat(id));
-  const toggleTplViewDay = (idx) => tplViewDays.includes(idx) ? setTplViewDays(tplViewDays.filter(x => x !== idx)) : setTplViewDays(tplViewDays.concat(idx));
-  const toggleTplTask = (taskName) => { if (tplTasks.includes(taskName)) setTplTasks(tplTasks.filter(t => t !== taskName)); else setTplTasks(tplTasks.concat(taskName)); };
+  const toggleDashLoc = (id: number) => dashLocs.includes(id) ? setDashLocs(dashLocs.filter(x => x !== id)) : setDashLocs([...dashLocs, id]);
+  const toggleDashEmp = (id: number) => dashEmployees.includes(id) ? setDashEmployees(dashEmployees.filter(x => x !== id)) : setDashEmployees([...dashEmployees, id]);
+  const toggleManPeriod = (idx: number) => manPeriods.includes(idx) ? setManPeriods(manPeriods.filter(x => x !== idx)) : setManPeriods([...manPeriods, idx]);
+  const toggleManLoc = (id: number) => manLocs.includes(id) ? setManLocs(manLocs.filter(x => x !== id)) : setManLocs([...manLocs, id]);
+  const toggleManEmp = (id: number) => manEmps.includes(id) ? setManEmps(manEmps.filter(x => x !== id)) : setManEmps([...manEmps, id]);
+  const toggleTplLoc = (id: number) => { if (editingTplId) return setTplLocs([id]); tplLocs.includes(id) ? setTplLocs(tplLocs.filter(x => x !== id)) : setTplLocs([...tplLocs, id]); };
+  const toggleTplDay = (idx: string | number) => { if (editingTplId) return setTplDays([idx]); tplDays.includes(idx) ? setTplDays(tplDays.filter(x => x !== idx)) : setTplDays([...tplDays, idx]); };
+  const toggleTplViewLoc = (id: number) => tplViewLocs.includes(id) ? setTplViewLocs(tplViewLocs.filter(x => x !== id)) : setTplViewLocs([...tplViewLocs, id]);
+  const toggleTplViewDay = (idx: number) => tplViewDays.includes(idx) ? setTplViewDays(tplViewDays.filter(x => x !== idx)) : setTplViewDays([...tplViewDays, idx]);
+  const toggleTplTask = (taskName: string) => { if (tplTasks.includes(taskName)) setTplTasks(tplTasks.filter(t => t !== taskName)); else setTplTasks([...tplTasks, taskName]); };
 
-  const handleRoleToggle = async (targetUserId, roleName) => {
+  const handleRoleToggle = async (targetUserId: number, roleName: string) => {
     const targetUser = users.find(u => u.id === targetUserId);
-    let currentRoles = targetUser.systemRoles ? new Array().concat(targetUser.systemRoles) : new Array();
+    if (!targetUser) return;
+    let currentRoles = targetUser.systemRoles ? [...targetUser.systemRoles] :[];
     if (currentRoles.includes(roleName)) currentRoles = currentRoles.filter(r => r !== roleName);
     else currentRoles.push(roleName);
     setUsers(users.map(u => u.id === targetUserId ? { ...u, systemRoles: currentRoles } : u));
     await fetch('/api/users', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: targetUserId, roles: currentRoles }) });
   };
 
-  const handleUpdateUser = async (targetUserId, updates) => {
+  const handleUpdateUser = async (targetUserId: number, updates: any) => {
     setUsers(users.map(u => u.id === targetUserId ? { ...u, ...updates } : u));
-    await fetch('/api/users', { 
-      method: 'PUT', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ id: targetUserId, ...updates }) 
-    });
+    await fetch('/api/users', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: targetUserId, ...updates }) });
   };
 
-  const handleIssueGiftCard = async (payload) => {
-    try {
-      const res = await fetch('/api/giftcards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!res.ok) throw new Error("API Error");
-      fetchGiftCards();
-      return { success: true };
-    } catch (error) {
-      console.error(error);
-      return { success: false };
-    }
-  };
+  const handleSeedEmployees = async () => { if(!confirm("Add all new employees?")) return; const res = await fetch('/api/users/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} new employees added.`); fetchUsers(); };
+  const handleImportHistory = async () => { if(!confirm("Import Garner Schedule History?")) return; const res = await fetch('/api/shifts/import-history', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} shifts synced.`); fetchShifts(); };
+  const handleImportTimecards = async () => { if(!confirm("Import Jan/Feb Worked Timecards?")) return; const res = await fetch('/api/timecards/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} missing timecards logged.`); fetch('/api/timecards').then(r => r.json()).then(d => setTimeCards(d)); if (activeTab === 'dashboard') fetchDashboard(); };
+  const handleImportPasses = async () => { if(!confirm("Import Platinum Guest Passes CSV?")) return; const res = await fetch('/api/members/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! Added ${data.members} members.`); fetchMembers(); };
 
-  const handleRedeemCard = async (cardId, amount) => {
-    try {
-      const res = await fetch(`/api/giftcards/${cardId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ redemptionAmount: amount }) });
-      if (!res.ok) throw new Error("API Error");
-      fetchGiftCards();
-      return { success: true };
-    } catch (error) {
-      console.error(error);
-      return { success: false };
-    }
-  };
-
-  // THE NEW HANDLERS: Feedback
-  const handleSubmitFeedback = async (payload) => {
-    try {
-      const res = await fetch('/api/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error("API Error");
-      fetchFeedbacks();
-      return { success: true };
-    } catch (error) {
-      console.error(error);
-      return { success: false };
-    }
-  };
-
-  const handleUpdateFeedback = async (id, payload) => {
-    try {
-      const res = await fetch(`/api/feedback/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error("API Error");
-      fetchFeedbacks();
-      return { success: true };
-    } catch (error) {
-      console.error(error);
-      return { success: false };
-    }
-  };
-
-  const handleSeedEmployees = async () => { if(!confirm("Add all new employees to the database?")) return; const res = await fetch('/api/users/seed', { method: 'POST' }); const data = await res.json(); alert("Success! " + data.count + " new employees added."); fetchUsers(); };
-  const handleImportHistory = async () => { if(!confirm("Import the Garner Schedule History?")) return; const res = await fetch('/api/shifts/import-history', { method: 'POST' }); const data = await res.json(); alert("Success! " + data.count + " shifts synced."); fetchShifts(); };
-  const handleImportTimecards = async () => { if(!confirm("Import the actual Worked Timecards for Jan/Feb?")) return; const res = await fetch('/api/timecards/seed', { method: 'POST' }); const data = await res.json(); alert("Success! " + data.count + " missing timecards logged."); fetch('/api/timecards?t=' + new Date().getTime()).then(r => r.json()).then(d => setTimeCards(d)); if (activeTab === 'dashboard') fetchDashboard(); };
-  const handleImportPasses = async () => { if(!confirm("Import the Platinum Guest Passes CSV?")) return; const res = await fetch('/api/members/seed', { method: 'POST' }); const data = await res.json(); alert("Success! Added " + data.members + " members and " + data.usages + " usages."); fetchMembers(); };
-
-  const handleClaimShift = async (shiftId) => { if(!selectedUserId) return alert("Select an active employee at the top first!"); await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, userId: parseInt(selectedUserId), action: 'CLAIM' }) }); fetchShifts(); };
-  const handleUnclaimShift = async (shiftId) => { if(!confirm("Are you sure you want to unclaim this shift?")) return; await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, action: 'UNCLAIM' }) }); fetchShifts(); };
+  const handleClaimShift = async (shiftId: number) => { if(!selectedUserId) return alert("Select an employee first!"); await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, userId: parseInt(selectedUserId), action: 'CLAIM' }) }); fetchShifts(); };
+  const handleUnclaimShift = async (shiftId: number) => { if(!confirm("Unclaim this shift?")) return; await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, action: 'UNCLAIM' }) }); fetchShifts(); };
 
   const handleGenerateSchedule = async () => {
-    if (templates.length === 0) return alert("Error: You must create Shift Templates in the 'Shift Setup' tab first before generating a schedule!");
-    let msg = "Generate schedule from Templates for ALL locations?";
-    if (calLocFilter) { const locName = locations.find(l => l.id === parseInt(calLocFilter))?.name; msg = "Generate schedule from Templates for " + locName + " only?"; }
-    const monthName = MONTHS.at(currentMonth);
-    msg += "\n\n(Generating for the Pay Period ending in " + monthName + " " + currentYear + ")";
-    if(!confirm(msg)) return;
+    if (templates.length === 0) return alert("Create templates first!");
     const res = await fetch('/api/shifts/seed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locationId: calLocFilter, month: currentMonth, year: currentYear }) });
     const data = await res.json();
-    alert("Success! " + data.count + " new shifts generated from templates.");
+    alert(`Success! ${data.count} new shifts generated.`);
     fetchShifts();
   };
 
-  const handleManualSubmit = async (e) => {
+  const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(!selectedUserId) return alert("Select an active employee at the top!");
-    const clockInDateTime = new Date(formDate + 'T' + formStartTime);
-    const clockOutDateTime = formEndTime ? new Date(formDate + 'T' + formEndTime) : null;
-    if (editingCardId) {
-      await fetch('/api/timecards', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editingCardId, userId: selectedUserId, locationId: selectedLocation, clockIn: clockInDateTime.toISOString(), clockOut: clockOutDateTime ? clockOutDateTime.toISOString() : null }) });
-      setEditingCardId(null);
-    } else {
-      await fetch('/api/timecards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: selectedUserId, locationId: selectedLocation, clockIn: clockInDateTime.toISOString(), clockOut: clockOutDateTime ? clockOutDateTime.toISOString() : null }) });
-    }
-    setFormStartTime(''); setFormEndTime('');
-    fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(data));
+    if(!selectedUserId) return alert("Select an employee!");
+    const clockInDateTime = new Date(`${formDate}T${formStartTime}`);
+    const clockOutDateTime = formEndTime ? new Date(`${formDate}T${formEndTime}`) : null;
+    const body = { id: editingCardId, userId: selectedUserId, locationId: selectedLocation, clockIn: clockInDateTime.toISOString(), clockOut: clockOutDateTime?.toISOString() || null };
+    await fetch('/api/timecards', { method: editingCardId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    setEditingCardId(null); setFormStartTime(''); setFormEndTime('');
+    fetch('/api/timecards').then(res => res.json()).then(data => setTimeCards(data));
   };
 
-  const handleOpenReport = (card) => {
+  const handleOpenReport = (card: TimeCard) => {
     setReportTargetCard(card);
     const tcDate = new Date(card.clockIn);
     const day = tcDate.getDay();
     const mins = tcDate.getHours() * 60 + tcDate.getMinutes();
-    let bestTpl = null;
+    let bestTpl: ShiftTemplate | null = null;
     let minDiff = 9999;
     templates.filter(t => t.locationId === card.locationId && t.dayOfWeek === day).forEach(t => {
       const parts = t.startTime.split(':');
-      const tMins = parseInt(parts.at(0)) * 60 + parseInt(parts.at(1));
+      const tMins = parseInt(parts[0]) * 60 + parseInt(parts[1]);
       const diff = Math.abs(mins - tMins);
       if (diff < minDiff && diff <= 180) { minDiff = diff; bestTpl = t; }
     });
-    if (bestTpl && bestTpl.checklistTasks) setClDynamicTasks(bestTpl.checklistTasks);
-    else setClDynamicTasks(new Array());
+    setClDynamicTasks(bestTpl?.checklistTasks ||[]);
     if (card.checklists && card.checklists.length > 0) {
-      const existingReport = card.checklists.at(0);
-      setEditingChecklistId(existingReport.id);
-      setClCompletedTasks(existingReport.completedTasks || new Array());
-      setClNotes(existingReport.notes || '');
+      const existing = card.checklists[0];
+      setEditingChecklistId(existing.id); setClCompletedTasks(existing.completedTasks ||[]); setClNotes(existing.notes || '');
     } else {
-      setEditingChecklistId(null); setClCompletedTasks(new Array()); setClNotes('');
+      setEditingChecklistId(null); setClCompletedTasks([]); setClNotes('');
     }
     setShowChecklistModal(true);
   };
 
-  const toggleChecklistTask = (taskName) => {
-    if (clCompletedTasks.includes(taskName)) setClCompletedTasks(clCompletedTasks.filter(t => t !== taskName));
-    else setClCompletedTasks(clCompletedTasks.concat(taskName));
-  };
+  const toggleChecklistTask = (taskName: string) => clCompletedTasks.includes(taskName) ? setClCompletedTasks(clCompletedTasks.filter(t => t !== taskName)) : setClCompletedTasks([...clCompletedTasks, taskName]);
 
   const submitShiftReport = async () => {
-    const missedTasks = clDynamicTasks.filter(t => !clCompletedTasks.includes(t));
-    if (editingChecklistId) {
-      await fetch('/api/checklists', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editingChecklistId, notes: clNotes, completedTasks: clCompletedTasks, missedTasks: missedTasks }) });
-    } else {
-      await fetch('/api/checklists', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: reportTargetCard.userId, locationId: reportTargetCard.locationId, timeCardId: reportTargetCard.id, notes: clNotes, completedTasks: clCompletedTasks, missedTasks: missedTasks }) });
-    }
+    const missed = clDynamicTasks.filter(t => !clCompletedTasks.includes(t));
+    const body = { id: editingChecklistId, userId: reportTargetCard?.userId, locationId: reportTargetCard?.locationId, timeCardId: reportTargetCard?.id, notes: clNotes, completedTasks: clCompletedTasks, missedTasks: missed };
+    await fetch('/api/checklists', { method: editingChecklistId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     setShowChecklistModal(false); setReportTargetCard(null); setEditingChecklistId(null);
-    fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(data));
+    fetch('/api/timecards').then(res => res.json()).then(data => setTimeCards(data));
     fetchChecklists(); 
   };
 
-  const handleAddTplTask = () => { if (newTaskStr.trim() !== '') { setTplTasks(tplTasks.concat(newTaskStr.trim())); setNewTaskStr(''); } };
-  const handleRemoveTplTask = (idx) => setTplTasks(tplTasks.filter((_, i) => i !== idx));
-
-  const handleEditTemplate = (t) => {
-    setEditingTplId(t.id); setTplLocs(new Array().concat(t.locationId)); setTplDays(new Array().concat(t.dayOfWeek)); setTplStart(t.startTime); setTplEnd(t.endTime); setTplStartDate(t.startDate || ''); setTplEndDate(t.endDate || ''); setTplTasks(t.checklistTasks || new Array()); setTplUserId(t.userId || ''); window.scrollTo(0, 0);
+  const handleAddMasterTask = async () => {
+    if (!newTaskStr.trim()) return;
+    const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newTaskStr.trim() }) });
+    if (res.ok) {
+      setNewTaskStr('');
+      fetchGlobalTasks();
+    } else {
+      const data = await res.json();
+      alert(data.error || "Failed to add task.");
+    }
   };
 
-  const handleSaveTemplate = async (e) => {
+  const handleDeleteMasterTask = async (taskId: number) => {
+    if(!confirm("Delete this master task completely?")) return;
+    const res = await fetch('/api/tasks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: taskId }) });
+    if (res.ok) fetchGlobalTasks();
+  };
+
+  const handleEditTemplate = (t: ShiftTemplate) => {
+    setEditingTplId(t.id); setTplLocs([t.locationId]); setTplDays([t.dayOfWeek]); setTplStart(t.startTime); setTplEnd(t.endTime); setTplStartDate(t.startDate || ''); setTplEndDate(t.endDate || ''); setTplTasks(t.checklistTasks ||[]); setTplUserId(t.userId?.toString() || ''); window.scrollTo(0, 0);
+  };
+
+  const handleSaveTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(tplLocs.length === 0 || tplDays.length === 0) return alert("Missing selections!");
-    const payload = { locationIds: tplLocs, daysOfWeek: tplDays, startTime: tplStart, endTime: tplEnd, startDate: tplStartDate || null, endDate: tplEndDate || null, checklistTasks: tplTasks, userId: tplUserId || null };
-    if (editingTplId) {
-      payload.id = editingTplId;
-      await fetch('/api/templates', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      setEditingTplId(null);
-    } else {
-      await fetch('/api/templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    }
-    setTplLocs(new Array()); setTplDays(new Array()); setTplStart(''); setTplEnd(''); setTplStartDate(''); setTplEndDate(''); setTplTasks(new Array()); setTplUserId('');
+    const body = { id: editingTplId, locationIds: tplLocs, daysOfWeek: tplDays, startTime: tplStart, endTime: tplEnd, startDate: tplStartDate || null, endDate: tplEndDate || null, checklistTasks: tplTasks, userId: tplUserId || null };
+    await fetch('/api/templates', { method: editingTplId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    setEditingTplId(null); setTplLocs([]); setTplDays([]); setTplStart(''); setTplEnd(''); setTplStartDate(''); setTplEndDate(''); setTplTasks([]); setTplUserId('');
     fetchTemplates();
   };
 
-  const handleDeleteTemplate = async (id) => { if(!confirm("Delete?")) return; await fetch('/api/templates', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) }); fetchTemplates(); };
-  const handleRedeemBeverage = async (memberId) => { await fetch('/api/members', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId: memberId, action: 'LOG_BEVERAGE' }) }); fetchMembers(); };
-  const handleLogPass = async (e, memberId) => { e.preventDefault(); const res = await fetch('/api/members', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId: memberId, dateUsed: pDate, amount: pAmt, initials: pInitials }) }); if (res.ok) { setPDate(''); setPAmt(1); setPInitials(''); fetchMembers(); } };
+  const handleDeleteTemplate = async (id: number) => { if(!confirm("Delete?")) return; await fetch('/api/templates', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); fetchTemplates(); };
+  const handleRedeemBeverage = async (memberId: number) => { await fetch('/api/members', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId, action: 'LOG_BEVERAGE' }) }); fetchMembers(); };
+  const handleLogPass = async (e: React.FormEvent, memberId: number) => { e.preventDefault(); const res = await fetch('/api/members', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId, dateUsed: pDate, amount: pAmt, initials: pInitials }) }); if (res.ok) { setPDate(''); setPAmt(1); setPInitials(''); fetchMembers(); } };
   
-  const handleEditClick = (card) => {
-    const inD = new Date(card.clockIn); const outD = new Date(card.clockOut);
-    const yyyy = inD.getFullYear(); const mm = String(inD.getMonth() + 1).padStart(2, '0'); const dd = String(inD.getDate()).padStart(2, '0');
-    setFormDate(yyyy + '-' + mm + '-' + dd); setFormStartTime(inD.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }));
-    if (card.clockOut && !isNaN(outD.getTime())) setFormEndTime(outD.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }));
+  const handleEditClick = (card: TimeCard) => {
+    const inD = new Date(card.clockIn);
+    setFormDate(inD.toISOString().split('T')[0]); setFormStartTime(inD.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }));
+    if (card.clockOut) setFormEndTime(new Date(card.clockOut).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }));
     else setFormEndTime('');
-    setSelectedLocation(card.locationId); setSelectedUserId(card.userId); setEditingCardId(card.id); setActiveTab('manual'); window.scrollTo(0, 0);
+    setSelectedLocation(card.locationId.toString()); setSelectedUserId(card.userId.toString()); setEditingCardId(card.id); setActiveTab('manual'); window.scrollTo(0, 0);
   };
 
-  const handleDeleteClick = async (cardId) => { if(!confirm("Delete?")) return; await fetch('/api/timecards', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: cardId }) }); fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(data)); };
+  const handleDeleteClick = async (cardId: number) => { if(!confirm("Delete?")) return; await fetch('/api/timecards', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: cardId }) }); fetch('/api/timecards').then(res => res.json()).then(data => setTimeCards(data)); };
 
   const handleExportCSV = () => {
-    let csvContent = "Pay Period,Location,Employee Name,Total Hours\n";
-    matrixRows.forEach(row => { activeManPeriods.forEach(p => { const hours = row.periodTotals.get(p.label); if (hours > 0) csvContent += '"' + p.label + '","' + row.locName + '","' + row.empName + '",' + hours.toFixed(2) + '\n'; }); });
-    const blob = new Blob(new Array(csvContent), { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob); const link = document.createElement("a");
-    link.setAttribute("href", url); link.setAttribute("download", "Payroll.csv");
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    let csv = "Pay Period,Location,Employee,Hours\n";
+    appState.matrixRows.forEach((row: any) => { appState.activeManPeriods.forEach((p: any) => { const h = row.periodTotals.get(p.label); if (h > 0) csv += `"${p.label}","${row.locName}","${row.empName}",${h.toFixed(2)}\n`; }); });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "Payroll.csv"; link.click();
   };
 
-  // --- DATA BUNDLER FOR COMPONENTS ---
-  const appState = {
+  const handleIssueGiftCard = async (payload: any) => {
+    const res = await fetch('/api/giftcards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    fetchGiftCards(); return { success: res.ok };
+  };
+
+  const handleRedeemCard = async (id: number, amount: number) => {
+    const res = await fetch(`/api/giftcards/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ redemptionAmount: amount }) });
+    fetchGiftCards(); return { success: res.ok };
+  };
+
+  const handleSubmitFeedback = async (payload: any) => {
+    const res = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    fetchFeedbacks(); return { success: res.ok };
+  };
+
+  const handleUpdateFeedback = async (id: number, payload: any) => {
+    const res = await fetch(`/api/feedback/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    fetchFeedbacks(); return { success: res.ok };
+  };
+
+  // --- TAB LABELS MAPPING ---
+  // This explicitly sets what the buttons should say to avoid user confusion
+  const TAB_LABELS: Record<string, string> = {
+    calendar: 'Calendar',
+    manual: 'Time Cards',     // <-- This maps the internal key "manual" to the beautiful "Time Cards" label
+    dashboard: 'Dashboard',
+    manager: 'Manager',
+    privileges: 'Passes',
+    giftcards: 'Gift Cards',
+    feedback: '💬 Feedback',
+    reports: 'Reports',
+    setup: 'Shift Setup',
+    staff: 'Staff'
+  };
+
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInM = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const calendarCells =[...new Array(firstDay).fill(null), ...Array.from({ length: daysInM }, (_, i) => i + 1)];
+
+  const matrixMap = new Map();
+  const hiddenWarningsMap = new Map();
+  const activeManPeriods = manPeriods.map(idx => periods[idx]);
+
+  managerData.forEach(card => {
+    if (manLocs.length > 0 && !manLocs.includes(card.locationId)) {
+      if (!hiddenWarningsMap.has(card.user?.name)) hiddenWarningsMap.set(card.user?.name, new Set());
+      hiddenWarningsMap.get(card.user?.name).add(card.location?.name); return;
+    }
+    const key = `${card.locationId}_${card.userId}`;
+    if (!matrixMap.has(key)) matrixMap.set(key, { locName: card.location?.name, empName: card.user?.name, periodTotals: new Map(), totalRowHours: 0 });
+    const row = matrixMap.get(key);
+    activeManPeriods.forEach(p => {
+      const cDate = new Date(card.clockIn); if (cDate >= new Date(p.start) && cDate <= new Date(new Date(p.end).setHours(23,59,59))) {
+        row.periodTotals.set(p.label, (row.periodTotals.get(p.label) || 0) + (card.totalHours || 0));
+        row.totalRowHours += (card.totalHours || 0);
+      }
+    });
+  });
+
+  const appState: AppState = {
     isMounted, activeTab, setActiveTab, users, locations, timeCards, shifts, members, templates, checklists,
     selectedUserId, setSelectedUserId, currentMonth, setCurrentMonth, currentYear, setCurrentYear,
     calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter, editingCardId, setEditingCardId,
@@ -438,110 +424,41 @@ export default function SchedulingApp() {
     toggleTplLoc, toggleTplDay, toggleTplViewLoc, toggleTplViewDay, toggleTplTask, handleRoleToggle, 
     handleUpdateUser, handleSeedEmployees, handleImportHistory, handleImportTimecards, handleImportPasses, handleClaimShift, 
     handleUnclaimShift, handleGenerateSchedule, handleManualSubmit, handleOpenReport, toggleChecklistTask, 
-    submitShiftReport, handleEditTemplate, handleSaveTemplate, handleDeleteTemplate, handleRedeemBeverage, 
-    handleLogPass, handleEditClick, handleDeleteClick, handleExportCSV, periods, dashData, showChecklistModal, 
+    submitShiftReport, handleAddMasterTask, handleDeleteMasterTask, handleEditTemplate, handleSaveTemplate, handleDeleteTemplate, handleRedeemBeverage, 
+    handleLogPass, handleEditClick, handleDeleteClick, handleExportCSV, periods, 
+    dashData: { timeCards: dashData.timeCards ||[] }, showChecklistModal, 
     setShowChecklistModal, reportTargetCard, setReportTargetCard, editingChecklistId, setEditingChecklistId,
     clDynamicTasks, setClDynamicTasks, clCompletedTasks, setClCompletedTasks, clNotes, setClNotes,
     globalTasks, setGlobalTasks, fetchGlobalTasks, editingRenewalId, setEditingRenewalId, newRenewalDate, setNewRenewalDate,
     editingTotalId, setEditingTotalId, newTotalVal, setNewTotalVal, newBonusNotes, setNewBonusNotes,
     giftCards, setGiftCards, fetchGiftCards, handleIssueGiftCard, handleRedeemCard, showGiftCards,
-    isGiftCardsLoading,
-
-    // THE BUNDLED FEEDBACK ITEMS
-    feedbacks, setFeedbacks, fetchFeedbacks, handleSubmitFeedback, handleUpdateFeedback, isFeedbacksLoading
+    isGiftCardsLoading, feedbacks, setFeedbacks, fetchFeedbacks, handleSubmitFeedback, handleUpdateFeedback, 
+    isFeedbacksLoading, calendarCells, 
+    activeCalColor: calLocFilter ? getLocationColor(calLocFilter) : { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-800' },
+    activeManPeriods, matrixRows: Array.from(matrixMap.values()), hiddenWarnings: Array.from(hiddenWarningsMap.entries()).map(([k, v]) => `${k} (${Array.from(v).join(', ')})`),
+    missingPunches: [], dashVisibleData: [], dashHiddenWarnings:[],
+    activeUserTimeCards: timeCards.filter(c => c.userId === parseInt(selectedUserId)),
+    filteredMembers: members.filter(m => m.lastName.toLowerCase().includes(passSearch.toLowerCase())),
+    filteredTemplates: templates
   };
 
-  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const blanks = new Array(firstDayOfMonth).fill(null);
-  const days = new Array(daysInMonth).fill(0).map((_, i) => i + 1);
-  appState.calendarCells = blanks.concat(days);
-  appState.activeCalColor = calLocFilter ? getLocationColor(calLocFilter) : { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-800' };
-  appState.activeManPeriods = new Array(); manPeriods.forEach(idx => appState.activeManPeriods.push(periods.at(idx)));
-
-  const matrixMap = new Map(); const hiddenWarningsMap = new Map(); 
-  managerData.forEach(card => {
-    if (manLocs.length > 0 && !manLocs.includes(card.locationId)) {
-      const empName = card.user?.name || 'Unknown'; const locName = card.location?.name || 'Unknown';
-      if (!hiddenWarningsMap.has(empName)) hiddenWarningsMap.set(empName, new Set());
-      hiddenWarningsMap.get(empName).add(locName); return; 
-    }
-    const key = card.locationId + '_' + card.userId;
-    if (!matrixMap.has(key)) {
-      const pTotals = new Map(); appState.activeManPeriods.forEach(p => pTotals.set(p.label, 0));
-      matrixMap.set(key, { locName: card.location?.name, empName: card.user?.name, periodTotals: pTotals, totalRowHours: 0 });
-    }
-    const row = matrixMap.get(key); const cDate = new Date(card.clockIn);
-    appState.activeManPeriods.forEach(p => {
-      const s = new Date(p.start); const e = new Date(p.end); e.setHours(23, 59, 59, 999);
-      if (cDate >= s && cDate <= e) { const curr = row.periodTotals.get(p.label); row.periodTotals.set(p.label, curr + card.totalHours); row.totalRowHours += card.totalHours; }
-    });
-  });
-
-  appState.matrixRows = new Array(); matrixMap.forEach(val => appState.matrixRows.push(val));
-  appState.matrixRows.sort((a, b) => a.locName === b.locName ? a.empName.localeCompare(b.empName) : a.locName.localeCompare(b.locName));
-  appState.hiddenWarnings = new Array();
-  hiddenWarningsMap.forEach((locSet, empName) => { const locArray = new Array(); locSet.forEach(l => locArray.push(l)); appState.hiddenWarnings.push(empName + ' (' + locArray.join(', ') + ')'); });
-
-  appState.missingPunches = new Array(); const rightNow = new Date();
-  const activeDashP = periods.at(dashPeriodIndex); const dpStart = new Date(activeDashP.start); const dpEnd = new Date(activeDashP.end); dpEnd.setHours(23, 59, 59, 999);
-  shifts.forEach(shift => {
-    if (shift.status === 'CLAIMED') {
-      if (!isManager && shift.userId !== parseInt(selectedUserId)) return; 
-      const eTime = new Date(shift.endTime); const sTime = new Date(shift.startTime);
-      if (eTime < rightNow && sTime >= dpStart && sTime <= dpEnd) {
-        let locMatch = dashLocs.length > 0 ? dashLocs.includes(shift.locationId) : true;
-        let empMatch = dashEmployees.length > 0 ? dashEmployees.includes(shift.userId) : true;
-        if (locMatch && empMatch) {
-          let foundMatch = false;
-          timeCards.forEach(tc => { const tcDate = new Date(tc.clockIn); if (tc.userId === shift.userId && tcDate.getDate() === sTime.getDate() && tcDate.getMonth() === sTime.getMonth() && tcDate.getFullYear() === sTime.getFullYear()) foundMatch = true; });
-          if (!foundMatch) appState.missingPunches.push(shift);
-        }
-      }
-    }
-  });
-
-  appState.dashVisibleData = new Array(); appState.dashHiddenWarnings = new Array();
-  const dashHiddenWarningsMap = new Map(); const dashUserMap = new Map();
-  if (dashData.timeCards) {
-    dashData.timeCards.forEach(card => {
-      if (dashLocs.length > 0 && !dashLocs.includes(card.locationId)) {
-        const empName = card.user?.name || 'Unknown'; const locName = card.location?.name || 'Unknown';
-        if (!dashHiddenWarningsMap.has(empName)) dashHiddenWarningsMap.set(empName, new Set());
-        dashHiddenWarningsMap.get(empName).add(locName); return;
-      }
-      if (!dashUserMap.has(card.userId)) dashUserMap.set(card.userId, { userId: card.userId, name: card.user?.name || 'Unknown', totalHours: 0, cards: new Array() });
-      const uData = dashUserMap.get(card.userId); uData.totalHours = Math.round((uData.totalHours + card.totalHours) * 100) / 100; uData.cards.push(card);
-    });
-  }
-  dashUserMap.forEach(val => appState.dashVisibleData.push(val)); appState.dashVisibleData.sort((a, b) => a.name.localeCompare(b.name));
-  dashHiddenWarningsMap.forEach((locSet, empName) => { const locArray = new Array(); locSet.forEach(l => locArray.push(l)); appState.dashHiddenWarnings.push(empName + ' (' + locArray.join(', ') + ')'); });
-
-  appState.activeUserTimeCards = selectedUserId ? timeCards.filter(c => c.userId === parseInt(selectedUserId)) : new Array();
-  appState.filteredMembers = members.filter(m => m.lastName.toLowerCase().includes(passSearch.toLowerCase()) || (m.location && m.location.toLowerCase().includes(passSearch.toLowerCase())));
-  appState.filteredTemplates = templates.filter(t => {
-    let locMatch = tplViewLocs.length > 0 ? tplViewLocs.includes(t.locationId) : true;
-    let dayMatch = tplViewDays.length > 0 ? tplViewDays.includes(t.dayOfWeek) : true;
-    return locMatch && dayMatch;
-  });
-
-  if (!isMounted) return <div style={{ padding: '40px', textAlign: 'center', fontWeight: 'bold' }}>Loading...</div>;
+  if (!isMounted) return <div className="p-10 text-center font-bold">Loading...</div>;
 
   return (
     <div className="min-h-screen bg-gray-100 p-2 md:p-6 font-sans relative">
       {showChecklistModal && (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-75 z-50 flex justify-center items-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-lg w-full transform transition-all">
-            <h3 className="text-2xl font-black text-slate-900 mb-6">{editingChecklistId ? 'Edit Shift Report' : 'Shift Closing Checklist'}</h3>
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full">
+            <h3 className="text-2xl font-black mb-6">{editingChecklistId ? 'Edit Shift Report' : 'Shift Closing Checklist'}</h3>
             <div className="space-y-4 mb-8 max-h-60 overflow-y-auto">
-              {clDynamicTasks.length === 0 ? <p className="text-center italic">No tasks assigned.</p> : clDynamicTasks.map((taskStr, i) => (
+              {clDynamicTasks.map((t, i) => (
                 <label key={i} className="flex items-center space-x-3 cursor-pointer bg-slate-50 p-3 rounded-lg border">
-                  <input type="checkbox" checked={clCompletedTasks.includes(taskStr)} onChange={() => toggleChecklistTask(taskStr)} className="w-6 h-6" />
-                  <span className="font-black text-slate-800">{taskStr}</span>
+                  <input type="checkbox" checked={clCompletedTasks.includes(t)} onChange={() => toggleChecklistTask(t)} className="w-6 h-6" />
+                  <span className="font-bold">{t}</span>
                 </label>
               ))}
             </div>
-            <textarea value={clNotes} onChange={(e) => setClNotes(e.target.value)} rows={3} placeholder="Notes..." className="w-full border rounded-lg p-3 mb-6 font-bold"></textarea>
+            <textarea value={clNotes} onChange={(e) => setClNotes(e.target.value)} rows={3} placeholder="Notes..." className="w-full border rounded-lg p-3 mb-6"></textarea>
             <div className="flex justify-end space-x-3">
               <button onClick={() => setShowChecklistModal(false)} className="px-6 py-3 bg-gray-200 font-bold rounded-lg">Cancel</button>
               <button onClick={submitShiftReport} className="px-6 py-3 bg-green-800 text-white font-bold rounded-lg">Submit</button>
@@ -549,39 +466,57 @@ export default function SchedulingApp() {
           </div>
         </div>
       )}
+      
       <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden border border-gray-300">
-        <div className="bg-slate-900 p-4 md:p-6 text-white flex flex-col xl:flex-row justify-between items-center gap-4 border-b-4 border-green-800">
-          <div className="flex flex-col sm:flex-row items-center justify-center xl:justify-start gap-4 w-full xl:w-auto">
-            <img src="/logo.png" alt="Logo" className="h-16 w-auto object-contain" onError={(e) => e.currentTarget.style.display = 'none'} />
-            <div className="flex flex-col items-center sm:items-start leading-tight">
-              <h1 className="text-2xl md:text-3xl font-black tracking-widest text-white uppercase italic drop-shadow-sm"><span className="text-yellow-400">Pickles</span> & Play</h1>
-              <p className="text-xs text-gray-300 tracking-widest uppercase mt-1 font-bold">ShiftSync Dashboard</p>
-            </div>
+        
+        <div className="bg-slate-900 p-6 text-white flex flex-col xl:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-4">
+            <img src="/logo.png" alt="Logo" className="h-16 w-auto" />
+            <h1 className="text-3xl font-black italic uppercase tracking-widest"><span className="text-yellow-400">Pickles</span> & Play</h1>
           </div>
-          <div className="flex flex-col sm:flex-row items-center gap-2 bg-slate-800 p-2 rounded-lg shadow-inner border border-slate-700 w-full xl:w-auto justify-center">
-            <span className="text-xs md:text-sm font-bold whitespace-nowrap text-gray-200">Active Employee:</span>
-            <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="text-slate-900 rounded p-1.5 text-xs md:text-sm font-black bg-white outline-none w-full sm:w-auto shadow-sm">
+          
+          <div className="flex items-center gap-2 bg-slate-800 p-2 rounded-lg border border-slate-700">
+            <span className="text-sm font-bold">Employee:</span>
+            <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="text-slate-900 rounded p-1.5 text-sm font-black bg-white">
               <option value="">-- Select --</option>
               {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
-          <div className="flex flex-wrap gap-2 justify-center w-full xl:w-auto text-xs md:text-sm">
-            <button onClick={() => setActiveTab('calendar')} className={`px-3 py-2 rounded-lg font-bold transition shadow-sm ${activeTab === 'calendar' ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>Calendar</button>
-            <button onClick={() => setActiveTab('manual')} className={`px-3 py-2 rounded-lg font-bold transition shadow-sm ${activeTab === 'manual' ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>Time Cards</button>
-            {showDashboard && <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-2 rounded-lg font-bold transition shadow-sm ${activeTab === 'dashboard' ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>Dashboard</button>}
-            {showManagerView && <button onClick={() => setActiveTab('manager')} className={`px-3 py-2 rounded-lg font-bold transition shadow-sm ${activeTab === 'manager' ? 'bg-orange-500 text-white' : 'bg-slate-800 hover:bg-orange-500 text-white'}`}>Manager</button>}
-            {showPasses && <button onClick={() => setActiveTab('privileges')} className={`px-3 py-2 rounded-lg font-bold transition shadow-sm ${activeTab === 'privileges' ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>Passes</button>}
-            {showGiftCards && <button onClick={() => setActiveTab('giftcards')} className={`px-3 py-2 rounded-lg font-bold transition shadow-sm ${activeTab === 'giftcards' ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>Gift Cards</button>}
-            
-            {/* THE NEW FEEDBACK BUTTON */}
-            <button onClick={() => setActiveTab('feedback')} className={`px-3 py-2 rounded-lg font-bold transition shadow-sm ${activeTab === 'feedback' ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>💬 Feedback</button>
 
-            {showReports && <button onClick={() => setActiveTab('reports')} className={`px-3 py-2 rounded-lg font-bold transition shadow-sm ${activeTab === 'reports' ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>Reports</button>}
-            {showSetup && <button onClick={() => setActiveTab('setup')} className={`px-3 py-2 rounded-lg font-bold transition shadow-sm ${activeTab === 'setup' ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>Shift Setup</button>}
-            {showStaff && <button onClick={() => setActiveTab('staff')} className={`px-3 py-2 rounded-lg font-bold transition shadow-sm ${activeTab === 'staff' ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>Staff</button>}
+          <div className="flex flex-wrap gap-2 justify-center">
+            {['calendar', 'manual', 'dashboard', 'manager', 'privileges', 'giftcards', 'feedback', 'reports', 'setup', 'staff'].map(tab => {
+              
+              // Only render the tabs the current user has access to see
+              const visible = (tab === 'calendar' || tab === 'manual' || tab === 'feedback') || 
+                              (tab === 'dashboard' && showDashboard) || 
+                              (tab === 'manager' && showManagerView) || 
+                              (tab === 'privileges' && showPasses) || 
+                              (tab === 'giftcards' && showGiftCards) || 
+                              (tab === 'reports' && showReports) || 
+                              (tab === 'setup' && showSetup) || 
+                              (tab === 'staff' && showStaff);
+              
+              if (!visible) return null;
+              
+              return (
+                <button 
+                  key={tab} 
+                  onClick={() => setActiveTab(tab)} 
+                  className={`px-3 py-2 rounded-lg font-black uppercase text-xs transition shadow-sm ${
+                    activeTab === tab 
+                      ? 'bg-yellow-400 text-slate-900' 
+                      : 'bg-slate-800 hover:bg-green-800 text-white'
+                  }`}
+                >
+                  {/* Maps internal key "manual" to output "Time Cards" visually! */}
+                  {TAB_LABELS[tab]}
+                </button>
+              );
+            })}
           </div>
         </div>
-        <div className="p-4 md:p-8 overflow-hidden bg-gray-50">
+
+        <div className="p-4 md:p-8 bg-gray-50">
           {activeTab === 'calendar' && <CalendarTab appState={appState} />}
           {activeTab === 'manual' && <TimeCardTab appState={appState} />}
           {activeTab === 'dashboard' && <DashboardTab appState={appState} />}
@@ -591,8 +526,6 @@ export default function SchedulingApp() {
           {activeTab === 'setup' && <SetupTab appState={appState} />}
           {activeTab === 'staff' && <StaffTab appState={appState} />}
           {activeTab === 'giftcards' && <GiftCardTab appState={appState} />}
-          
-          {/* THE NEW FEEDBACK RENDER */}
           {activeTab === 'feedback' && <FeedbackTab appState={appState} />}
         </div>
       </div>

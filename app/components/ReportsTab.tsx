@@ -1,13 +1,18 @@
 "use client";
 import React from 'react';
+import { AppState, Checklist, TimeCard } from '../lib/types';
 
-export default function ReportsTab({ appState }: { appState: any }) {
+export default function ReportsTab({ appState }: { appState: AppState }) {
   const { checklists, timeCards } = appState;
 
-  // Fix: Explicitly convert Dates to numbers for sorting and add 'any' types
-  const sortedChecklists = [...(checklists || [])].sort((a: any, b: any) => {
-    const dateA = new Date((timeCards || []).find((t: any) => t.id === a.timeCardId)?.clockIn || a.date || 0).getTime();
-    const dateB = new Date((timeCards || []).find((t: any) => t.id === b.timeCardId)?.clockIn || b.date || 0).getTime();
+  // Safe sorting: Convert ISO strings to numbers for comparison
+  const sortedChecklists = [...(checklists || [])].sort((a: Checklist, b: Checklist) => {
+    const tcA = timeCards.find((t: TimeCard) => t.id === a.timeCardId);
+    const tcB = timeCards.find((t: TimeCard) => t.id === b.timeCardId);
+    
+    const dateA = new Date(tcA?.clockIn || a.date).getTime();
+    const dateB = new Date(tcB?.clockIn || b.date).getTime();
+    
     return dateB - dateA;
   });
 
@@ -26,8 +31,8 @@ export default function ReportsTab({ appState }: { appState: any }) {
             <p className="font-bold text-slate-400 italic">No shift reports found.</p>
           </div>
         ) : (
-          sortedChecklists.map((report: any) => {
-            const tc = (timeCards || []).find((t: any) => t.id === report.timeCardId);
+          sortedChecklists.map((report: Checklist) => {
+            const tc = timeCards.find((t: TimeCard) => t.id === report.timeCardId);
             return (
               <div key={report.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="bg-slate-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
@@ -35,7 +40,7 @@ export default function ReportsTab({ appState }: { appState: any }) {
                     {report.user?.name || 'Unknown User'} @ {report.location?.name || 'Unknown Location'}
                   </span>
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-tighter">
-                    {tc ? new Date(tc.clockIn).toLocaleDateString() : 'Unknown Date'}
+                    {tc ? new Date(tc.clockIn).toLocaleDateString() : new Date(report.date).toLocaleDateString()}
                   </span>
                 </div>
                 <div className="p-4">
@@ -47,13 +52,13 @@ export default function ReportsTab({ appState }: { appState: any }) {
                     <div>
                       <p className="text-xs font-black text-green-600 uppercase mb-1">Completed Tasks ({report.completedTasks?.length || 0})</p>
                       <ul className="text-xs font-bold text-slate-600 list-disc pl-4">
-                        {(report.completedTasks || []).map((t: any, i: number) => <li key={i}>{t}</li>)}
+                        {report.completedTasks.map((t: string, i: number) => <li key={i}>{t}</li>)}
                       </ul>
                     </div>
                     <div>
                       <p className="text-xs font-black text-red-600 uppercase mb-1">Missed Tasks ({report.missedTasks?.length || 0})</p>
                       <ul className="text-xs font-bold text-slate-600 list-disc pl-4">
-                        {(report.missedTasks || []).map((t: any, i: number) => <li key={i}>{t}</li>)}
+                        {report.missedTasks.map((t: string, i: number) => <li key={i}>{t}</li>)}
                       </ul>
                     </div>
                   </div>

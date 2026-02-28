@@ -1,8 +1,10 @@
+"use client";
 import React, { useState } from 'react';
+import { AppState, Member, PassUsage } from '../lib/types';
 
-export default function PrivilegesTab({ appState }: { appState: any }) {
+export default function PrivilegesTab({ appState }: { appState: AppState }) {
   const {
-    passSearch, setPassSearch, handleImportPasses, filteredMembers,
+    passSearch, setPassSearch, filteredMembers,
     handleRedeemBeverage, expandedMember, setExpandedMember,
     pDate, setPDate, pAmt, setPAmt, pInitials, setPInitials, handleLogPass,
     isManager, setMembers, editingRenewalId, setEditingRenewalId,
@@ -11,12 +13,12 @@ export default function PrivilegesTab({ appState }: { appState: any }) {
     newBonusNotes, setNewBonusNotes
   } = appState;
 
-  const { 0: showAddMember, 1: setShowAddMember } = useState(false);
-  const { 0: newMemLast, 1: setNewMemLast } = useState('');
-  const { 0: newMemFirst, 1: setNewMemFirst } = useState('');
-  const { 0: newMemLoc, 1: setNewMemLoc } = useState('');
-  const { 0: newMemDate, 1: setNewMemDate } = useState('');
-  const { 0: newMemTotal, 1: setNewMemTotal } = useState(12);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [newMemLast, setNewMemLast] = useState('');
+  const [newMemFirst, setNewMemFirst] = useState('');
+  const [newMemLoc, setNewMemLoc] = useState('');
+  const [newMemDate, setNewMemDate] = useState('');
+  const [newMemTotal, setNewMemTotal] = useState<number | string>(12);
 
   const refreshMembers = async () => {
     const res = await fetch('/api/members?t=' + new Date().getTime());
@@ -24,7 +26,7 @@ export default function PrivilegesTab({ appState }: { appState: any }) {
     setMembers(data);
   };
 
-  const handleAddMember = async (e) => {
+  const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMemLast) return alert("Last name is required!");
     await fetch('/api/members', {
@@ -38,18 +40,21 @@ export default function PrivilegesTab({ appState }: { appState: any }) {
     refreshMembers();
   };
 
-  const handleUpdateRenewal = async (memberId) => {
-    await fetch('/api/members', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'UPDATE_RENEWAL', memberId: memberId, renewalDate: newRenewalDate }) });
+  const handleUpdateRenewal = async (memberId: number) => {
+    await fetch('/api/members', { 
+      method: 'PUT', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ action: 'UPDATE_RENEWAL', memberId, renewalDate: newRenewalDate }) 
+    });
     setEditingRenewalId(null);
     refreshMembers();
   };
 
-  // NEW: HANDLE TOTAL PASSES UPDATE
-  const handleUpdateTotal = async (memberId) => {
+  const handleUpdateTotal = async (memberId: number) => {
     await fetch('/api/members', { 
       method: 'PUT', 
       headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ action: 'UPDATE_TOTAL_PASSES', memberId: memberId, totalPasses: newTotalVal, bonusNotes: newBonusNotes }) 
+      body: JSON.stringify({ action: 'UPDATE_TOTAL_PASSES', memberId, totalPasses: newTotalVal, bonusNotes: newBonusNotes }) 
     });
     setEditingTotalId(null);
     refreshMembers();
@@ -66,11 +71,7 @@ export default function PrivilegesTab({ appState }: { appState: any }) {
               {showAddMember ? 'Cancel' : '+ Add Member'}
             </button>
           )}
-          {isManager && (
-            <button onClick={handleImportPasses} className="w-full sm:w-auto bg-green-800 hover:bg-green-900 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition">
-              + Import CSV
-            </button>
-          )}
+          {/* Import CSV Button Removed */}
         </div>
       </div>
 
@@ -105,9 +106,9 @@ export default function PrivilegesTab({ appState }: { appState: any }) {
             {filteredMembers.length === 0 ? (
               <tr><td colSpan={8} className="p-6 text-center text-slate-500 font-bold italic bg-white">No members found.</td></tr>
             ) : (
-              filteredMembers.map(m => {
+              filteredMembers.map((m: Member) => {
                 let usedCount = 0;
-                m.usages.forEach(u => usedCount += u.amount);
+                m.usages.forEach((u: PassUsage) => usedCount += u.amount);
                 const remaining = m.totalPasses - usedCount;
 
                 let bevAvailable = true;
@@ -148,7 +149,7 @@ export default function PrivilegesTab({ appState }: { appState: any }) {
                         )}
                       </td>
 
-                      {/* NEW: EDITABLE TOTAL PASSES WITH BONUS NOTES */}
+                      {/* EDITABLE TOTAL PASSES */}
                       <td className="p-3 border-l border-gray-200">
                         {editingTotalId === m.id ? (
                           <div className="flex flex-col gap-1 w-48">
@@ -217,7 +218,7 @@ export default function PrivilegesTab({ appState }: { appState: any }) {
                               <h4 className="font-black text-slate-900 mb-3 border-b pb-2">Usage History</h4>
                               {m.usages.length === 0 ? <p className="text-sm text-slate-500 italic mt-4">No usage logged yet.</p> : (
                                 <div className="space-y-2 mt-4 max-h-40 overflow-y-auto pr-2">
-                                  {m.usages.map(u => (
+                                  {m.usages.map((u: PassUsage) => (
                                     <div key={u.id} className="flex justify-between border-b border-gray-100 pb-1 text-sm font-bold text-slate-700">
                                       <span>{u.dateUsed}</span>
                                       <span className="text-red-700">Used {u.amount}</span>

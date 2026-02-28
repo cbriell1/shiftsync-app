@@ -1,7 +1,8 @@
 "use client";
 import React from 'react';
+import { AppState, Shift, Location, User } from '../lib/types';
 
-export default function CalendarTab({ appState }: { appState: any }) {
+export default function CalendarTab({ appState }: { appState: AppState }) {
   const {
     currentMonth, setCurrentMonth, currentYear, setCurrentYear, MONTHS, YEARS,
     calLocFilter, setCalLocFilter, locations, calEmpFilter, setCalEmpFilter, users,
@@ -11,25 +12,15 @@ export default function CalendarTab({ appState }: { appState: any }) {
   } = appState;
 
   // --- ROLE & LOCATION FILTERING LOGIC ---
-  
-  // 1. Find the current user object and their assigned locations
   const activeUserObj = users.find(u => u.id === parseInt(selectedUserId));
-  
-  // Use locationIds from the user object. If none, default to empty array.
   const userLocationIds = activeUserObj?.locationIds || [];
-  
-  // Ensure we are comparing numbers to numbers
-  const allowedLocationIds = userLocationIds.map(id => parseInt(id, 10));
+  const allowedLocationIds = userLocationIds.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
 
-  // 2. Filter the Location Dropdown list
-  // Managers and Admins see all locations. Staff see only assigned ones.
   const visibleLocations = (isAdmin || isManager) 
     ? locations 
-    : locations.filter(loc => allowedLocationIds.includes(parseInt(loc.id, 10)));
+    : locations.filter(loc => allowedLocationIds.includes(loc.id));
 
-  // --- ACTIONS ---
-
-  const handleRequestCover = async (shiftId) => {
+  const handleRequestCover = async (shiftId: number) => {
     if(!confirm("Are you sure you need coverage? The shift will turn orange and be offered to other employees.")) return;
     await fetch('/api/shifts', { 
       method: 'POST', 
@@ -39,7 +30,7 @@ export default function CalendarTab({ appState }: { appState: any }) {
     window.location.reload(); 
   };
 
-  const handleCancelCover = async (shiftId) => {
+  const handleCancelCover = async (shiftId: number) => {
     await fetch('/api/shifts', { 
       method: 'POST', 
       headers: {'Content-Type': 'application/json'}, 
@@ -48,7 +39,7 @@ export default function CalendarTab({ appState }: { appState: any }) {
     window.location.reload();
   };
 
-  const claimCoverage = async (shiftId) => {
+  const claimCoverage = async (shiftId: number) => {
     if(!selectedUserId) return alert("Select an active employee at the top first!");
     if(!confirm("Are you sure you want to cover this shift? It will become yours.")) return;
     await fetch('/api/shifts', { 
@@ -63,7 +54,6 @@ export default function CalendarTab({ appState }: { appState: any }) {
     <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-300 shadow-sm">
       <div className="flex flex-col xl:flex-row justify-between items-center mb-6 bg-slate-100 p-4 rounded-xl border border-gray-300 gap-4 shadow-inner text-sm">
         
-        {/* Month/Year Selection */}
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full xl:w-auto">
           <select value={currentMonth} onChange={(e) => setCurrentMonth(parseInt(e.target.value))} className="w-full sm:w-auto border border-gray-400 rounded-lg p-2 font-black text-slate-900 bg-white shadow-sm outline-none">
             {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
@@ -73,7 +63,6 @@ export default function CalendarTab({ appState }: { appState: any }) {
           </select>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full xl:w-auto">
           <select value={calLocFilter} onChange={(e) => setCalLocFilter(e.target.value)} className="w-full sm:w-auto border border-blue-400 rounded-lg p-2 font-bold text-slate-900 bg-blue-50 shadow-sm outline-none">
             <option value="">All Available Locations</option>
@@ -97,7 +86,6 @@ export default function CalendarTab({ appState }: { appState: any }) {
       
       <div className="overflow-x-auto pb-4">
         <div style={{ minWidth: '800px' }}>
-          {/* Calendar Header Days */}
           <div className="grid grid-cols-7 gap-2 mb-2">
             {DAYS_OF_WEEK.map(dayName => (
               <div key={dayName} className={`font-black text-center py-2 rounded-t-lg border shadow-sm ${activeCalColor.bg} ${activeCalColor.text} ${activeCalColor.border}`}>
@@ -106,14 +94,11 @@ export default function CalendarTab({ appState }: { appState: any }) {
             ))}
           </div>
 
-          {/* Calendar Grid */}
           <div className="grid grid-cols-7 gap-2 border-l border-t border-gray-300 bg-gray-200 rounded-b-lg overflow-hidden shadow-inner">
             {calendarCells.map((dayNum, index) => {
               const dayShifts = dayNum ? shifts.filter(shift => {
-                const shiftLocId = parseInt(shift.locationId, 10);
+                const shiftLocId = shift.locationId;
 
-                // --- RBAC Filter ---
-                // If the user isn't an admin/manager, hide shifts for locations they aren't assigned to
                 if (!isAdmin && !isManager) {
                   if (!allowedLocationIds.includes(shiftLocId)) return false;
                 }

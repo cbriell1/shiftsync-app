@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { z } from 'zod';
+
+const issueCardSchema = z.object({
+  code: z.string().min(3),
+  amount: z.coerce.number().positive(),
+  memberId: z.coerce.number().nullable().optional(),
+  recipientName: z.string().nullable().optional(),
+});
 
 export async function GET() {
   try {
@@ -13,34 +21,30 @@ export async function GET() {
     });
     return NextResponse.json(giftCards);
   } catch (error) {
-    console.error("GET GiftCards Error:", error);
-    return NextResponse.json({ error: 'Failed to fetch gift cards' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { code, amount, memberId, recipientName } = body;
+    const data = issueCardSchema.parse(body);
 
     const newGiftCard = await prisma.giftCard.create({
       data: {
-        code,
-        initialAmount: parseFloat(amount),
-        remainingBalance: parseFloat(amount),
-        memberId: memberId ? parseInt(memberId) : null,
-        recipientName: memberId ? null : recipientName,
+        code: data.code,
+        initialAmount: data.amount,
+        remainingBalance: data.amount,
+        memberId: data.memberId || null,
+        recipientName: data.memberId ? null : data.recipientName,
       },
       include: { 
-        member: {
-          select: { firstName: true, lastName: true }
-        }
+        member: { select: { firstName: true, lastName: true } }
       }
     });
 
     return NextResponse.json(newGiftCard);
-  } catch (error) {
-    console.error("Gift Card POST Error:", error);
-    return NextResponse.json({ error: 'Failed to issue gift card' }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }

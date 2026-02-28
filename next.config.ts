@@ -5,10 +5,6 @@ const nextConfig: NextConfig = {
     // This allows the build to finish even if there are small type errors
     ignoreBuildErrors: true,
   },
-  eslint: {
-    // This allows the build to finish even if there are linting warnings
-    ignoreDuringBuilds: true,
-  },
   serverExternalPackages: ["@prisma/client"],
 };
 
