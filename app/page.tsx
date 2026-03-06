@@ -27,9 +27,9 @@ import LocationsTab from './components/LocationsTab';
 // ------------------------------------------------------------------
 function LoginScreen({ sessionData }: { sessionData: any }) {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const[password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [usePassword, setUsePassword] = useState(false);
+  const[usePassword, setUsePassword] = useState(false);
 
   const handlePasskeyLogin = async (action: "authenticate" | "register") => {
     setLoading(true);
@@ -157,74 +157,74 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
 // ------------------------------------------------------------------
 function MainDashboard({ session }: { session: any }) {
   const [isMounted, setIsMounted] = useState(false);
-  const[activeTab, setActiveTab] = useState('setup'); 
+  const [activeTab, setActiveTab] = useState('setup'); 
   
   const [users, setUsers] = useState<User[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
-  const[timeCards, setTimeCards] = useState<TimeCard[]>([]);
+  const [timeCards, setTimeCards] = useState<TimeCard[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const [checklists, setChecklists] = useState<Checklist[]>([]);
-  const [globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
+  const[globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
   
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-  const[isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
-  const[lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
-  const [highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
+  const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
+  
+  const [lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
+  const[highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
   
   const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
-  const[isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
+  const [isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
 
   const [selectedUserId, setSelectedUserId] = useState('');
-  const[currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
   const [calLocFilter, setCalLocFilter] = useState('');
   const [calEmpFilter, setCalEmpFilter] = useState('');
 
   const getMonday = (d: Date) => { const dt = new Date(d); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); return new Date(dt.setDate(diff)).toISOString().split('T')[0]; };
-  const[builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
+  const [builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
 
-  // Timecard Editing Form State
-  const[editingCardId, setEditingCardId] = useState<number | null>(null);
+  const [editingCardId, setEditingCardId] = useState<number | null>(null);
   const[formUserId, setFormUserId] = useState<string>(''); 
   const [formDate, setFormDate] = useState('');
-  const[formStartTime, setFormStartTime] = useState('');
+  const [formStartTime, setFormStartTime] = useState('');
   const [formEndTime, setFormEndTime] = useState('');
   const[selectedLocation, setSelectedLocation] = useState('');
 
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
-  const[editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
-  const[clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
+  const [editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
+  const [clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
   const[clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
-  const [clNotes, setClNotes] = useState('');
+  const[clNotes, setClNotes] = useState('');
 
   const [passSearch, setPassSearch] = useState('');
-  const [expandedMember, setExpandedMember] = useState<number | null>(null);
+  const[expandedMember, setExpandedMember] = useState<number | null>(null);
   const [pDate, setPDate] = useState('');
-  const[pAmt, setPAmt] = useState<number | string>(1);
-  const [pInitials, setPInitials] = useState('');
+  const [pAmt, setPAmt] = useState<number | string>(1);
+  const[pInitials, setPInitials] = useState('');
   const [editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
   const [newRenewalDate, setNewRenewalDate] = useState('');
-  const [editingTotalId, setEditingTotalId] = useState<number | null>(null);
-  const [newTotalVal, setNewTotalVal] = useState<number | string>(12);
-  const [newBonusNotes, setNewBonusNotes] = useState('');
+  const[editingTotalId, setEditingTotalId] = useState<number | null>(null);
+  const[newTotalVal, setNewTotalVal] = useState<number | string>(12);
+  const[newBonusNotes, setNewBonusNotes] = useState('');
 
   const [editingTplId, setEditingTplId] = useState<number | null>(null); 
   const [tplLocs, setTplLocs] = useState<number[]>([]);
-  const[tplDays, setTplDays] = useState<(string | number)[]>([]);
-  const[tplStart, setTplStart] = useState('');
+  const [tplDays, setTplDays] = useState<(string | number)[]>([]);
+  const [tplStart, setTplStart] = useState('');
   const [tplEnd, setTplEnd] = useState('');
-  const[tplStartDate, setTplStartDate] = useState(''); 
+  const [tplStartDate, setTplStartDate] = useState(''); 
   const [tplEndDate, setTplEndDate] = useState('');     
-  const[tplTasks, setTplTasks] = useState<string[]>([]); 
-  const[newTaskStr, setNewTaskStr] = useState(''); 
-  const [tplUserId, setTplUserId] = useState(''); 
+  const [tplTasks, setTplTasks] = useState<string[]>([]); 
+  const [newTaskStr, setNewTaskStr] = useState(''); 
+  const[tplUserId, setTplUserId] = useState(''); 
 
   const [tplViewLocs, setTplViewLocs] = useState<number[]>([]);
-  const[tplViewDays, setTplViewDays] = useState<number[]>([]);
+  const [tplViewDays, setTplViewDays] = useState<number[]>([]);
 
   const generatePeriods = () => {
     const p =[];
@@ -242,9 +242,9 @@ function MainDashboard({ session }: { session: any }) {
 
   const [periods] = useState(generatePeriods());
   const [manPeriods, setManPeriods] = useState<number[]>([0]); 
-  const [manLocs, setManLocs] = useState<number[]>([]);
+  const[manLocs, setManLocs] = useState<number[]>([]);
   const [manEmps, setManEmps] = useState<number[]>([]);
-  const[managerData, setManagerData] = useState<TimeCard[]>([]);
+  const [managerData, setManagerData] = useState<TimeCard[]>([]);
 
   const DAYS_OF_WEEK =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -312,7 +312,7 @@ function MainDashboard({ session }: { session: any }) {
       fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data : []));
       fetchShifts();
     }
-  },[session]);
+  }, [session]);
 
   const safeUsers = Array.isArray(users) ? users :[];
 
@@ -393,7 +393,7 @@ function MainDashboard({ session }: { session: any }) {
     const selectedPeriods = manPeriods.map(idx => periods[idx]);
     let targetEmployees = manEmps;
     if (!isManager && selectedUserId) {
-      targetEmployees = [parseInt(selectedUserId)];
+      targetEmployees =[parseInt(selectedUserId)];
     }
     const res = await fetch('/api/manager?t=' + new Date().getTime(), { 
       method: 'POST', 
@@ -757,6 +757,7 @@ function MainDashboard({ session }: { session: any }) {
             <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 shadow-inner w-fit ml-1">
               <span className="text-[10px] md:text-xs font-bold text-slate-300 uppercase tracking-widest">Logged in as:</span>
               
+              {/* 🔥 THE MAGIC DROPDOWN 🔥 */}
               {isRealManager ? (
                 <select 
                   value={selectedUserId} 
@@ -775,7 +776,17 @@ function MainDashboard({ session }: { session: any }) {
 
               {isRealManager && (
                 <button 
-                  onClick={() => signInPasskey("passkey", { action: "register" })}
+                  onClick={async () => {
+                    try {
+                      await signInPasskey("passkey", { 
+                        action: "register", 
+                        email: session?.user?.email || "cbriell1@yahoo.com" 
+                      });
+                    } catch (err) {
+                      alert("Failed to link device. Check console for details.");
+                      console.error(err);
+                    }
+                  }}
                   className="ml-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-800 bg-yellow-400 hover:bg-yellow-500 px-2 py-1 rounded transition shadow-sm"
                   title="Register this device's Passkey for this domain"
                 >
@@ -826,7 +837,7 @@ function MainDashboard({ session }: { session: any }) {
               <div className="flex flex-wrap gap-1.5 justify-start lg:justify-end items-center bg-slate-800/80 p-1.5 rounded-xl border border-slate-700 shadow-inner w-full lg:w-auto">
                 <span className="text-[9px] font-black text-yellow-500 uppercase tracking-widest hidden md:block px-2">Manager Space</span>
                 {adminTabs.map(tab => {
-                  const visible = (tab === 'builder' && showBuilder) || 
+                  const visible = (tab === 'builder' && showDashboard) || 
                                   (tab === 'dashboard' && showDashboard) || 
                                   (tab === 'timesheets' && showTimesheets) || 
                                   (tab === 'setup' && showSetup) || 
