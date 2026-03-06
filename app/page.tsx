@@ -1,9 +1,7 @@
 // filepath: app/page.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
-// Import standard sign in for the Emergency Password
 import { signOut, useSession, signIn as signInReact } from "next-auth/react";
-// Import Passkey sign in for WebAuthn
 import { signIn as signInPasskey } from "next-auth/webauthn"; 
 import { 
   User, Location, TimeCard, Shift, Member, ShiftTemplate, 
@@ -23,13 +21,13 @@ import FeedbackTab from './components/FeedbackTab';
 import LocationsTab from './components/LocationsTab';
 
 // ------------------------------------------------------------------
-// 1. LOGIN SCREEN (With Emergency Backdoor)
+// 1. LOGIN SCREEN
 // ------------------------------------------------------------------
 function LoginScreen({ sessionData }: { sessionData: any }) {
   const [email, setEmail] = useState("");
-  const[password, setPassword] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const[usePassword, setUsePassword] = useState(false);
+  const [usePassword, setUsePassword] = useState(false);
 
   const handlePasskeyLogin = async (action: "authenticate" | "register") => {
     setLoading(true);
@@ -156,11 +154,11 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
 // 2. MAIN DASHBOARD APP (Only renders if authenticated)
 // ------------------------------------------------------------------
 function MainDashboard({ session }: { session: any }) {
-  const [isMounted, setIsMounted] = useState(false);
+  const[isMounted, setIsMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('setup'); 
   
   const [users, setUsers] = useState<User[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
+  const[locations, setLocations] = useState<Location[]>([]);
   const [timeCards, setTimeCards] = useState<TimeCard[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -170,23 +168,23 @@ function MainDashboard({ session }: { session: any }) {
   
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
-  
   const [lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
-  const[highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
+  const [highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
   
-  const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
-  const [isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
+  const[giftCards, setGiftCards] = useState<GiftCard[]>([]);
+  const[isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
 
-  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState(session?.user?.id?.toString() || '');
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
-  const [calLocFilter, setCalLocFilter] = useState('');
+  const[calLocFilter, setCalLocFilter] = useState('');
   const [calEmpFilter, setCalEmpFilter] = useState('');
 
   const getMonday = (d: Date) => { const dt = new Date(d); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); return new Date(dt.setDate(diff)).toISOString().split('T')[0]; };
-  const [builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
+  const[builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
 
+  // Timecard Editing Form State
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
   const[formUserId, setFormUserId] = useState<string>(''); 
   const [formDate, setFormDate] = useState('');
@@ -198,7 +196,7 @@ function MainDashboard({ session }: { session: any }) {
   const [reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
   const [editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
   const [clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
-  const[clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
+  const [clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
   const[clNotes, setClNotes] = useState('');
 
   const [passSearch, setPassSearch] = useState('');
@@ -281,7 +279,7 @@ function MainDashboard({ session }: { session: any }) {
 
   useEffect(() => {
     if (session?.user?.id && !selectedUserId) {
-      setSelectedUserId(session.user.id);
+      setSelectedUserId(session.user.id.toString());
     }
   },[session?.user?.id]);
 
@@ -309,14 +307,14 @@ function MainDashboard({ session }: { session: any }) {
       fetchGiftCards(); 
       fetchFeedbacks();
       fetchLocations();
-      fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data : []));
+      fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[]));
       fetchShifts();
     }
   }, [session]);
 
   const safeUsers = Array.isArray(users) ? users :[];
 
-  const authenticatedUserId = session?.user?.id;
+  const authenticatedUserId = session?.user?.id?.toString();
   const authenticatedUserObj = safeUsers.find(u => u.id.toString() === authenticatedUserId);
   const authRoles = authenticatedUserObj?.systemRoles || session?.user?.systemRoles ||[];
   
@@ -393,7 +391,7 @@ function MainDashboard({ session }: { session: any }) {
     const selectedPeriods = manPeriods.map(idx => periods[idx]);
     let targetEmployees = manEmps;
     if (!isManager && selectedUserId) {
-      targetEmployees =[parseInt(selectedUserId)];
+      targetEmployees = [parseInt(selectedUserId)];
     }
     const res = await fetch('/api/manager?t=' + new Date().getTime(), { 
       method: 'POST', 
@@ -778,12 +776,18 @@ function MainDashboard({ session }: { session: any }) {
                 <button 
                   onClick={async () => {
                     try {
-                      await signInPasskey("passkey", { 
+                      const res = await signInPasskey("passkey", { 
                         action: "register", 
-                        email: session?.user?.email || "cbriell1@yahoo.com" 
+                        email: session?.user?.email || "cbriell1@yahoo.com",
+                        redirect: false
                       });
+                      if (res?.error) {
+                        alert("Failed to link device: " + res.error);
+                      } else if (res?.ok) {
+                        alert("Device linked successfully!");
+                      }
                     } catch (err) {
-                      alert("Failed to link device. Check console for details.");
+                      alert("Network error linking device.");
                       console.error(err);
                     }
                   }}
