@@ -1,7 +1,9 @@
 // filepath: app/page.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
-import { signOut, useSession } from "next-auth/react";
+// Import standard sign in for the Emergency Password
+import { signOut, useSession, signIn as signInReact } from "next-auth/react";
+// Import Passkey sign in for WebAuthn
 import { signIn as signInPasskey } from "next-auth/webauthn"; 
 import { 
   User, Location, TimeCard, Shift, Member, ShiftTemplate, 
@@ -21,9 +23,27 @@ import FeedbackTab from './components/FeedbackTab';
 import LocationsTab from './components/LocationsTab';
 
 // ------------------------------------------------------------------
-// 1. LOGIN SCREEN
+// 1. LOGIN SCREEN (With Emergency Backdoor)
 // ------------------------------------------------------------------
 function LoginScreen({ sessionData }: { sessionData: any }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [usePassword, setUsePassword] = useState(false);
+
+  const handlePasskeyLogin = async (action: "authenticate" | "register") => {
+    setLoading(true);
+    await signInPasskey("passkey", { email, action, callbackUrl: "/" });
+    setLoading(false);
+  };
+
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    await signInReact("credentials", { email, password, callbackUrl: "/" });
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 p-4 font-sans">
       <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md space-y-8 border-b-8 border-green-800 relative">
@@ -45,17 +65,88 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
           <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-2">Manager Access</p>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <button 
-            onClick={() => signInPasskey()}
-            className="w-full bg-green-800 hover:bg-green-900 text-white font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-lg"
-          >
-            Proceed to Secure Login →
-          </button>
-          <p className="text-xs text-slate-400 font-bold text-center mt-2 px-2">
-            You will be redirected to the secure portal to authenticate with FaceID, TouchID, or Windows Hello.
-          </p>
-        </div>
+        {!usePassword ? (
+          <div className="space-y-4 animate-in fade-in">
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1">Email Address</label>
+              <input 
+                type="email" 
+                placeholder="admin@picklesandplay.com" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-green-600 outline-none shadow-inner"
+              />
+            </div>
+            
+            <div className="flex flex-col gap-2 pt-2">
+              <button 
+                onClick={() => handlePasskeyLogin("authenticate")}
+                disabled={!email || loading}
+                className="w-full bg-green-800 hover:bg-green-900 disabled:opacity-50 text-white font-black py-3.5 rounded-xl shadow-md transition-all text-sm uppercase tracking-wider"
+              >
+                {loading ? "..." : "🔐 Sign In"}
+              </button>
+              <button 
+                onClick={() => handlePasskeyLogin("register")}
+                disabled={!email || loading}
+                className="w-full bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-bold py-3 rounded-xl transition-all text-sm"
+              >
+                ➕ Register new Passkey
+              </button>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 text-center">
+              <button onClick={() => setUsePassword(true)} className="text-xs font-black text-blue-600 hover:text-blue-800 transition-colors">
+                Lost Device or Changed Domains? Use Emergency Login
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handlePasswordLogin} className="space-y-4 animate-in fade-in slide-in-from-right-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs font-bold text-red-800 text-center mb-4">
+              Emergency Override Mode
+            </div>
+            
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1">Admin Email</label>
+              <input 
+                type="email" 
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-red-600 outline-none shadow-inner"
+              />
+            </div>
+            
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1">Server Secret (Password)</label>
+              <input 
+                type="password" 
+                required
+                placeholder="Paste AUTH_SECRET here..."
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-red-600 outline-none shadow-inner"
+              />
+            </div>
+
+            <div className="pt-2">
+              <button 
+                type="submit"
+                disabled={loading || !email || !password}
+                className="w-full bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white font-black py-3.5 rounded-xl shadow-md transition-all text-sm uppercase tracking-wider"
+              >
+                {loading ? "Authenticating..." : "⚠️ Force Login"}
+              </button>
+            </div>
+
+            <div className="pt-4 text-center">
+              <button type="button" onClick={() => setUsePassword(false)} className="text-xs font-black text-slate-500 hover:text-slate-800 transition-colors">
+                ← Back to Passkeys
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -66,74 +157,74 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
 // ------------------------------------------------------------------
 function MainDashboard({ session }: { session: any }) {
   const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState('setup'); 
+  const[activeTab, setActiveTab] = useState('setup'); 
   
   const [users, setUsers] = useState<User[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [timeCards, setTimeCards] = useState<TimeCard[]>([]);
-  const[shifts, setShifts] = useState<Shift[]>([]);
+  const[timeCards, setTimeCards] = useState<TimeCard[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
-  const[checklists, setChecklists] = useState<Checklist[]>([]);
+  const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
   
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-  const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
+  const[isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
   const[lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
-  const[highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
+  const [highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
   
   const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
-  const [isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
+  const[isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
 
   const [selectedUserId, setSelectedUserId] = useState('');
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const[currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const[currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
-  const[calLocFilter, setCalLocFilter] = useState('');
+  const [calLocFilter, setCalLocFilter] = useState('');
   const [calEmpFilter, setCalEmpFilter] = useState('');
 
   const getMonday = (d: Date) => { const dt = new Date(d); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); return new Date(dt.setDate(diff)).toISOString().split('T')[0]; };
-  const [builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
+  const[builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
 
   // Timecard Editing Form State
-  const [editingCardId, setEditingCardId] = useState<number | null>(null);
-  const [formUserId, setFormUserId] = useState<string>(''); 
-  const[formDate, setFormDate] = useState('');
-  const [formStartTime, setFormStartTime] = useState('');
-  const[formEndTime, setFormEndTime] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState('');
+  const[editingCardId, setEditingCardId] = useState<number | null>(null);
+  const[formUserId, setFormUserId] = useState<string>(''); 
+  const [formDate, setFormDate] = useState('');
+  const[formStartTime, setFormStartTime] = useState('');
+  const [formEndTime, setFormEndTime] = useState('');
+  const[selectedLocation, setSelectedLocation] = useState('');
 
-  const[showChecklistModal, setShowChecklistModal] = useState(false);
-  const[reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
+  const [showChecklistModal, setShowChecklistModal] = useState(false);
+  const [reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
   const[editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
   const[clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
   const[clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
   const [clNotes, setClNotes] = useState('');
 
   const [passSearch, setPassSearch] = useState('');
-  const[expandedMember, setExpandedMember] = useState<number | null>(null);
+  const [expandedMember, setExpandedMember] = useState<number | null>(null);
   const [pDate, setPDate] = useState('');
-  const [pAmt, setPAmt] = useState<number | string>(1);
-  const[pInitials, setPInitials] = useState('');
-  const[editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
+  const[pAmt, setPAmt] = useState<number | string>(1);
+  const [pInitials, setPInitials] = useState('');
+  const [editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
   const [newRenewalDate, setNewRenewalDate] = useState('');
-  const[editingTotalId, setEditingTotalId] = useState<number | null>(null);
-  const[newTotalVal, setNewTotalVal] = useState<number | string>(12);
-  const[newBonusNotes, setNewBonusNotes] = useState('');
+  const [editingTotalId, setEditingTotalId] = useState<number | null>(null);
+  const [newTotalVal, setNewTotalVal] = useState<number | string>(12);
+  const [newBonusNotes, setNewBonusNotes] = useState('');
 
   const [editingTplId, setEditingTplId] = useState<number | null>(null); 
   const [tplLocs, setTplLocs] = useState<number[]>([]);
-  const [tplDays, setTplDays] = useState<(string | number)[]>([]);
-  const [tplStart, setTplStart] = useState('');
+  const[tplDays, setTplDays] = useState<(string | number)[]>([]);
+  const[tplStart, setTplStart] = useState('');
   const [tplEnd, setTplEnd] = useState('');
-  const [tplStartDate, setTplStartDate] = useState(''); 
+  const[tplStartDate, setTplStartDate] = useState(''); 
   const [tplEndDate, setTplEndDate] = useState('');     
-  const [tplTasks, setTplTasks] = useState<string[]>([]); 
-  const [newTaskStr, setNewTaskStr] = useState(''); 
-  const[tplUserId, setTplUserId] = useState(''); 
+  const[tplTasks, setTplTasks] = useState<string[]>([]); 
+  const[newTaskStr, setNewTaskStr] = useState(''); 
+  const [tplUserId, setTplUserId] = useState(''); 
 
   const [tplViewLocs, setTplViewLocs] = useState<number[]>([]);
-  const [tplViewDays, setTplViewDays] = useState<number[]>([]);
+  const[tplViewDays, setTplViewDays] = useState<number[]>([]);
 
   const generatePeriods = () => {
     const p =[];
@@ -151,9 +242,9 @@ function MainDashboard({ session }: { session: any }) {
 
   const [periods] = useState(generatePeriods());
   const [manPeriods, setManPeriods] = useState<number[]>([0]); 
-  const[manLocs, setManLocs] = useState<number[]>([]);
+  const [manLocs, setManLocs] = useState<number[]>([]);
   const [manEmps, setManEmps] = useState<number[]>([]);
-  const [managerData, setManagerData] = useState<TimeCard[]>([]);
+  const[managerData, setManagerData] = useState<TimeCard[]>([]);
 
   const DAYS_OF_WEEK =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -188,7 +279,6 @@ function MainDashboard({ session }: { session: any }) {
     return colors[index];
   };
 
-  // Ensure selectedUserId tracks auth initially
   useEffect(() => {
     if (session?.user?.id && !selectedUserId) {
       setSelectedUserId(session.user.id);
@@ -219,12 +309,11 @@ function MainDashboard({ session }: { session: any }) {
       fetchGiftCards(); 
       fetchFeedbacks();
       fetchLocations();
-      fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[]));
+      fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data : []));
       fetchShifts();
     }
-  }, [session]);
+  },[session]);
 
-  // --- SECURITY & IMPERSONATION LOGIC ---
   const safeUsers = Array.isArray(users) ? users :[];
 
   const authenticatedUserId = session?.user?.id;
@@ -668,7 +757,6 @@ function MainDashboard({ session }: { session: any }) {
             <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 shadow-inner w-fit ml-1">
               <span className="text-[10px] md:text-xs font-bold text-slate-300 uppercase tracking-widest">Logged in as:</span>
               
-              {/* 🔥 THE MAGIC DROPDOWN 🔥 */}
               {isRealManager ? (
                 <select 
                   value={selectedUserId} 
