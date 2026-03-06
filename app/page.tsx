@@ -71,25 +71,25 @@ function MainDashboard({ session }: { session: any }) {
   const [users, setUsers] = useState<User[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [timeCards, setTimeCards] = useState<TimeCard[]>([]);
-  const [shifts, setShifts] = useState<Shift[]>([]);
-  const[members, setMembers] = useState<Member[]>([]);
+  const[shifts, setShifts] = useState<Shift[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
-  const [checklists, setChecklists] = useState<Checklist[]>([]);
-  const[globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
+  const[checklists, setChecklists] = useState<Checklist[]>([]);
+  const [globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
   
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
-  const [lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
-  const [highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
+  const[lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
+  const[highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
   
-  const[giftCards, setGiftCards] = useState<GiftCard[]>([]);
+  const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
   const [isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
 
-  const [selectedUserId, setSelectedUserId] = useState(session?.user?.id || '');
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const[currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
-  const [calLocFilter, setCalLocFilter] = useState('');
+  const[calLocFilter, setCalLocFilter] = useState('');
   const [calEmpFilter, setCalEmpFilter] = useState('');
 
   const getMonday = (d: Date) => { const dt = new Date(d); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); return new Date(dt.setDate(diff)).toISOString().split('T')[0]; };
@@ -98,39 +98,39 @@ function MainDashboard({ session }: { session: any }) {
   // Timecard Editing Form State
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
   const [formUserId, setFormUserId] = useState<string>(''); 
-  const [formDate, setFormDate] = useState('');
-  const[formStartTime, setFormStartTime] = useState('');
-  const [formEndTime, setFormEndTime] = useState('');
-  const[selectedLocation, setSelectedLocation] = useState('');
+  const[formDate, setFormDate] = useState('');
+  const [formStartTime, setFormStartTime] = useState('');
+  const[formEndTime, setFormEndTime] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
 
-  const [showChecklistModal, setShowChecklistModal] = useState(false);
-  const [reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
+  const[showChecklistModal, setShowChecklistModal] = useState(false);
+  const[reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
   const[editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
   const[clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
   const[clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
   const [clNotes, setClNotes] = useState('');
 
   const [passSearch, setPassSearch] = useState('');
-  const [expandedMember, setExpandedMember] = useState<number | null>(null);
+  const[expandedMember, setExpandedMember] = useState<number | null>(null);
   const [pDate, setPDate] = useState('');
-  const[pAmt, setPAmt] = useState<number | string>(1);
-  const [pInitials, setPInitials] = useState('');
-  const [editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
+  const [pAmt, setPAmt] = useState<number | string>(1);
+  const[pInitials, setPInitials] = useState('');
+  const[editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
   const [newRenewalDate, setNewRenewalDate] = useState('');
-  const [editingTotalId, setEditingTotalId] = useState<number | null>(null);
-  const [newTotalVal, setNewTotalVal] = useState<number | string>(12);
-  const [newBonusNotes, setNewBonusNotes] = useState('');
+  const[editingTotalId, setEditingTotalId] = useState<number | null>(null);
+  const[newTotalVal, setNewTotalVal] = useState<number | string>(12);
+  const[newBonusNotes, setNewBonusNotes] = useState('');
 
   const [editingTplId, setEditingTplId] = useState<number | null>(null); 
   const [tplLocs, setTplLocs] = useState<number[]>([]);
-  const[tplDays, setTplDays] = useState<(string | number)[]>([]);
-  const[tplStart, setTplStart] = useState('');
+  const [tplDays, setTplDays] = useState<(string | number)[]>([]);
+  const [tplStart, setTplStart] = useState('');
   const [tplEnd, setTplEnd] = useState('');
   const [tplStartDate, setTplStartDate] = useState(''); 
-  const[tplEndDate, setTplEndDate] = useState('');     
+  const [tplEndDate, setTplEndDate] = useState('');     
   const [tplTasks, setTplTasks] = useState<string[]>([]); 
   const [newTaskStr, setNewTaskStr] = useState(''); 
-  const [tplUserId, setTplUserId] = useState(''); 
+  const[tplUserId, setTplUserId] = useState(''); 
 
   const [tplViewLocs, setTplViewLocs] = useState<number[]>([]);
   const [tplViewDays, setTplViewDays] = useState<number[]>([]);
@@ -149,11 +149,11 @@ function MainDashboard({ session }: { session: any }) {
     return p;
   };
 
-  const[periods] = useState(generatePeriods());
+  const [periods] = useState(generatePeriods());
   const [manPeriods, setManPeriods] = useState<number[]>([0]); 
-  const [manLocs, setManLocs] = useState<number[]>([]);
+  const[manLocs, setManLocs] = useState<number[]>([]);
   const [manEmps, setManEmps] = useState<number[]>([]);
-  const[managerData, setManagerData] = useState<TimeCard[]>([]);
+  const [managerData, setManagerData] = useState<TimeCard[]>([]);
 
   const DAYS_OF_WEEK =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -188,13 +188,13 @@ function MainDashboard({ session }: { session: any }) {
     return colors[index];
   };
 
+  // Ensure selectedUserId tracks auth initially
   useEffect(() => {
     if (session?.user?.id && !selectedUserId) {
       setSelectedUserId(session.user.id);
     }
   },[session?.user?.id]);
 
-  // SAFE FETCHERS: Forces data to be an Array, preventing crash if API returns an error object
   const fetchUsers = () => fetch('/api/users?t=' + new Date().getTime()).then(res => res.json()).then(data => setUsers(Array.isArray(data) ? data :[]));
   const fetchMembers = () => fetch('/api/members?t=' + new Date().getTime()).then(res => res.json()).then(data => setMembers(Array.isArray(data) ? data :[]));
   const fetchShifts = () => fetch('/api/shifts?t=' + new Date().getTime()).then(res => res.json()).then(data => setShifts(Array.isArray(data) ? data :[]));
@@ -219,7 +219,7 @@ function MainDashboard({ session }: { session: any }) {
       fetchGiftCards(); 
       fetchFeedbacks();
       fetchLocations();
-      fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data : []));
+      fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[]));
       fetchShifts();
     }
   }, [session]);
@@ -354,7 +354,7 @@ function MainDashboard({ session }: { session: any }) {
   const handleRoleToggle = async (targetUserId: number, roleName: string) => {
     const targetUser = safeUsers.find(u => u.id === targetUserId);
     if (!targetUser) return;
-    let currentRoles = targetUser.systemRoles ? [...targetUser.systemRoles] :[];
+    let currentRoles = targetUser.systemRoles ?[...targetUser.systemRoles] :[];
     if (currentRoles.includes(roleName)) currentRoles = currentRoles.filter(r => r !== roleName);
     else currentRoles.push(roleName);
     setUsers(safeUsers.map(u => u.id === targetUserId ? { ...u, systemRoles: currentRoles } : u));
@@ -668,6 +668,7 @@ function MainDashboard({ session }: { session: any }) {
             <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 shadow-inner w-fit ml-1">
               <span className="text-[10px] md:text-xs font-bold text-slate-300 uppercase tracking-widest">Logged in as:</span>
               
+              {/* 🔥 THE MAGIC DROPDOWN 🔥 */}
               {isRealManager ? (
                 <select 
                   value={selectedUserId} 
@@ -682,6 +683,16 @@ function MainDashboard({ session }: { session: any }) {
                 </select>
               ) : (
                 <span className="text-yellow-400 font-black px-1 text-xs truncate max-w-[140px]">{activeUserObj?.name || session?.user?.email}</span>
+              )}
+
+              {isRealManager && (
+                <button 
+                  onClick={() => signInPasskey("passkey", { action: "register" })}
+                  className="ml-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-800 bg-yellow-400 hover:bg-yellow-500 px-2 py-1 rounded transition shadow-sm"
+                  title="Register this device's Passkey for this domain"
+                >
+                  📱 Link Device
+                </button>
               )}
 
               <button 
@@ -779,7 +790,7 @@ function MainDashboard({ session }: { session: any }) {
 // ------------------------------------------------------------------
 // 3. SECURITY GUARD LAYER
 // ------------------------------------------------------------------
-export default function Page() {
+export default function SchedulingAppRoot() {
   const { data: session, status } = useSession();
 
   if (status === "loading") {

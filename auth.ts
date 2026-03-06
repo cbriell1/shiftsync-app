@@ -1,6 +1,7 @@
 // filepath: auth.ts
 import NextAuth from "next-auth"
 import Passkey from "next-auth/providers/passkey"
+import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 
@@ -11,27 +12,25 @@ const customAdapter = {
   createUser: async (data: any) => {
     const { id, ...validData } = data; 
     
-    // 🔥 AUTO-MERGE: If it's your email, find your real account and attach the passkey to it!
+    // Auto-Merge for your Admin account
     if (validData.email === "cbriell1@yahoo.com") {
       const existingChris = await prisma.user.findFirst({
-        where: { name: { equals: "Chris Briell" } } // Finds your original history
+        where: { name: { equals: "Chris Briell" } }
       });
 
       if (existingChris) {
-        // Update your real account with your email and Admin rights, then return it.
-        // Auth.js will attach the new Passkey directly to this original profile.
         return prisma.user.update({
           where: { id: existingChris.id },
           data: { 
             email: "cbriell1@yahoo.com", 
             role: "ADMIN", 
-            systemRoles: ["Administrator", "Manager", "Front Desk"] 
+            systemRoles:["Administrator", "Manager", "Front Desk"] 
           }
         });
       }
     }
 
-    // Standard fallback for other brand new employees
+    // Default fallback for new staff
     if (!validData.name && validData.email) {
       validData.name = validData.email.split('@')[0];
     } else if (!validData.name) {
@@ -44,8 +43,27 @@ const customAdapter = {
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: customAdapter,
-  providers: [
-    Passkey() 
+  providers:[
+    Passkey(),
+    
+    // 🔥 EMERGENCY BACKDOOR FOR DOMAIN MIGRATIONS & LOST PASSKEYS
+    Credentials({
+      name: "Emergency Fallback",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Emergency Password (AUTH_SECRET)", type: "password" }
+      },
+      async authorize(credentials) {
+        // Only allows your specific email, and uses your server's secret as the password
+        if (credentials.email === "cbriell1@yahoo.com" && credentials.password === process.env.AUTH_SECRET) {
+           const user = await prisma.user.findFirst({ 
+             where: { email: "cbriell1@yahoo.com" } 
+           });
+           if (user) return user;
+        }
+        return null;
+      }
+    })
   ],
   session: { strategy: "jwt" },
   experimental: { enableWebAuthn: true },
