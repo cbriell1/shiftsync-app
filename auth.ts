@@ -5,46 +5,112 @@ import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 
+// 1. Generate the standard adapter
 const baseAdapter = PrismaAdapter(prisma);
 
+// 2. The Translation Layer: Converts Prisma 'Int' to NextAuth 'String'
 const customAdapter = {
   ...baseAdapter,
+  
   createUser: async (data: any) => {
     const { id, ...validData } = data; 
     
+    // Auto-Merge for your Admin account
     if (validData.email === "cbriell1@yahoo.com") {
-      const existingChris = await prisma.user.findFirst({
-        where: { name: { equals: "Chris Briell" } }
-      });
-
+      const existingChris = await prisma.user.findFirst({ where: { name: { equals: "Chris Briell" } } });
       if (existingChris) {
-        return prisma.user.update({
+        const updated = await prisma.user.update({
           where: { id: existingChris.id },
-          data: { 
-            email: "cbriell1@yahoo.com", 
-            role: "ADMIN", 
-            systemRoles: ["Administrator", "Manager", "Front Desk"] 
-          }
+          data: { email: "cbriell1@yahoo.com", role: "ADMIN", systemRoles:["Administrator", "Manager", "Front Desk"] }
         });
+        return { ...updated, id: updated.id.toString() };
       }
     }
 
-    if (!validData.name && validData.email) {
-      validData.name = validData.email.split('@')[0];
-    } else if (!validData.name) {
-      validData.name = "New Employee";
-    }
-
-    return prisma.user.create({ data: validData });
+    if (!validData.name) validData.name = validData.email ? validData.email.split('@')[0] : "New Employee";
+    const created = await prisma.user.create({ data: validData });
+    return { ...created, id: created.id.toString() };
   },
-  // 🔥 FIX: Ensure Passkey records are explicitly tied to Int IDs
-  createAuthenticator: async (data: any) => {
-    return prisma.authenticator.create({
-      data: {
-        ...data,
-        userId: Number(data.userId)
-      }
+
+  getUser: async (id: string) => {
+    const user = await prisma.user.findUnique({ where: { id: Number(id) } });
+    if (!user) return null;
+    return { ...user, id: user.id.toString() };
+  },
+
+  getUserByEmail: async (email: string) => {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return null;
+    return { ...user, id: user.id.toString() };
+  },
+
+  getUserByAccount: async (providerAccountId: any) => {
+    const account = await prisma.account.findUnique({
+      where: { provider_providerAccountId: providerAccountId },
+      select: { user: true },
     });
+    if (!account?.user) return null;
+    return { ...account.user, id: account.user.id.toString() };
+  },
+
+  updateUser: async (user: any) => {
+    const { id, ...data } = user;
+    const updated = await prisma.user.update({ where: { id: Number(id) }, data });
+    return { ...updated, id: updated.id.toString() };
+  },
+
+  linkAccount: async (account: any) => {
+    await prisma.account.create({ data: { ...account, userId: Number(account.userId) } });
+    return account;
+  },
+
+  createSession: async (session: any) => {
+    const created = await prisma.session.create({ data: { ...session, userId: Number(session.userId) } });
+    return { ...created, userId: created.userId.toString() };
+  },
+
+  getSessionAndUser: async (sessionToken: string) => {
+    const userAndSession = await prisma.session.findUnique({
+      where: { sessionToken },
+      include: { user: true },
+    });
+    if (!userAndSession) return null;
+    const { user, ...session } = userAndSession;
+    return {
+      session: { ...session, userId: session.userId.toString() },
+      user: { ...user, id: user.id.toString() },
+    };
+  },
+
+  updateSession: async (session: any) => {
+    const { userId, ...data } = session;
+    const updated = await prisma.session.update({ where: { sessionToken: session.sessionToken }, data });
+    return { ...updated, userId: updated.userId.toString() };
+  },
+
+  deleteSession: async (sessionToken: string) => {
+    await prisma.session.delete({ where: { sessionToken } });
+  },
+
+  createAuthenticator: async (authenticator: any) => {
+    const created = await prisma.authenticator.create({ data: { ...authenticator, userId: Number(authenticator.userId) } });
+    return { ...created, userId: created.userId.toString() };
+  },
+
+  getAuthenticator: async (credentialID: string) => {
+    const authenticator = await prisma.authenticator.findUnique({ where: { credentialID } });
+    if (!authenticator) return null;
+    return { ...authenticator, userId: authenticator.userId.toString() };
+  },
+
+  listAuthenticatorsByUserId: async (userId: string) => {
+    const authenticators = await prisma.authenticator.findMany({ where: { userId: Number(userId) } });
+    return authenticators.map(a => ({ ...a, userId: a.userId.toString() }));
+  },
+
+  updateAuthenticatorCounter: async (credentialID: string, counter: number) => {
+    const updated = await prisma.authenticator.update({ where: { credentialID }, data: { counter } });
+    return { ...updated, userId: updated.userId.toString() };
   }
 };
 
@@ -52,6 +118,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: customAdapter,
   providers:[
     Passkey(),
+    // EMERGENCY BACKDOOR FOR DOMAIN MIGRATIONS
     Credentials({
       name: "Emergency Fallback",
       credentials: {
@@ -60,10 +127,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       async authorize(credentials) {
         if (credentials.email === "cbriell1@yahoo.com" && credentials.password === process.env.AUTH_SECRET) {
-           const user = await prisma.user.findFirst({ 
-             where: { email: "cbriell1@yahoo.com" } 
-           });
-           if (user) return user;
+           const user = await prisma.user.findFirst({ where: { email: "cbriell1@yahoo.com" } });
+           if (user) return { ...user, id: user.id.toString() };
         }
         return null;
       }
@@ -74,8 +139,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        // 🔥 FIX: Keep ID as a pure Number so internal WebAuthn checks pass
-        token.id = user.id; 
+        token.id = user.id.toString();
         token.role = (user as any).role;
         token.systemRoles = (user as any).systemRoles;
       }
@@ -83,12 +147,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       if (session.user) {
-        // @ts-ignore - Forcing TS to accept a Number ID
-        session.user.id = token.id; 
+        session.user.id = token.id as string;
         (session.user as any).role = token.role;
         (session.user as any).systemRoles = token.systemRoles;
       }
       return session;
     }
   }
-})
+});
