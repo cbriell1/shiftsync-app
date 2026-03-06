@@ -3,8 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+// FIX: Added .nullable() to the ID so brand new timecards don't crash the validator
 const timeCardSchema = z.object({
-  id: z.number().optional(),
+  id: z.number().nullable().optional(),
   userId: z.coerce.number(),
   locationId: z.coerce.number(),
   clockIn: z.string().datetime(),
@@ -51,6 +52,7 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(tc);
   } catch (error: any) {
+    console.error("POST Timecard Error:", error);
     if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -79,6 +81,7 @@ export async function PUT(req: Request) {
     });
     return NextResponse.json(tc);
   } catch (error: any) {
+    console.error("PUT Timecard Error:", error);
     if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

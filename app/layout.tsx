@@ -1,5 +1,7 @@
+// filepath: app/layout.tsx
 import type { Metadata } from "next";
 import "./globals.css";
+import { Providers } from "./components/Providers";
 
 export const metadata: Metadata = {
   title: "ShiftSync",
@@ -14,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body style={{ fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>
-        {children}
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );

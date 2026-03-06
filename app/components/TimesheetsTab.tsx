@@ -7,8 +7,9 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
   const {
     managerData, formDate, setFormDate, formStartTime, setFormStartTime, 
     formEndTime, setFormEndTime, selectedLocation, setSelectedLocation, 
-    handleManualSubmit, editingCardId, setEditingCardId, selectedUserId, 
-    setSelectedUserId, setActiveTab, handleEditClick, handleDeleteClick, 
+    handleManualSubmit, editingCardId, setEditingCardId, 
+    formUserId, setFormUserId, // Changed from selectedUserId!
+    setActiveTab, handleEditClick, handleDeleteClick, 
     formatDateSafe, formatTimeSafe, handleUpdateCardStatus, checklists,
     users, locations, manLocs
   } = appState;
@@ -17,7 +18,7 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
   const [expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
   
   const toggleGroup = (key: string) => {
-    setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
+    setExpandedGroups(prev => ({ ...prev,[key]: !prev[key] }));
   };
 
   const toggleReport = (id: number) => {
@@ -73,7 +74,7 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
         <form onSubmit={handleManualSubmit} className="flex flex-col md:flex-row gap-4 items-start md:items-end flex-wrap">
           <div className="w-full md:w-auto flex-grow">
             <label className="block text-sm font-bold text-slate-700 mb-1">Employee</label>
-            <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} required className="w-full border border-gray-400 rounded-lg p-2.5 text-slate-900 font-black focus:ring-2 focus:ring-blue-500 outline-none shadow-sm">
+            <select value={formUserId} onChange={(e) => setFormUserId(e.target.value)} required className="w-full border border-gray-400 rounded-lg p-2.5 text-slate-900 font-black focus:ring-2 focus:ring-blue-500 outline-none shadow-sm">
               <option value="">-- Select --</option>
               {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
@@ -107,7 +108,7 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
               {editingCardId ? 'Update Entry' : 'Save Entry'}
             </button>
             {editingCardId && (
-              <button type="button" onClick={() => { setEditingCardId(null); setFormDate(''); setFormStartTime(''); setFormEndTime(''); setSelectedLocation(''); setSelectedUserId(''); }} className="w-full bg-gray-200 hover:bg-gray-300 text-slate-800 font-bold py-2 px-6 rounded-lg shadow-sm transition">
+              <button type="button" onClick={() => { setEditingCardId(null); setFormDate(''); setFormStartTime(''); setFormEndTime(''); setSelectedLocation(''); setFormUserId(''); }} className="w-full bg-gray-200 hover:bg-gray-300 text-slate-800 font-bold py-2 px-6 rounded-lg shadow-sm transition">
                 Cancel
               </button>
             )}

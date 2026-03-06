@@ -8,7 +8,7 @@ const userCreateSchema = z.object({
   pinCode: z.string().nullable().optional(),
   courtReserveId: z.string().nullable().optional(),
   phoneNumber: z.string().nullable().optional(),
-  emailAddress: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
 });
 
 const userUpdateSchema = z.object({
@@ -18,7 +18,7 @@ const userUpdateSchema = z.object({
   pinCode: z.string().nullable().optional(),
   courtReserveId: z.string().nullable().optional(),
   phoneNumber: z.string().nullable().optional(),
-  emailAddress: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
 });
 
 export async function GET() {
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
         pinCode: data.pinCode || null,
         courtReserveId: data.courtReserveId || null,
         phoneNumber: data.phoneNumber || null,
-        emailAddress: data.emailAddress || null,
+        email: data.email || null,
         role: 'EMPLOYEE',
         systemRoles: ['Front Desk'],
         locationIds:[] 
@@ -70,7 +70,7 @@ export async function PUT(request: Request) {
         ...(data.pinCode !== undefined && { pinCode: data.pinCode }),
         ...(data.courtReserveId !== undefined && { courtReserveId: data.courtReserveId }),
         ...(data.phoneNumber !== undefined && { phoneNumber: data.phoneNumber }),
-        ...(data.emailAddress !== undefined && { emailAddress: data.emailAddress }),
+        ...(data.email !== undefined && { email: data.email }),
       }
     });
 

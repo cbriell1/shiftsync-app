@@ -1,6 +1,8 @@
 // filepath: app/page.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
+import { signOut, useSession } from "next-auth/react";
+import { signIn as signInPasskey } from "next-auth/webauthn"; 
 import { 
   User, Location, TimeCard, Shift, Member, ShiftTemplate, 
   Checklist, GlobalTask, GiftCard, Feedback, AppState 
@@ -16,70 +18,119 @@ import SetupTab from './components/SetupTab';
 import StaffTab from './components/StaffTab';
 import GiftCardTab from './components/GiftCardTab';
 import FeedbackTab from './components/FeedbackTab'; 
+import LocationsTab from './components/LocationsTab';
 
-export default function SchedulingApp() {
-  const[isMounted, setIsMounted] = useState(false);
-  const[activeTab, setActiveTab] = useState('setup'); 
+// ------------------------------------------------------------------
+// 1. LOGIN SCREEN
+// ------------------------------------------------------------------
+function LoginScreen({ sessionData }: { sessionData: any }) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 p-4 font-sans">
+      <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md space-y-8 border-b-8 border-green-800 relative">
+        
+        {sessionData && (
+          <button 
+            onClick={() => signOut()}
+            className="absolute top-4 right-4 text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded"
+          >
+            Clear Session
+          </button>
+        )}
+
+        <div className="text-center">
+          <img src="/logo.png" alt="Pickles & Play" className="h-20 mx-auto mb-4" onError={(e) => e.currentTarget.style.display = 'none'} />
+          <h2 className="text-3xl font-black text-slate-900 italic tracking-tight uppercase">
+            <span className="text-yellow-500">Pickles</span> & Play
+          </h2>
+          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-2">Manager Access</p>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <button 
+            onClick={() => signInPasskey()}
+            className="w-full bg-green-800 hover:bg-green-900 text-white font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-lg"
+          >
+            Proceed to Secure Login →
+          </button>
+          <p className="text-xs text-slate-400 font-bold text-center mt-2 px-2">
+            You will be redirected to the secure portal to authenticate with FaceID, TouchID, or Windows Hello.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------
+// 2. MAIN DASHBOARD APP (Only renders if authenticated)
+// ------------------------------------------------------------------
+function MainDashboard({ session }: { session: any }) {
+  const [isMounted, setIsMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState('setup'); 
   
   const [users, setUsers] = useState<User[]>([]);
-  const[locations, setLocations] = useState<Location[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [timeCards, setTimeCards] = useState<TimeCard[]>([]);
-  const[shifts, setShifts] = useState<Shift[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const[members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
-  const[checklists, setChecklists] = useState<Checklist[]>([]);
+  const [checklists, setChecklists] = useState<Checklist[]>([]);
   const[globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
   
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
-
+  const [lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
+  const [highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
+  
   const[giftCards, setGiftCards] = useState<GiftCard[]>([]);
-  const[isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
+  const [isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
 
-  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState(session?.user?.id || '');
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const[currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
   const [calLocFilter, setCalLocFilter] = useState('');
-  const[calEmpFilter, setCalEmpFilter] = useState('');
+  const [calEmpFilter, setCalEmpFilter] = useState('');
 
   const getMonday = (d: Date) => { const dt = new Date(d); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); return new Date(dt.setDate(diff)).toISOString().split('T')[0]; };
-  const[builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
+  const [builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
 
-  const[editingCardId, setEditingCardId] = useState<number | null>(null);
-  const[formDate, setFormDate] = useState('');
+  // Timecard Editing Form State
+  const [editingCardId, setEditingCardId] = useState<number | null>(null);
+  const [formUserId, setFormUserId] = useState<string>(''); 
+  const [formDate, setFormDate] = useState('');
   const[formStartTime, setFormStartTime] = useState('');
-  const[formEndTime, setFormEndTime] = useState('');
+  const [formEndTime, setFormEndTime] = useState('');
   const[selectedLocation, setSelectedLocation] = useState('');
 
-  const[showChecklistModal, setShowChecklistModal] = useState(false);
+  const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
   const[editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
   const[clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
-  const [clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
-  const[clNotes, setClNotes] = useState('');
+  const[clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
+  const [clNotes, setClNotes] = useState('');
 
-  const[passSearch, setPassSearch] = useState('');
-  const[expandedMember, setExpandedMember] = useState<number | null>(null);
-  const[pDate, setPDate] = useState('');
-  const [pAmt, setPAmt] = useState<number | string>(1);
-  const[pInitials, setPInitials] = useState('');
-  const[editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
-  const[newRenewalDate, setNewRenewalDate] = useState('');
-  const[editingTotalId, setEditingTotalId] = useState<number | null>(null);
-  const[newTotalVal, setNewTotalVal] = useState<number | string>(12);
-  const[newBonusNotes, setNewBonusNotes] = useState('');
+  const [passSearch, setPassSearch] = useState('');
+  const [expandedMember, setExpandedMember] = useState<number | null>(null);
+  const [pDate, setPDate] = useState('');
+  const[pAmt, setPAmt] = useState<number | string>(1);
+  const [pInitials, setPInitials] = useState('');
+  const [editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
+  const [newRenewalDate, setNewRenewalDate] = useState('');
+  const [editingTotalId, setEditingTotalId] = useState<number | null>(null);
+  const [newTotalVal, setNewTotalVal] = useState<number | string>(12);
+  const [newBonusNotes, setNewBonusNotes] = useState('');
 
-  const[editingTplId, setEditingTplId] = useState<number | null>(null); 
-  const[tplLocs, setTplLocs] = useState<number[]>([]);
-  const [tplDays, setTplDays] = useState<(string | number)[]>([]);
-  const [tplStart, setTplStart] = useState('');
+  const [editingTplId, setEditingTplId] = useState<number | null>(null); 
+  const [tplLocs, setTplLocs] = useState<number[]>([]);
+  const[tplDays, setTplDays] = useState<(string | number)[]>([]);
+  const[tplStart, setTplStart] = useState('');
   const [tplEnd, setTplEnd] = useState('');
   const [tplStartDate, setTplStartDate] = useState(''); 
-  const [tplEndDate, setTplEndDate] = useState('');     
+  const[tplEndDate, setTplEndDate] = useState('');     
   const [tplTasks, setTplTasks] = useState<string[]>([]); 
   const [newTaskStr, setNewTaskStr] = useState(''); 
-  const[tplUserId, setTplUserId] = useState(''); 
+  const [tplUserId, setTplUserId] = useState(''); 
 
   const [tplViewLocs, setTplViewLocs] = useState<number[]>([]);
   const [tplViewDays, setTplViewDays] = useState<number[]>([]);
@@ -98,13 +149,13 @@ export default function SchedulingApp() {
     return p;
   };
 
-  const [periods] = useState(generatePeriods());
-  const[manPeriods, setManPeriods] = useState<number[]>([0]); 
-  const[manLocs, setManLocs] = useState<number[]>([]);
+  const[periods] = useState(generatePeriods());
+  const [manPeriods, setManPeriods] = useState<number[]>([0]); 
+  const [manLocs, setManLocs] = useState<number[]>([]);
   const [manEmps, setManEmps] = useState<number[]>([]);
-  const [managerData, setManagerData] = useState<TimeCard[]>([]);
+  const[managerData, setManagerData] = useState<TimeCard[]>([]);
 
-  const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const DAYS_OF_WEEK =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const YEARS =[2025, 2026, 2027];
   const AVAILABLE_ROLES =['Administrator', 'Manager', 'Front Desk', 'Trainer'];
@@ -137,54 +188,79 @@ export default function SchedulingApp() {
     return colors[index];
   };
 
-  const fetchUsers = () => fetch('/api/users?t=' + new Date().getTime()).then(res => res.json()).then(data => { setUsers(data); if(data && data.length > 0 && !selectedUserId) setSelectedUserId(data[0].id.toString()); });
-  const fetchMembers = () => fetch('/api/members?t=' + new Date().getTime()).then(res => res.json()).then(data => setMembers(data));
-  const fetchShifts = () => fetch('/api/shifts?t=' + new Date().getTime()).then(res => res.json()).then(data => setShifts(data));
-  const fetchTemplates = () => fetch('/api/templates?t=' + new Date().getTime()).then(res => res.json()).then(data => setTemplates(data));
-  const fetchChecklists = () => fetch('/api/checklists?t=' + new Date().getTime()).then(res => res.json()).then(data => setChecklists(data));
-  const fetchGlobalTasks = () => fetch('/api/tasks?t=' + new Date().getTime()).then(res => res.json()).then(data => setGlobalTasks(data));
-  const fetchGiftCards = () => fetch('/api/giftcards?t=' + new Date().getTime()).then(res => res.json()).then(data => { setGiftCards(data); setIsGiftCardsLoading(false); }).catch(() => setIsGiftCardsLoading(false));
-  const fetchFeedbacks = () => fetch('/api/feedback?t=' + new Date().getTime()).then(res => res.json()).then(data => { setFeedbacks(data); setIsFeedbacksLoading(false); }).catch(() => setIsFeedbacksLoading(false));
+  useEffect(() => {
+    if (session?.user?.id && !selectedUserId) {
+      setSelectedUserId(session.user.id);
+    }
+  },[session?.user?.id]);
+
+  // SAFE FETCHERS: Forces data to be an Array, preventing crash if API returns an error object
+  const fetchUsers = () => fetch('/api/users?t=' + new Date().getTime()).then(res => res.json()).then(data => setUsers(Array.isArray(data) ? data :[]));
+  const fetchMembers = () => fetch('/api/members?t=' + new Date().getTime()).then(res => res.json()).then(data => setMembers(Array.isArray(data) ? data :[]));
+  const fetchShifts = () => fetch('/api/shifts?t=' + new Date().getTime()).then(res => res.json()).then(data => setShifts(Array.isArray(data) ? data :[]));
+  const fetchTemplates = () => fetch('/api/templates?t=' + new Date().getTime()).then(res => res.json()).then(data => setTemplates(Array.isArray(data) ? data :[]));
+  const fetchChecklists = () => fetch('/api/checklists?t=' + new Date().getTime()).then(res => res.json()).then(data => setChecklists(Array.isArray(data) ? data :[]));
+  const fetchGlobalTasks = () => fetch('/api/tasks?t=' + new Date().getTime()).then(res => res.json()).then(data => setGlobalTasks(Array.isArray(data) ? data :[]));
+  const fetchGiftCards = () => fetch('/api/giftcards?t=' + new Date().getTime()).then(res => res.json()).then(data => { setGiftCards(Array.isArray(data) ? data :[]); setIsGiftCardsLoading(false); }).catch(() => setIsGiftCardsLoading(false));
+  const fetchFeedbacks = () => fetch('/api/feedback?t=' + new Date().getTime()).then(res => res.json()).then(data => { setFeedbacks(Array.isArray(data) ? data :[]); setIsFeedbacksLoading(false); }).catch(() => setIsFeedbacksLoading(false));
+  const fetchLocations = () => fetch('/api/locations?t=' + new Date().getTime()).then(res => res.json()).then(data => { 
+    setLocations(Array.isArray(data) ? data :[]); 
+    if(Array.isArray(data) && data.length > 0 && !selectedLocation) setSelectedLocation(data[0].id.toString()); 
+  });
 
   useEffect(() => {
     setIsMounted(true);
-    fetchUsers();
-    fetchMembers();
-    fetchTemplates();
-    fetchChecklists(); 
-    fetchGlobalTasks();
-    fetchGiftCards(); 
-    fetchFeedbacks();
-    fetch('/api/locations?t=' + new Date().getTime()).then(res => res.json()).then(data => { setLocations(data); if(data && data.length > 0) setSelectedLocation(data[0].id.toString()); });
-    fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(data));
-    fetchShifts();
-  },[]);
+    if (session) {
+      fetchUsers();
+      fetchMembers();
+      fetchTemplates();
+      fetchChecklists(); 
+      fetchGlobalTasks();
+      fetchGiftCards(); 
+      fetchFeedbacks();
+      fetchLocations();
+      fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data : []));
+      fetchShifts();
+    }
+  }, [session]);
 
-  // Dynamically calculate permissions based on active dropdown selection
-  const activeUserObj = users.find(u => u.id === parseInt(selectedUserId));
-  const activeRoles = activeUserObj && activeUserObj.systemRoles ? activeUserObj.systemRoles :[];
+  // --- SECURITY & IMPERSONATION LOGIC ---
+  const safeUsers = Array.isArray(users) ? users :[];
+
+  const authenticatedUserId = session?.user?.id;
+  const authenticatedUserObj = safeUsers.find(u => u.id.toString() === authenticatedUserId);
+  const authRoles = authenticatedUserObj?.systemRoles || session?.user?.systemRoles ||[];
+  
+  const isRealAdmin = authRoles.includes('Administrator');
+  const isRealManager = authRoles.includes('Manager') || isRealAdmin;
+
+  const activeUserObj = safeUsers.find(u => u.id === parseInt(selectedUserId));
+  const activeRoles = activeUserObj?.systemRoles ||[];
 
   const hasRole = (roleName: string) => activeRoles.includes(roleName);
+  
   const isAdmin = hasRole('Administrator');
   const isManager = hasRole('Manager') || isAdmin;
   const isFrontDesk = hasRole('Front Desk') || isManager || isAdmin;
 
-  const systemHasAdmin = users.some(u => u.systemRoles && u.systemRoles.includes('Administrator'));
+  const systemHasAdmin = safeUsers.some(u => u.systemRoles && u.systemRoles.includes('Administrator'));
   const showDashboard = isManager || isFrontDesk; 
   const showTimesheets = isManager;
   const showSetup = isManager;
   const showBuilder = isManager; 
   const showStaff = isManager || isAdmin || !systemHasAdmin; 
+  const showLocationsTab = isManager || isAdmin;
   const showPasses = isFrontDesk; 
   const showGiftCards = isFrontDesk; 
 
-  // Watch for dependent variable changes to trigger fetches
   useEffect(() => {
-    if (activeTab === 'dashboard' || activeTab === 'timesheets') fetchManagerData();
-  },[activeTab, manPeriods, manLocs, manEmps, selectedUserId, isManager]);
+    if (session && (activeTab === 'dashboard' || activeTab === 'timesheets')) {
+      fetchManagerData();
+    }
+  },[activeTab, manPeriods, manLocs, manEmps, selectedUserId, isManager, session]);
 
   useEffect(() => {
-    if (!isMounted) return;
+    if (!isMounted || !session) return;
     if (activeTab === 'dashboard' && !showDashboard) setActiveTab('calendar');
     if (activeTab === 'timesheets' && !showTimesheets) setActiveTab('calendar');
     if (activeTab === 'builder' && !showBuilder) setActiveTab('calendar');
@@ -192,7 +268,37 @@ export default function SchedulingApp() {
     if (activeTab === 'giftcards' && !showGiftCards) setActiveTab('calendar'); 
     if (activeTab === 'setup' && !showSetup) setActiveTab('calendar');
     if (activeTab === 'staff' && !showStaff) setActiveTab('calendar');
-  }, [selectedUserId, users, activeTab]);
+    if (activeTab === 'locations' && !showLocationsTab) setActiveTab('calendar');
+  },[selectedUserId, users, activeTab, session, isMounted, showDashboard, showTimesheets, showBuilder, showPasses, showGiftCards, showSetup, showStaff, showLocationsTab]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && selectedUserId) {
+      const stored = localStorage.getItem('lastViewedFeedback_' + selectedUserId);
+      if (stored) {
+        setLastViewedFeedback(stored);
+        setHighlightBaseline(stored);
+      } else {
+        setLastViewedFeedback('1970-01-01T00:00:00.000Z');
+        setHighlightBaseline('1970-01-01T00:00:00.000Z');
+      }
+    }
+  }, [selectedUserId]);
+
+  useEffect(() => {
+    if (activeTab === 'feedback' && typeof window !== 'undefined' && selectedUserId) {
+      const now = new Date().toISOString();
+      localStorage.setItem('lastViewedFeedback_' + selectedUserId, now);
+      setLastViewedFeedback(now);
+    }
+  },[activeTab, selectedUserId, feedbacks]);
+
+  const unreadFeedbackCount = (Array.isArray(feedbacks) ? feedbacks :[]).filter(fb => {
+    const fbUpdated = new Date(fb.updatedAt || fb.createdAt).getTime();
+    const lastViewed = new Date(lastViewedFeedback).getTime();
+    if (fbUpdated <= lastViewed) return false;
+    if (isManager) return true;
+    return fb.userId === parseInt(selectedUserId);
+  }).length;
 
   const fetchManagerData = async () => {
     const selectedPeriods = manPeriods.map(idx => periods[idx]);
@@ -206,7 +312,17 @@ export default function SchedulingApp() {
       body: JSON.stringify({ periods: selectedPeriods, userIds: targetEmployees }) 
     });
     const data = await res.json();
-    setManagerData(data);
+    setManagerData(Array.isArray(data) ? data :[]);
+  };
+
+  const handleCreateLocation = async (payload: any) => {
+    const res = await fetch('/api/locations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    fetchLocations(); return { success: res.ok };
+  };
+
+  const handleUpdateLocation = async (id: number, payload: any) => {
+    const res = await fetch('/api/locations', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...payload }) });
+    fetchLocations(); return { success: res.ok };
   };
 
   const handleUpdateShiftTime = async (shiftId: number, startTime: string, endTime: string, userId: number | null) => {
@@ -218,7 +334,7 @@ export default function SchedulingApp() {
   const handleUpdateCardStatus = async (ids: number[], status: string) => {
     await fetch('/api/timecards/status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, status }) });
     fetchManagerData();
-    fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(data));
+    fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[]));
   };
 
   const toggleManPeriod = (idx: number) => manPeriods.includes(idx) ? setManPeriods(manPeriods.filter(x => x !== idx)) : setManPeriods([...manPeriods, idx]);
@@ -231,37 +347,28 @@ export default function SchedulingApp() {
   const toggleTplTask = (taskName: string) => { if (tplTasks.includes(taskName)) setTplTasks(tplTasks.filter(t => t !== taskName)); else setTplTasks([...tplTasks, taskName]); };
 
   const handleAddUser = async (userData: any) => {
-    const res = await fetch('/api/users', { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify(userData) 
-    });
-    if (res.ok) {
-      fetchUsers();
-    } else {
-      const err = await res.json();
-      alert(`Failed to add user: ${err.error || 'Unknown error'}`);
-    }
+    const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(userData) });
+    if (res.ok) fetchUsers(); else { const err = await res.json(); alert(`Failed to add user: ${err.error || 'Unknown error'}`); }
   };
 
   const handleRoleToggle = async (targetUserId: number, roleName: string) => {
-    const targetUser = users.find(u => u.id === targetUserId);
+    const targetUser = safeUsers.find(u => u.id === targetUserId);
     if (!targetUser) return;
     let currentRoles = targetUser.systemRoles ? [...targetUser.systemRoles] :[];
     if (currentRoles.includes(roleName)) currentRoles = currentRoles.filter(r => r !== roleName);
     else currentRoles.push(roleName);
-    setUsers(users.map(u => u.id === targetUserId ? { ...u, systemRoles: currentRoles } : u));
+    setUsers(safeUsers.map(u => u.id === targetUserId ? { ...u, systemRoles: currentRoles } : u));
     await fetch('/api/users', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: targetUserId, roles: currentRoles }) });
   };
 
   const handleUpdateUser = async (targetUserId: number, updates: any) => {
-    setUsers(users.map(u => u.id === targetUserId ? { ...u, ...updates } : u));
+    setUsers(safeUsers.map(u => u.id === targetUserId ? { ...u, ...updates } : u));
     await fetch('/api/users', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: targetUserId, ...updates }) });
   };
 
   const handleSeedEmployees = async () => { if(!confirm("Add all new employees?")) return; const res = await fetch('/api/users/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} new employees added.`); fetchUsers(); };
   const handleImportHistory = async () => { if(!confirm("Import Garner Schedule History?")) return; const res = await fetch('/api/shifts/import-history', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} shifts synced.`); fetchShifts(); };
-  const handleImportTimecards = async () => { if(!confirm("Import Jan/Feb Worked Timecards?")) return; const res = await fetch('/api/timecards/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} missing timecards logged.`); fetch('/api/timecards').then(r => r.json()).then(d => setTimeCards(d)); if (activeTab === 'dashboard') fetchManagerData(); };
+  const handleImportTimecards = async () => { if(!confirm("Import Jan/Feb Worked Timecards?")) return; const res = await fetch('/api/timecards/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} missing timecards logged.`); fetch('/api/timecards').then(r => r.json()).then(d => setTimeCards(Array.isArray(d) ? d :[])); if (activeTab === 'dashboard') fetchManagerData(); };
   const handleImportPasses = async () => { if(!confirm("Import Platinum Guest Passes CSV?")) return; const res = await fetch('/api/members/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! Added ${data.members} members.`); fetchMembers(); };
 
   const handleClaimShift = async (shiftId: number) => { if(!selectedUserId) return alert("Select an employee first!"); await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, userId: parseInt(selectedUserId), action: 'CLAIM' }) }); fetchShifts(); };
@@ -277,15 +384,59 @@ export default function SchedulingApp() {
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(!selectedUserId) return alert("Select an employee!");
+    if (!formUserId) return alert("Select an employee for the timecard!");
+    if (!selectedLocation) return alert("Select a location!");
+    if (!formDate || !formStartTime) return alert("Date and Start Time are required!");
+
     const clockInDateTime = new Date(`${formDate}T${formStartTime}`);
-    const clockOutDateTime = formEndTime ? new Date(`${formDate}T${formEndTime}`) : null;
-    const body = { id: editingCardId, userId: selectedUserId, locationId: selectedLocation, clockIn: clockInDateTime.toISOString(), clockOut: clockOutDateTime?.toISOString() || null };
-    await fetch('/api/timecards', { method: editingCardId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    setEditingCardId(null); setFormStartTime(''); setFormEndTime('');
-    fetch('/api/timecards').then(res => res.json()).then(data => setTimeCards(data));
-    fetchManagerData();
-    setActiveTab('timesheets');
+    let clockOutDateTime = null;
+    
+    if (formEndTime) {
+      clockOutDateTime = new Date(`${formDate}T${formEndTime}`);
+      if (clockOutDateTime < clockInDateTime) {
+        clockOutDateTime.setDate(clockOutDateTime.getDate() + 1);
+      }
+    }
+
+    const body: any = { 
+      userId: formUserId, 
+      locationId: selectedLocation, 
+      clockIn: clockInDateTime.toISOString(), 
+      clockOut: clockOutDateTime?.toISOString() || null 
+    };
+
+    if (editingCardId) {
+      body.id = editingCardId;
+    }
+
+    try {
+      const res = await fetch('/api/timecards', { 
+        method: editingCardId ? 'PUT' : 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(body) 
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        console.error("Timecard save error:", err);
+        alert("Failed to save timecard. Please check inputs.");
+        return;
+      }
+
+      setEditingCardId(null); 
+      setFormStartTime(''); 
+      setFormEndTime(''); 
+      setFormUserId('');
+      setFormDate('');
+      setSelectedLocation('');
+
+      fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[]));
+      await fetchManagerData(); 
+      setActiveTab('timesheets');
+    } catch (err) {
+      console.error("Fetch Exception:", err);
+      alert("An unexpected network error occurred.");
+    }
   };
 
   const handleOpenReport = (card: TimeCard) => {
@@ -318,35 +469,19 @@ export default function SchedulingApp() {
     const body = { id: editingChecklistId, userId: reportTargetCard?.userId, locationId: reportTargetCard?.locationId, timeCardId: reportTargetCard?.id, notes: clNotes, completedTasks: clCompletedTasks, missedTasks: missed };
     await fetch('/api/checklists', { method: editingChecklistId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     setShowChecklistModal(false); setReportTargetCard(null); setEditingChecklistId(null);
-    fetch('/api/timecards').then(res => res.json()).then(data => setTimeCards(data));
+    fetch('/api/timecards').then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[]));
     fetchChecklists(); 
   };
 
   const handleAddMasterTask = async () => {
     if (!newTaskStr.trim()) return;
     const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newTaskStr.trim() }) });
-    if (res.ok) {
-      setNewTaskStr('');
-      fetchGlobalTasks();
-    } else {
-      const data = await res.json();
-      alert(data.error || "Failed to add task.");
-    }
+    if (res.ok) { setNewTaskStr(''); fetchGlobalTasks(); } else { const data = await res.json(); alert(data.error || "Failed to add task."); }
   };
 
   const handleEditMasterTask = async (id: number, newName: string) => {
-    const res = await fetch('/api/tasks', { 
-      method: 'PUT', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ id, name: newName }) 
-    });
-    if (res.ok) {
-      fetchGlobalTasks();
-      fetchTemplates(); // Cascade the name change to the UI 
-    } else {
-      const data = await res.json();
-      alert(data.error || "Failed to edit task.");
-    }
+    const res = await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, name: newName }) });
+    if (res.ok) { fetchGlobalTasks(); fetchTemplates(); } else { const data = await res.json(); alert(data.error || "Failed to edit task."); }
   };
 
   const handleDeleteMasterTask = async (taskId: number) => {
@@ -376,10 +511,10 @@ export default function SchedulingApp() {
     setFormDate(inD.toISOString().split('T')[0]); setFormStartTime(inD.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }));
     if (card.clockOut) setFormEndTime(new Date(card.clockOut).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }));
     else setFormEndTime('');
-    setSelectedLocation(card.locationId.toString()); setSelectedUserId(card.userId.toString()); setEditingCardId(card.id); setActiveTab('timesheets'); window.scrollTo(0, 0);
+    setSelectedLocation(card.locationId.toString()); setFormUserId(card.userId.toString()); setEditingCardId(card.id); setActiveTab('timesheets'); window.scrollTo(0, 0);
   };
 
-  const handleDeleteClick = async (cardId: number) => { if(!confirm("Delete?")) return; await fetch('/api/timecards', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: cardId }) }); fetch('/api/timecards').then(res => res.json()).then(data => setTimeCards(data)); fetchManagerData(); };
+  const handleDeleteClick = async (cardId: number) => { if(!confirm("Delete?")) return; await fetch('/api/timecards', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: cardId }) }); fetch('/api/timecards').then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[])); fetchManagerData(); };
 
   const handleExportCSV = () => {
     let csv = "Pay Period,Location,Employee,Hours\n";
@@ -418,7 +553,8 @@ export default function SchedulingApp() {
     giftcards: 'Gift Cards',
     feedback: '💬 Feedback',
     setup: 'Shift Setup',
-    staff: 'Staff'
+    staff: 'Staff',
+    locations: 'Locations'
   };
 
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
@@ -429,7 +565,7 @@ export default function SchedulingApp() {
   const hiddenWarningsMap = new Map();
   const activeManPeriods = manPeriods.map(idx => periods[idx]);
 
-  managerData.forEach(card => {
+  (Array.isArray(managerData) ? managerData :[]).forEach(card => {
     if (manLocs.length > 0 && !manLocs.includes(card.locationId)) {
       if (!hiddenWarningsMap.has(card.user?.name)) hiddenWarningsMap.set(card.user?.name, new Set());
       hiddenWarningsMap.get(card.user?.name).add(card.location?.name); return;
@@ -445,13 +581,14 @@ export default function SchedulingApp() {
     });
   });
 
-  const pendingCards = isManager ? managerData.filter(c => (!c.status || c.status === 'PENDING') && c.clockOut) :[];
+  const pendingCards = isManager ? (Array.isArray(managerData) ? managerData :[]).filter(c => (!c.status || c.status === 'PENDING') && c.clockOut) :[];
   const unapprovedCount = pendingCards.length;
 
   const appState: AppState = {
-    isMounted, activeTab, setActiveTab, users, locations, timeCards, shifts, setShifts, members, templates, checklists,
+    isMounted, activeTab, setActiveTab, users: safeUsers, locations, timeCards, shifts, setShifts, members, templates, checklists,
     selectedUserId, setSelectedUserId, currentMonth, setCurrentMonth, currentYear, setCurrentYear,
     calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter, editingCardId, setEditingCardId,
+    formUserId, setFormUserId,
     formDate, setFormDate, formStartTime, setFormStartTime, formEndTime, setFormEndTime,
     selectedLocation, setSelectedLocation, passSearch, setPassSearch, expandedMember, setExpandedMember,
     pDate, setPDate, pAmt, setPAmt, pInitials, setPInitials, editingTplId, setEditingTplId,
@@ -461,13 +598,14 @@ export default function SchedulingApp() {
     manPeriods, setManPeriods, manLocs, setManLocs, 
     manEmps, setManEmps, managerData, DAYS_OF_WEEK, MONTHS, YEARS, AVAILABLE_ROLES, formatTimeSafe, 
     formatDateSafe, getLocationColor, showDashboard, showTimesheets, showSetup, showStaff, 
-    showPasses, showBuilder, isManager, isAdmin, toggleManPeriod, toggleManLoc, toggleManEmp, 
+    showLocations: showLocationsTab, showPasses, showBuilder, isManager, isAdmin, toggleManPeriod, toggleManLoc, toggleManEmp, 
     toggleTplLoc, toggleTplDay, toggleTplViewLoc, toggleTplViewDay, toggleTplTask, 
     handleAddUser, handleRoleToggle, 
     handleUpdateUser, handleSeedEmployees, handleImportHistory, handleImportTimecards, handleImportPasses, handleClaimShift, 
     handleUnclaimShift, handleGenerateSchedule, handleManualSubmit, handleOpenReport, toggleChecklistTask, 
     submitShiftReport, handleAddMasterTask, handleEditMasterTask, handleDeleteMasterTask, handleEditTemplate, handleSaveTemplate, handleDeleteTemplate, handleRedeemBeverage, 
-    handleLogPass, handleEditClick, handleDeleteClick, handleExportCSV, handleUpdateCardStatus, handleUpdateShiftTime, periods, 
+    handleLogPass, handleEditClick, handleDeleteClick, handleExportCSV, handleUpdateCardStatus, handleUpdateShiftTime,
+    handleCreateLocation, handleUpdateLocation, periods, 
     showChecklistModal, 
     setShowChecklistModal, reportTargetCard, setReportTargetCard, editingChecklistId, setEditingChecklistId,
     clDynamicTasks, setClDynamicTasks, clCompletedTasks, setClCompletedTasks, clNotes, setClNotes,
@@ -475,24 +613,23 @@ export default function SchedulingApp() {
     editingTotalId, setEditingTotalId, newTotalVal, setNewTotalVal, newBonusNotes, setNewBonusNotes,
     giftCards, setGiftCards, fetchGiftCards, handleIssueGiftCard, handleRedeemCard, showGiftCards,
     isGiftCardsLoading, feedbacks, setFeedbacks, fetchFeedbacks, handleSubmitFeedback, handleUpdateFeedback, 
-    isFeedbacksLoading, calendarCells, 
+    isFeedbacksLoading, highlightBaseline, calendarCells, 
     activeCalColor: calLocFilter ? getLocationColor(calLocFilter) : { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-800' },
     activeManPeriods, matrixRows: Array.from(matrixMap.values()), hiddenWarnings: Array.from(hiddenWarningsMap.entries()).map(([k, v]) => `${k} (${Array.from(v).join(', ')})`),
     missingPunches:[],
-    activeUserTimeCards: timeCards.filter(c => c.userId === parseInt(selectedUserId)),
-    filteredMembers: members.filter(m => m.lastName.toLowerCase().includes(passSearch.toLowerCase())),
-    filteredTemplates: templates,
-    unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart
+    activeUserTimeCards: (Array.isArray(timeCards) ? timeCards :[]).filter(c => c.userId === parseInt(selectedUserId)),
+    filteredMembers: (Array.isArray(members) ? members :[]).filter(m => m.lastName.toLowerCase().includes(passSearch.toLowerCase())),
+    filteredTemplates: Array.isArray(templates) ? templates :[],
+    unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart, unreadFeedbackCount
   };
 
-  if (!isMounted) return <div className="p-10 text-center font-bold">Loading...</div>;
+  if (!isMounted) return <div className="p-10 text-center font-bold">Loading Workspace...</div>;
 
-  // Split tabs into Staff vs Admin/Manager Spaces
   const generalTabs =['calendar', 'manual', 'privileges', 'giftcards', 'feedback'];
-  const adminTabs = ['builder', 'timesheets', 'dashboard', 'setup', 'staff'];
+  const adminTabs =['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
 
   return (
-    <div className="min-h-screen bg-gray-100 p-2 md:p-6 font-sans relative">
+    <div className="min-h-screen bg-gray-100 p-2 md:p-4 font-sans relative">
       {showChecklistModal && (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-75 z-50 flex justify-center items-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full">
@@ -516,26 +653,51 @@ export default function SchedulingApp() {
       
       <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden border border-gray-300">
         
-        <div className="bg-slate-900 p-6 text-white flex flex-col xl:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-4">
-            <img src="/logo.png" alt="Logo" className="h-16 w-auto" />
-            <h1 className="text-3xl font-black italic uppercase tracking-widest"><span className="text-yellow-400">Pickles</span> & Play</h1>
-          </div>
+        {/* --- OPTIMIZED HEADER --- */}
+        <div className="bg-slate-900 px-4 py-3 text-white flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           
-          <div className="flex items-center gap-2 bg-slate-800 p-2 rounded-lg border border-slate-700">
-            <span className="text-sm font-bold">Employee:</span>
-            <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="text-slate-900 rounded p-1.5 text-sm font-black bg-white">
-              <option value="">-- Select --</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+          {/* Left Column: Logo & Profile Stacked */}
+          <div className="flex flex-col items-start gap-2">
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="Logo" className="h-10 md:h-12 w-auto" />
+              <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-widest leading-none">
+                <span className="text-yellow-400">Pickles</span> & Play
+              </h1>
+            </div>
+            
+            <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 shadow-inner w-fit ml-1">
+              <span className="text-[10px] md:text-xs font-bold text-slate-300 uppercase tracking-widest">Logged in as:</span>
+              
+              {isRealManager ? (
+                <select 
+                  value={selectedUserId} 
+                  onChange={(e) => setSelectedUserId(e.target.value)}
+                  className="bg-yellow-400 text-slate-900 rounded px-1.5 py-0.5 text-xs font-black outline-none cursor-pointer max-w-[140px] truncate"
+                >
+                  {safeUsers.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-yellow-400 font-black px-1 text-xs truncate max-w-[140px]">{activeUserObj?.name || session?.user?.email}</span>
+              )}
+
+              <button 
+                onClick={() => signOut()} 
+                className="ml-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white bg-red-600 hover:bg-red-700 px-2 py-1 rounded transition shadow-sm"
+              >
+                Logout
+              </button>
+            </div>
           </div>
 
-          {/* TWO-TIERED NAVIGATION TABS */}
-          <div className="flex flex-col items-center xl:items-end gap-3">
+          {/* Right Column: Navigation Tabs */}
+          <div className="flex flex-col items-start lg:items-end gap-2 w-full lg:w-auto mt-2 lg:mt-0">
             
-            {/* 1. General Staff Space */}
-            <div className="flex flex-wrap gap-2 justify-center items-center bg-slate-800/50 p-2 rounded-xl">
-              {isManager && <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden md:block px-2">Staff Space</span>}
+            <div className="flex flex-wrap gap-1.5 justify-start lg:justify-end items-center bg-slate-800/50 p-1.5 rounded-xl w-full lg:w-auto">
+              {isManager && <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest hidden md:block px-2">Staff Space</span>}
               {generalTabs.map(tab => {
                 const visible = (tab === 'calendar' || tab === 'manual' || tab === 'feedback') || 
                                 (tab === 'privileges' && showPasses) || 
@@ -546,25 +708,30 @@ export default function SchedulingApp() {
                   <button 
                     key={tab} 
                     onClick={() => setActiveTab(tab)} 
-                    className={`relative px-3 py-2 rounded-lg font-black uppercase text-xs transition shadow-sm ${
+                    className={`relative px-3 py-1.5 rounded-lg font-black uppercase text-[10px] md:text-xs transition shadow-sm ${
                       activeTab === tab ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'
                     }`}
                   >
                     {TAB_LABELS[tab]}
+                    {tab === 'feedback' && unreadFeedbackCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-purple-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">
+                        {unreadFeedbackCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
 
-            {/* 2. Admin/Manager Space */}
             {isManager && (
-              <div className="flex flex-wrap gap-2 justify-center items-center bg-slate-800/80 p-2 rounded-xl border border-slate-700 shadow-inner">
-                <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest hidden md:block px-2">Manager Space</span>
+              <div className="flex flex-wrap gap-1.5 justify-start lg:justify-end items-center bg-slate-800/80 p-1.5 rounded-xl border border-slate-700 shadow-inner w-full lg:w-auto">
+                <span className="text-[9px] font-black text-yellow-500 uppercase tracking-widest hidden md:block px-2">Manager Space</span>
                 {adminTabs.map(tab => {
                   const visible = (tab === 'builder' && showBuilder) || 
                                   (tab === 'dashboard' && showDashboard) || 
                                   (tab === 'timesheets' && showTimesheets) || 
                                   (tab === 'setup' && showSetup) || 
+                                  (tab === 'locations' && showLocationsTab) ||
                                   (tab === 'staff' && showStaff);
                   if (!visible) return null;
                   
@@ -572,15 +739,13 @@ export default function SchedulingApp() {
                     <button 
                       key={tab} 
                       onClick={() => setActiveTab(tab)} 
-                      className={`relative px-3 py-2 rounded-lg font-black uppercase text-xs transition shadow-sm ${
+                      className={`relative px-3 py-1.5 rounded-lg font-black uppercase text-[10px] md:text-xs transition shadow-sm ${
                         activeTab === tab ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'
                       }`}
                     >
                       {TAB_LABELS[tab]}
-                      
-                      {/* Approval Notification Bubble - Only visible to managers */}
                       {tab === 'timesheets' && unapprovedCount > 0 && isManager && (
-                        <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black">
+                        <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black">
                           {unapprovedCount}
                         </span>
                       )}
@@ -593,7 +758,7 @@ export default function SchedulingApp() {
 
         </div>
 
-        <div className="p-4 md:p-8 bg-gray-50">
+        <div className="p-3 md:p-6 bg-gray-50">
           {activeTab === 'calendar' && <CalendarTab appState={appState} />}
           {activeTab === 'builder' && <ScheduleBuilderTab appState={appState} />}
           {activeTab === 'manual' && <TimeCardTab appState={appState} />}
@@ -602,10 +767,32 @@ export default function SchedulingApp() {
           {activeTab === 'privileges' && <PrivilegesTab appState={appState} />}
           {activeTab === 'setup' && <SetupTab appState={appState} />}
           {activeTab === 'staff' && <StaffTab appState={appState} />}
+          {activeTab === 'locations' && <LocationsTab appState={appState} />}
           {activeTab === 'giftcards' && <GiftCardTab appState={appState} />}
           {activeTab === 'feedback' && <FeedbackTab appState={appState} />}
         </div>
       </div>
     </div>
   );
+}
+
+// ------------------------------------------------------------------
+// 3. SECURITY GUARD LAYER
+// ------------------------------------------------------------------
+export default function Page() {
+  const { data: session, status } = useSession();
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <div className="text-white font-bold text-xl animate-pulse">Checking credentials...</div>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated" || !session) {
+    return <LoginScreen sessionData={session} />;
+  }
+
+  return <MainDashboard session={session} />;
 }

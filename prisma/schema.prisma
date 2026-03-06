@@ -17,6 +17,10 @@ enum Role {
 model Location {
   id          Int             @id @default(autoincrement())
   name        String          @unique 
+  address     String?
+  email       String?
+  phoneNumber String?
+  
   users       User[]     
   shifts      Shift[]    
   timeCards   TimeCard[] 
@@ -36,16 +40,64 @@ model User {
   locationId     Int?
   location       Location?  @relation(fields: [ locationId ], references:[ id ])
   
-  // New Contact & Integration Fields
   courtReserveId String?
   phoneNumber    String?
-  emailAddress   String?
+  
+  // NextAuth standard fields
+  email          String?    @unique
+  emailVerified  DateTime?
+  image          String?
 
   shifts         Shift[]
   timeCards      TimeCard[]
   checklists     Checklist[]     
   templates      ShiftTemplate[]
   feedbacks      Feedback[]
+
+  // NextAuth Relations
+  accounts       Account[]
+  sessions       Session[]
+  Authenticator  Authenticator[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            Int
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? 
+  access_token      String? 
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? 
+  session_state     String?
+ 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+ 
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       Int
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+ 
+model Authenticator {
+  credentialID         String  @unique
+  userId               Int
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+ 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([userId, credentialID])
 }
 
 model PayPeriod {
@@ -77,11 +129,11 @@ model TimeCard {
   totalHours  Float?
   status      String       @default("PENDING")
   userId      Int
-  user        User         @relation(fields: [ userId ], references: [ id ])
+  user        User         @relation(fields:[ userId ], references: [ id ])
   locationId  Int
-  location    Location     @relation(fields: [ locationId ], references: [ id ])
+  location    Location     @relation(fields:[ locationId ], references:[ id ])
   payPeriodId Int?
-  payPeriod   PayPeriod?   @relation(fields: [ payPeriodId ], references:[ id ])
+  payPeriod   PayPeriod?   @relation(fields:[ payPeriodId ], references:[ id ])
   
   checklists  Checklist[] 
 }
@@ -158,10 +210,11 @@ model GlobalTask {
 model Feedback {
   id          Int      @id @default(autoincrement())
   userId      Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references:[id], onDelete: Cascade)
   type        String   
   description String
   status      String   @default("OPEN") 
   devNotes    String?
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 }

@@ -22,7 +22,7 @@ export default function StaffTab({ appState }: { appState: AppState }) {
     pinCode: '',
     courtReserveId: '',
     phoneNumber: '',
-    emailAddress: ''
+    email: ''
   });
 
   // Filter & Grouping State
@@ -39,7 +39,7 @@ export default function StaffTab({ appState }: { appState: AppState }) {
     if (currentLocs.includes(locationId)) {
       newLocs = currentLocs.filter(id => id !== locationId);
     } else {
-      newLocs =[...currentLocs, locationId];
+      newLocs = [...currentLocs, locationId];
     }
 
     await handleUpdateUser(user.id, { locationIds: newLocs });
@@ -49,7 +49,7 @@ export default function StaffTab({ appState }: { appState: AppState }) {
     e.preventDefault();
     await handleAddUser(newStaff);
     setIsAddModalOpen(false);
-    setNewStaff({ name: '', pinCode: '', courtReserveId: '', phoneNumber: '', emailAddress: '' });
+    setNewStaff({ name: '', pinCode: '', courtReserveId: '', phoneNumber: '', email: '' });
   };
 
   // Block completely if not Manager or Admin
@@ -65,7 +65,7 @@ export default function StaffTab({ appState }: { appState: AppState }) {
   // --- FILTERING LOGIC ---
   const processedUsers = users.filter(u => {
     const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (u.emailAddress && u.emailAddress.toLowerCase().includes(searchQuery.toLowerCase()));
+                          (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesLoc = filterLocation === 'ALL' || u.locationIds?.includes(parseInt(filterLocation));
     const matchesRole = filterRole === 'ALL' || u.systemRoles?.includes(filterRole);
@@ -108,8 +108,8 @@ export default function StaffTab({ appState }: { appState: AppState }) {
         <div className="w-full xl:w-[25%] flex flex-col gap-1.5 border-t xl:border-t-0 xl:border-l border-slate-100 pt-2 xl:pt-0 xl:pl-4">
           <input 
             type="email" 
-            defaultValue={user.emailAddress || ''} 
-            onBlur={(e) => handleUpdateUser(user.id, { emailAddress: e.target.value })}
+            defaultValue={user.email || ''} 
+            onBlur={(e) => handleUpdateUser(user.id, { email: e.target.value })}
             className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-[10px] font-bold text-slate-900 focus:bg-white focus:border-blue-500 outline-none transition-colors"
             placeholder="Email Address"
           />
@@ -407,8 +407,8 @@ export default function StaffTab({ appState }: { appState: AppState }) {
                 <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1">Email Address</label>
                 <input 
                   type="email" 
-                  value={newStaff.emailAddress}
-                  onChange={(e) => setNewStaff({...newStaff, emailAddress: e.target.value})}
+                  value={newStaff.email}
+                  onChange={(e) => setNewStaff({...newStaff, email: e.target.value})}
                   className="w-full border border-slate-300 rounded-xl p-2.5 text-sm font-bold text-slate-900 focus:border-blue-500 outline-none bg-slate-50 focus:bg-white"
                   placeholder="Optional"
                 />

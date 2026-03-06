@@ -8,8 +8,8 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
     currentMonth, setCurrentMonth, currentYear, setCurrentYear, MONTHS, YEARS,
     calLocFilter, setCalLocFilter, locations, calEmpFilter, setCalEmpFilter, users,
     showSetup, handleGenerateSchedule, DAYS_OF_WEEK, activeCalColor, calendarCells,
-    shifts, selectedUserId, getLocationColor, formatTimeSafe, handleClaimShift,
-    isAdmin, isManager, setShifts
+    shifts, selectedUserId, getLocationColor, formatTimeSafe,
+    isAdmin, isManager, setShifts, handleUpdateShiftTime
   } = appState;
 
   // --- ROLE & LOCATION FILTERING LOGIC ---
@@ -85,15 +85,27 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
     refreshShifts();
   };
 
-  const assignCoverage = async (shiftId: number) => {
-    if(!selectedUserId) return alert("Select an employee at the top of the screen first!");
-    if(!confirm("Are you sure you want to assign this shift to the currently selected employee?")) return;
-    await fetch('/api/shifts', { 
-      method: 'POST', 
-      headers: {'Content-Type': 'application/json'}, 
-      body: JSON.stringify({ shiftId: shiftId, userId: parseInt(selectedUserId), action: 'CLAIM' }) 
-    });
-    refreshShifts();
+  // --- DRAG AND DROP HANDLER ---
+  const handleDrop = (e: React.DragEvent, dayNum: number) => {
+    e.preventDefault();
+    const shiftId = Number(e.dataTransfer.getData('shiftId'));
+    if (!shiftId) return;
+
+    const targetShift = shifts.find(s => s.id === shiftId);
+    if (!targetShift) return;
+
+    const originalStart = new Date(targetShift.startTime);
+    const originalEnd = new Date(targetShift.endTime);
+    const durationMs = originalEnd.getTime() - originalStart.getTime();
+
+    // Reconstruct exact time on the new dropped day
+    const newStart = new Date(currentYear, currentMonth, dayNum);
+    newStart.setHours(originalStart.getHours(), originalStart.getMinutes(), 0, 0);
+
+    const newEnd = new Date(newStart.getTime() + durationMs);
+
+    // Call the global update function
+    handleUpdateShiftTime(shiftId, newStart.toISOString(), newEnd.toISOString(), targetShift.userId || null);
   };
 
   return (
@@ -130,7 +142,7 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
         </div>
 
         {/* Global Filters & Generation */}
-        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full xl:w-auto">
+        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full xl:w-auto items-center">
           <select value={calLocFilter} onChange={(e) => setCalLocFilter(e.target.value)} className="w-full sm:w-auto border border-blue-400 rounded-lg p-2.5 font-bold text-slate-900 bg-blue-50 shadow-sm outline-none cursor-pointer">
             <option value="">All Available Locations</option>
             {visibleLocations.map(loc => (
@@ -142,6 +154,12 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
             <option value="OPEN">Open (Unassigned)</option>
             {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
+
+          {(isAdmin || isManager) && (
+            <span className="text-xs text-slate-500 font-bold hidden 2xl:block ml-2">
+              💡 Drag & drop shifts to move dates
+            </span>
+          )}
         </div>
 
         {showSetup && (
@@ -187,7 +205,12 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
               const isToday = dayNum && dayNum === rightNow.getDate() && currentMonth === rightNow.getMonth() && currentYear === rightNow.getFullYear();
 
               return (
-                <div key={index} className={`bg-white min-h-32 border-r border-b border-gray-300 p-2 flex flex-col relative ${isToday ? 'ring-4 ring-inset ring-yellow-400 bg-yellow-50 z-10' : ''}`}>
+                <div 
+                  key={index} 
+                  className={`bg-white min-h-32 border-r border-b border-gray-300 p-2 flex flex-col relative transition-colors ${isToday ? 'ring-4 ring-inset ring-yellow-400 bg-yellow-50 z-10' : ''} ${(isAdmin || isManager) && dayNum ? 'hover:bg-slate-50' : ''}`}
+                  onDragOver={(e) => { if (dayNum && (isAdmin || isManager)) e.preventDefault(); }}
+                  onDrop={(e) => { if (dayNum && (isAdmin || isManager)) handleDrop(e, dayNum); }}
+                >
                   {dayNum && (
                     <>
                       <div className={`text-right font-black mb-2 flex justify-between items-center ${isToday ? 'text-slate-900 text-base' : 'text-gray-400 text-sm'}`}>
@@ -210,54 +233,77 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
                           }
 
                           return (
-                            <div key={shift.id} className={`p-2 rounded text-xs border-l-4 shadow-md mb-2 ${finalBg} ${finalBorder}`}>
-                              <div className="font-bold text-slate-900 whitespace-nowrap overflow-hidden text-ellipsis mb-1">
+                            <div 
+                              key={shift.id} 
+                              draggable={isAdmin || isManager}
+                              onDragStart={(e) => {
+                                if (isAdmin || isManager) {
+                                  e.dataTransfer.setData('shiftId', shift.id.toString());
+                                }
+                              }}
+                              className={`p-2 rounded text-xs border-l-4 shadow-md mb-2 transition-transform ${isAdmin || isManager ? 'cursor-grab active:cursor-grabbing hover:-translate-y-0.5' : ''} ${finalBg} ${finalBorder}`}
+                            >
+                              <div className="font-bold text-slate-900 whitespace-nowrap overflow-hidden text-ellipsis mb-1 pointer-events-none">
                                 {formatTimeSafe(shift.startTime)} - {formatTimeSafe(shift.endTime)}
                               </div>
-                              <div className={`text-xs font-bold mb-1 truncate ${shiftColor.text}`}>
+                              <div className={`text-xs font-bold mb-1 truncate pointer-events-none ${shiftColor.text}`}>
                                 {shift.location?.name}
                               </div>
                               
-                              {shift.status === 'OPEN' ? (
-                                (isAdmin || isManager) ? (
-                                  <button onClick={async () => { 
-                                    if(confirm("Assign this open shift to the currently selected employee?")) {
-                                      await handleClaimShift(shift.id); 
-                                    }
-                                  }} className={`w-full mt-1 text-white font-bold py-1.5 rounded shadow-sm transition ${shiftColor.claim}`}>
-                                    Assign Selected
-                                  </button>
-                                ) : (
-                                  <div className="text-center font-bold text-slate-500 mt-2 text-[10px] uppercase tracking-widest border border-dashed border-slate-300 rounded py-1 bg-slate-50">
-                                    Unassigned
-                                  </div>
-                                )
-                              ) : shift.status === 'COVERAGE_REQUESTED' ? (
-                                <div className="mt-1 flex flex-col gap-1">
-                                  <div className="font-black text-center truncate px-1 py-1.5 rounded shadow-sm border bg-red-600 text-white text-[10px] uppercase tracking-widest animate-pulse">
-                                    🚨 Needs Cover
-                                  </div>
-                                  <div className="text-center text-[10px] font-bold text-red-900 leading-tight mb-1">
-                                    {isMyShift ? 'Your Shift' : shift.assignedTo?.name}
-                                  </div>
-                                  {isMyShift ? (
-                                    <button onClick={() => handleCancelCover(shift.id)} className="w-full text-[10px] uppercase tracking-widest bg-gray-200 hover:bg-gray-300 text-gray-800 font-black py-1.5 rounded shadow-sm transition border border-gray-400">Cancel Request</button>
-                                  ) : (isAdmin || isManager) ? (
-                                    <button onClick={() => assignCoverage(shift.id)} className="w-full text-[10px] uppercase tracking-widest bg-red-700 hover:bg-red-800 text-white font-black py-1.5 rounded shadow-md transition">Assign Selected</button>
-                                  ) : null}
-                                </div>
-                              ) : (
-                                <div className="mt-1 flex flex-col gap-1">
-                                  <div className={`font-bold text-center truncate px-1 py-1 rounded shadow-sm border ${isMyShift ? 'bg-green-100 text-green-900 border-green-500' : shiftColor.badge}`}>
-                                    {isMyShift ? 'Your Shift' : (shift.assignedTo?.name || 'Assigned')}
-                                  </div>
-                                  {isMyShift && (
-                                    <button onClick={() => handleRequestCover(shift.id)} className="w-full text-xs bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-300 font-bold py-1 rounded shadow-sm transition">
-                                      Need Coverage
-                                    </button>
-                                  )}
+                              {/* COVERAGE REQUEST ALERT */}
+                              {shift.status === 'COVERAGE_REQUESTED' && (
+                                <div className="mt-1 mb-1 font-black text-center truncate px-1 py-1.5 rounded shadow-sm border bg-red-600 text-white text-[10px] uppercase tracking-widest animate-pulse pointer-events-none">
+                                  🚨 Needs Cover
                                 </div>
                               )}
+
+                              <div className="mt-1 flex flex-col gap-1">
+                                
+                                {/* 🔥 NEW: INLINE REASSIGNMENT DROPDOWN 🔥 */}
+                                {isAdmin || isManager ? (
+                                  <select
+                                    value={shift.userId || ""}
+                                    onChange={(e) => {
+                                      const newUserId = e.target.value ? parseInt(e.target.value) : null;
+                                      handleUpdateShiftTime(shift.id, shift.startTime, shift.endTime, newUserId);
+                                    }}
+                                    onClick={(e) => e.stopPropagation()} 
+                                    onMouseDown={(e) => e.stopPropagation()} 
+                                    className={`w-full font-bold text-center truncate px-1 py-1.5 rounded shadow-sm border outline-none cursor-pointer text-xs transition-colors ${
+                                      shift.userId === null ? 'bg-green-100 text-green-900 border-green-500 hover:bg-green-200' : `${shiftColor.badge} hover:brightness-95`
+                                    }`}
+                                  >
+                                    <option value="">-- Open Shift --</option>
+                                    {users.map(u => (
+                                      <option key={u.id} value={u.id}>{u.name}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  /* Standard Employee View */
+                                  shift.status === 'OPEN' ? (
+                                    <div className="text-center font-bold text-slate-500 mt-1 text-[10px] uppercase tracking-widest border border-dashed border-slate-300 rounded py-1 bg-slate-50">
+                                      Unassigned
+                                    </div>
+                                  ) : (
+                                    <div className={`font-bold text-center truncate px-1 py-1 rounded shadow-sm border pointer-events-none ${isMyShift ? 'bg-green-100 text-green-900 border-green-500' : shiftColor.badge}`}>
+                                      {isMyShift ? 'Your Shift' : (shift.assignedTo?.name || 'Assigned')}
+                                    </div>
+                                  )
+                                )}
+
+                                {/* Employee Actions */}
+                                {isMyShift && shift.status !== 'COVERAGE_REQUESTED' && (
+                                  <button onClick={() => handleRequestCover(shift.id)} className="w-full text-xs bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-300 font-bold py-1 rounded shadow-sm transition">
+                                    Need Coverage
+                                  </button>
+                                )}
+                                
+                                {isMyShift && shift.status === 'COVERAGE_REQUESTED' && (
+                                  <button onClick={() => handleCancelCover(shift.id)} className="w-full text-[10px] uppercase tracking-widest bg-gray-200 hover:bg-gray-300 text-gray-800 font-black py-1.5 rounded shadow-sm transition border border-gray-400">
+                                    Cancel Request
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           );
                         })}

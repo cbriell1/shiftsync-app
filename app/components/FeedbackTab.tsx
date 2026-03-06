@@ -4,16 +4,16 @@ import React, { useState } from 'react';
 import { AppState, Feedback, User } from '../lib/types';
 
 export default function FeedbackTab({ appState }: { appState: AppState }) {
-  const { feedbacks, fetchFeedbacks, users, handleSubmitFeedback, selectedUserId } = appState;
+  const { feedbacks, fetchFeedbacks, users, handleSubmitFeedback, selectedUserId, isManager, highlightBaseline } = appState;
 
   // State for handling inline editing (Manager Side)
-  const[editingId, setEditingId] = useState<number | null>(null);
-  const [editStatus, setEditStatus] = useState<Feedback['status']>('OPEN');
-  const [editNotes, setEditNotes] = useState<string>('');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const[editStatus, setEditStatus] = useState<Feedback['status']>('OPEN');
+  const[editNotes, setEditNotes] = useState<string>('');
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
   // State for handling NEW feedback creation (Staff Side)
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const[isCreateOpen, setIsCreateOpen] = useState(false);
   const [newType, setNewType] = useState<'BUG' | 'SUGGESTION'>('BUG');
   const [newDesc, setNewDesc] = useState('');
   const[isSubmitting, setIsSubmitting] = useState(false);
@@ -83,7 +83,7 @@ export default function FeedbackTab({ appState }: { appState: AppState }) {
     }
   };
 
-  const statusGroups: Feedback['status'][] = ['OPEN', 'IN PROGRESS', 'COMPLETED'];
+  const statusGroups: Feedback['status'][] =['OPEN', 'IN PROGRESS', 'COMPLETED'];
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
@@ -138,9 +138,21 @@ export default function FeedbackTab({ appState }: { appState: AppState }) {
                 const user = users.find((u: User) => u.id === fb.userId);
                 const createdDate = new Date(fb.createdAt).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
 
+                // Notification Highlighting Logic
+                const isUnread = new Date(fb.updatedAt || fb.createdAt).getTime() > new Date(highlightBaseline).getTime();
+                const shouldHighlight = isUnread && (isManager || fb.userId === parseInt(selectedUserId));
+
                 return (
-                  <div key={fb.id} className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm hover:shadow transition-shadow flex flex-col gap-2 group">
+                  <div key={fb.id} className={`bg-white border rounded-lg p-2.5 shadow-sm hover:shadow transition-all flex flex-col gap-2 group relative ${
+                    shouldHighlight ? 'border-purple-400 ring-1 ring-purple-400 bg-purple-50/40' : 'border-slate-200'
+                  }`}>
                     
+                    {shouldHighlight && (
+                      <span className="absolute -top-2.5 -right-2 bg-purple-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-md animate-pulse z-10 uppercase tracking-widest">
+                        Updated
+                      </span>
+                    )}
+
                     {/* Top Row: Type & Meta */}
                     <div className="flex justify-between items-start">
                       <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase tracking-wider ${

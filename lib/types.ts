@@ -4,6 +4,9 @@ export type Role = 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
 export interface Location {
   id: number;
   name: string;
+  address?: string | null;
+  email?: string | null;
+  phoneNumber?: string | null;
 }
 
 export interface User {
@@ -17,7 +20,9 @@ export interface User {
   location?: Location;
   courtReserveId?: string | null;
   phoneNumber?: string | null;
-  emailAddress?: string | null;
+  email?: string | null;
+  emailVerified?: Date | string | null;
+  image?: string | null;
 }
 
 export interface Shift {
@@ -118,6 +123,7 @@ export interface Feedback {
   status: 'OPEN' | 'IN PROGRESS' | 'COMPLETED';
   devNotes?: string | null;
   createdAt: string;
+  updatedAt?: string; 
 }
 
 export interface AppState {
@@ -142,8 +148,11 @@ export interface AppState {
   setCalLocFilter: (id: string) => void;
   calEmpFilter: string;
   setCalEmpFilter: (id: string) => void;
+  
   editingCardId: number | null;
   setEditingCardId: (id: number | null) => void;
+  formUserId: string;
+  setFormUserId: (id: string) => void;
   formDate: string;
   setFormDate: (d: string) => void;
   formStartTime: string;
@@ -152,6 +161,7 @@ export interface AppState {
   setFormEndTime: (t: string) => void;
   selectedLocation: string;
   setSelectedLocation: (id: string) => void;
+  
   passSearch: string;
   setPassSearch: (s: string) => void;
   expandedMember: number | null;
@@ -204,6 +214,7 @@ export interface AppState {
   showTimesheets: boolean;
   showSetup: boolean;
   showStaff: boolean;
+  showLocations: boolean;
   showPasses: boolean;
   showBuilder: boolean;
   isManager: boolean;
@@ -244,6 +255,8 @@ export interface AppState {
   handleDeleteMasterTask: (id: number) => Promise<void>;
   handleUpdateCardStatus: (ids: number[], status: string) => Promise<void>;
   handleUpdateShiftTime: (shiftId: number, startTime: string, endTime: string, userId: number | null) => Promise<void>;
+  handleCreateLocation: (payload: any) => Promise<{ success: boolean }>;
+  handleUpdateLocation: (id: number, payload: any) => Promise<{ success: boolean }>;
   
   periods: { label: string; start: string; end: string }[];
   showChecklistModal: boolean;
@@ -284,6 +297,7 @@ export interface AppState {
   handleSubmitFeedback: (payload: any) => Promise<{ success: boolean }>;
   handleUpdateFeedback: (id: number, payload: any) => Promise<{ success: boolean }>;
   isFeedbacksLoading: boolean;
+  highlightBaseline: string;
   calendarCells: (number | null)[];
   activeCalColor: any;
   activeManPeriods: { label: string; start: string; end: string }[];
@@ -297,4 +311,5 @@ export interface AppState {
   pendingCards: TimeCard[];
   builderWeekStart: string;
   setBuilderWeekStart: (d: string) => void;
+  unreadFeedbackCount: number;
 }
