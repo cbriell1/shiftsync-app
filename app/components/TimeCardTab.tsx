@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppState, TimeCard, User, Location, ShiftTemplate, Checklist } from '../lib/types';
 
 // --- SUB-COMPONENT: Individual Time Card Row ---
@@ -49,7 +49,10 @@ const TimeCardRow = ({
   const [notes, setNotes] = useState(activeReport ? activeReport.notes || '' : '');
   const [reportId, setReportId] = useState<number | null>(activeReport?.id || null);
   const [isSaving, setIsSaving] = useState(false);
-  const[savedOnce, setSavedOnce] = useState(!!activeReport);
+  const [savedOnce, setSavedOnce] = useState(!!activeReport);
+
+  // Lock to prevent background sync from overwriting active user clicks
+  const lastLocalUpdate = useRef<number>(0);
 
   // REAL-TIME SYNC: Update local computer screen if the mobile phone changes the database
   useEffect(() => {
@@ -57,16 +60,15 @@ const TimeCardRow = ({
       if (!reportId) setReportId(globalReport.id);
       if (!savedOnce) setSavedOnce(true);
 
-      // Extract raw data from DB to compare
+      // If the user interacted with this checklist in the last 3 seconds, ignore background sync to avoid fighting the user
+      if (Date.now() - lastLocalUpdate.current < 3000) return;
+
       const dbTasks = globalReport.completedTasks ||[];
       const dbNotes = globalReport.notes || '';
 
-      // Sync tasks if the DB has different ones (e.g. updated from mobile)
       if (JSON.stringify(dbTasks) !== JSON.stringify(completedTasks)) {
         setCompletedTasks(dbTasks);
       }
-
-      // Sync notes if they were updated externally
       if (dbNotes !== notes) {
         setNotes(dbNotes);
       }
@@ -81,8 +83,7 @@ const TimeCardRow = ({
     setIsSaving(true);
     const missed = assignedTasks.filter(t => !tasksToSave.includes(t));
     
-    // CRITICAL FIX: We MUST pass userId and locationId every single time, 
-    // even on updates, otherwise the API's security validation rejects it!
+    // Always attach the core identifiers for security validation
     const payload: any = { 
       notes: notesToSave, 
       completedTasks: tasksToSave, 
@@ -101,35 +102,33 @@ const TimeCardRow = ({
           body: JSON.stringify(payload) 
         });
         
-        if (!res.ok) {
-          console.error("Failed to update report:", await res.json());
-        }
+        if (!res.ok) console.error("Failed to update report:", await res.json());
       } else {
         const res = await fetch('/api/checklists', { 
           method: 'POST', 
           headers: {'Content-Type': 'application/json'}, 
           body: JSON.stringify(payload) 
         });
-        const data = await res.json();
-        if (data && data.id) {
-          setReportId(data.id);
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.id) setReportId(data.id);
         }
       }
 
       setSavedOnce(true);
-      
-      // Notify the rest of the app to fetch the latest checklist data
       if (fetchChecklists) fetchChecklists();
-
-      setTimeout(() => setIsSaving(false), 500); 
     } catch (err) {
       console.error("Network error saving report:", err);
+    } finally {
       setIsSaving(false);
     }
   };
 
   const toggleTask = (task: string) => {
     if (!isActive) return;
+    lastLocalUpdate.current = Date.now(); // Lock background sync
+    
     const updatedTasks = completedTasks.includes(task) 
       ? completedTasks.filter(t => t !== task) 
       : [...completedTasks, task];
@@ -294,7 +293,10 @@ const TimeCardRow = ({
               </h4>
               <textarea 
                 value={notes} 
-                onChange={(e) => setNotes(e.target.value)} 
+                onChange={(e) => {
+                  lastLocalUpdate.current = Date.now();
+                  setNotes(e.target.value);
+                }} 
                 onBlur={handleNotesBlur} 
                 readOnly={!isActive}
                 placeholder={isActive ? "Report any issues, missing supplies, or pass-downs for the manager here..." : "No notes saved."}
@@ -311,7 +313,7 @@ const TimeCardRow = ({
                 className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-xl shadow-md transition flex justify-center items-center gap-2"
               >
                 {isSaving ? (
-                  <span className="animate-pulse">Auto-Saving...</span>
+                  <span className="animate-pulse">Saving...</span>
                 ) : (
                   <>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

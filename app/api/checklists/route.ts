@@ -4,9 +4,9 @@ import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-// Schema for creating/updating checklists
+// Schema for creating/updating checklists (Using coerce to be 100% safe)
 const checklistSchema = z.object({
-  id: z.number().optional(),
+  id: z.coerce.number().optional(), 
   userId: z.coerce.number(),
   locationId: z.coerce.number(),
   timeCardId: z.coerce.number().nullable().optional(),
