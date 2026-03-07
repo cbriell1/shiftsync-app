@@ -1,4 +1,3 @@
-// filepath: app/components/FeedbackTab.tsx
 "use client";
 import React, { useState } from 'react';
 import { AppState, Feedback, User } from '../lib/types';
@@ -8,15 +7,15 @@ export default function FeedbackTab({ appState }: { appState: AppState }) {
 
   // State for handling inline editing (Manager Side)
   const [editingId, setEditingId] = useState<number | null>(null);
-  const[editStatus, setEditStatus] = useState<Feedback['status']>('OPEN');
-  const[editNotes, setEditNotes] = useState<string>('');
-  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [editStatus, setEditStatus] = useState<Feedback['status']>('OPEN');
+  const [editNotes, setEditNotes] = useState<string>('');
+  const[isSaving, setIsSaving] = useState<boolean>(false);
 
   // State for handling NEW feedback creation (Staff Side)
-  const[isCreateOpen, setIsCreateOpen] = useState(false);
-  const [newType, setNewType] = useState<'BUG' | 'SUGGESTION'>('BUG');
-  const [newDesc, setNewDesc] = useState('');
-  const[isSubmitting, setIsSubmitting] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const[newType, setNewType] = useState<'BUG' | 'SUGGESTION'>('BUG');
+  const[newDesc, setNewDesc] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- SUBMIT NEW FEEDBACK ---
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -83,7 +82,7 @@ export default function FeedbackTab({ appState }: { appState: AppState }) {
     }
   };
 
-  const statusGroups: Feedback['status'][] =['OPEN', 'IN PROGRESS', 'COMPLETED'];
+  const statusGroups: Feedback['status'][] = ['OPEN', 'IN PROGRESS', 'COMPLETED'];
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
@@ -209,7 +208,7 @@ export default function FeedbackTab({ appState }: { appState: AppState }) {
                     ) : (
                       <button 
                         onClick={() => startEditing(fb)}
-                        className="text-[9px] font-black text-slate-300 hover:text-slate-600 text-left mt-1 w-max transition-colors opacity-0 group-hover:opacity-100"
+                        className="text-[10px] font-black text-slate-500 hover:text-slate-800 text-left mt-1 w-max transition-colors opacity-0 group-hover:opacity-100"
                       >
                         Manage Ticket
                       </button>

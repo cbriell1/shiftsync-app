@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { sendNewFeedbackEmail } from '@/lib/email';
 
 const feedbackSchema = z.object({
   userId: z.coerce.number(),
@@ -32,6 +33,13 @@ export async function POST(request: Request) {
         status: 'OPEN',
       },
     });
+
+    // Get the user info to include their name in the email
+    const user = await prisma.user.findUnique({ where: { id: data.userId } });
+    
+    // Trigger the email asynchronously (so it doesn't slow down the UI loading screen)
+    sendNewFeedbackEmail(newFeedback, user).catch(console.error);
+
     return NextResponse.json(newFeedback, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });

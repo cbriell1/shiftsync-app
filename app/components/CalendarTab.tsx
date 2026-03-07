@@ -1,4 +1,3 @@
-// filepath: app/components/CalendarTab.tsx
 "use client";
 import React from 'react';
 import { AppState, Shift, Location, User } from '../lib/types';
@@ -9,7 +8,7 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
     calLocFilter, setCalLocFilter, locations, calEmpFilter, setCalEmpFilter, users,
     showSetup, handleGenerateSchedule, DAYS_OF_WEEK, activeCalColor, calendarCells,
     shifts, selectedUserId, getLocationColor, formatTimeSafe,
-    isAdmin, isManager, setShifts, handleUpdateShiftTime
+    isAdmin, isManager, setShifts, handleUpdateShiftTime, handleClaimShift
   } = appState;
 
   // --- ROLE & LOCATION FILTERING LOGIC ---
@@ -259,7 +258,7 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
 
                               <div className="mt-1 flex flex-col gap-1">
                                 
-                                {/* 🔥 NEW: INLINE REASSIGNMENT DROPDOWN 🔥 */}
+                                {/* 🔥 INLINE REASSIGNMENT DROPDOWN 🔥 */}
                                 {isAdmin || isManager ? (
                                   <select
                                     value={shift.userId || ""}
@@ -303,6 +302,26 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
                                     Cancel Request
                                   </button>
                                 )}
+
+                                {/* Allow other employees to pick up Open or Coverage Requested shifts */}
+                                {!isMyShift && shift.status === 'COVERAGE_REQUESTED' && (
+                                  <button 
+                                    onClick={() => { if(confirm("Are you sure you want to PICK UP this shift? It will be assigned to you immediately.")) handleClaimShift(shift.id); }} 
+                                    className="w-full text-[10px] uppercase tracking-widest bg-green-600 hover:bg-green-700 text-white font-black py-1.5 rounded shadow-sm transition border border-green-700 mt-1"
+                                  >
+                                    Pick Up Shift
+                                  </button>
+                                )}
+
+                                {!isMyShift && shift.status === 'OPEN' && (!isAdmin && !isManager) && (
+                                  <button 
+                                    onClick={() => { if(confirm("Are you sure you want to CLAIM this open shift?")) handleClaimShift(shift.id); }} 
+                                    className="w-full text-[10px] uppercase tracking-widest bg-blue-600 hover:bg-blue-700 text-white font-black py-1.5 rounded shadow-sm transition border border-blue-700 mt-1"
+                                  >
+                                    Claim Shift
+                                  </button>
+                                )}
+
                               </div>
                             </div>
                           );

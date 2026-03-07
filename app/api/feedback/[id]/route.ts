@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { sendFeedbackUpdateEmail } from '@/lib/email';
 
 const updateFeedbackSchema = z.object({
   status: z.enum(['OPEN', 'IN PROGRESS', 'COMPLETED']),
@@ -17,6 +18,10 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
       where: { id: parseInt(id) },
       data: { status: data.status, devNotes: data.devNotes },
     });
+
+    // Trigger the email asynchronously
+    sendFeedbackUpdateEmail(updated).catch(console.error);
+
     return NextResponse.json(updated);
   } catch (error: any) {
     return NextResponse.json({ error: 'Update failed' }, { status: 500 });
