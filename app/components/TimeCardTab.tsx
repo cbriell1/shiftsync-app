@@ -54,36 +54,40 @@ const TimeCardRow = ({
   // Lock to prevent background sync from overwriting active user clicks
   const lastLocalUpdate = useRef<number>(0);
 
-  // REAL-TIME SYNC: Update local computer screen if the mobile phone changes the database
+  // REAL-TIME SYNC: Safely pull from DB without overwriting current clicks
   useEffect(() => {
-    if (globalReport) {
-      if (!reportId) setReportId(globalReport.id);
+    const sourceReport = globalReport || activeReport;
+    if (sourceReport) {
+      if (!reportId) setReportId(sourceReport.id);
       if (!savedOnce) setSavedOnce(true);
 
-      // If the user interacted with this checklist in the last 3 seconds, ignore background sync to avoid fighting the user
-      if (Date.now() - lastLocalUpdate.current < 3000) return;
+      // If the user clicked a box in the last 10 seconds, pause background sync for this card
+      if (Date.now() - lastLocalUpdate.current < 10000) return;
 
-      const dbTasks = globalReport.completedTasks ||[];
-      const dbNotes = globalReport.notes || '';
+      const dbTasks = sourceReport.completedTasks ||[];
+      const dbNotes = sourceReport.notes || '';
 
-      if (JSON.stringify(dbTasks) !== JSON.stringify(completedTasks)) {
-        setCompletedTasks(dbTasks);
-      }
-      if (dbNotes !== notes) {
-        setNotes(dbNotes);
-      }
+      // Use functional state updates to prevent stale closures
+      setCompletedTasks(prev => {
+        if (JSON.stringify(prev) !== JSON.stringify(dbTasks)) return dbTasks;
+        return prev;
+      });
+
+      setNotes(prev => {
+        if (prev !== dbNotes) return dbNotes;
+        return prev;
+      });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [globalReport]);
+  }, [globalReport, activeReport]);
 
   const progressPct = assignedTasks.length > 0 ? Math.round((completedTasks.length / assignedTasks.length) * 100) : (completedTasks.length > 0 ? 100 : 0);
 
   // Core Save Logic
-  const saveInlineReport = async (tasksToSave = completedTasks, notesToSave = notes) => {
+  const saveInlineReport = async (tasksToSave: string[], notesToSave: string) => {
     setIsSaving(true);
     const missed = assignedTasks.filter(t => !tasksToSave.includes(t));
     
-    // Always attach the core identifiers for security validation
     const payload: any = { 
       notes: notesToSave, 
       completedTasks: tasksToSave, 
@@ -101,44 +105,52 @@ const TimeCardRow = ({
           headers: {'Content-Type': 'application/json'}, 
           body: JSON.stringify(payload) 
         });
-        
-        if (!res.ok) console.error("Failed to update report:", await res.json());
+        if (!res.ok) {
+          const err = await res.json();
+          alert("Error saving checklist: " + JSON.stringify(err));
+        }
       } else {
         const res = await fetch('/api/checklists', { 
           method: 'POST', 
           headers: {'Content-Type': 'application/json'}, 
           body: JSON.stringify(payload) 
         });
-        
         if (res.ok) {
           const data = await res.json();
           if (data && data.id) setReportId(data.id);
+        } else {
+          const err = await res.json();
+          alert("Error creating checklist: " + JSON.stringify(err));
         }
       }
 
       setSavedOnce(true);
       if (fetchChecklists) fetchChecklists();
-    } catch (err) {
-      console.error("Network error saving report:", err);
+    } catch (err: any) {
+      alert("Network Error: Could not reach the server to save the checklist.");
+      console.error(err);
     } finally {
-      setIsSaving(false);
+      setTimeout(() => setIsSaving(false), 500); 
     }
   };
 
   const toggleTask = (task: string) => {
-    if (!isActive) return;
     lastLocalUpdate.current = Date.now(); // Lock background sync
     
-    const updatedTasks = completedTasks.includes(task) 
-      ? completedTasks.filter(t => t !== task) 
-      : [...completedTasks, task];
-      
-    setCompletedTasks(updatedTasks);
-    saveInlineReport(updatedTasks, notes); // Auto-save instantly on click!
+    // Use the callback version of setState so we NEVER read stale data
+    setCompletedTasks(prev => {
+      const updatedTasks = prev.includes(task) 
+        ? prev.filter(t => t !== task) 
+        : [...prev, task];
+        
+      // Fire the save function instantly with the guaranteed accurate array
+      saveInlineReport(updatedTasks, notes);
+      return updatedTasks;
+    });
   };
 
   const handleNotesBlur = () => {
-    if (isActive) saveInlineReport(completedTasks, notes);
+    saveInlineReport(completedTasks, notes);
   };
 
   return (
@@ -253,13 +265,12 @@ const TimeCardRow = ({
                   {assignedTasks.map((task: string, idx: number) => {
                     const isDone = completedTasks.includes(task);
                     return (
-                      <label key={idx} className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all duration-200 ${!isActive ? 'cursor-default' : 'cursor-pointer'} ${isDone ? 'bg-green-50 border-green-300' : 'bg-white border-slate-300 hover:border-blue-400 shadow-sm'}`}>
+                      <label key={idx} className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer ${isDone ? 'bg-green-50 border-green-300' : 'bg-white border-slate-300 hover:border-blue-400 shadow-sm'}`}>
                         <input 
                           type="checkbox" 
                           checked={isDone} 
                           onChange={() => toggleTask(task)} 
-                          disabled={!isActive}
-                          className="mt-0.5 w-5 h-5 rounded border-slate-400 text-green-700 focus:ring-green-600 disabled:opacity-60 cursor-pointer" 
+                          className="mt-0.5 w-5 h-5 rounded border-slate-400 text-green-700 focus:ring-green-600 cursor-pointer" 
                         />
                         <span className={`text-sm font-bold leading-snug transition-all ${isDone ? 'text-green-900 line-through opacity-70' : 'text-slate-900'}`}>
                           {task}
@@ -298,32 +309,29 @@ const TimeCardRow = ({
                   setNotes(e.target.value);
                 }} 
                 onBlur={handleNotesBlur} 
-                readOnly={!isActive}
-                placeholder={isActive ? "Report any issues, missing supplies, or pass-downs for the manager here..." : "No notes saved."}
-                className={`w-full border-2 rounded-xl p-4 text-sm font-bold outline-none resize-none transition-colors ${isActive ? 'border-slate-300 bg-white text-slate-900 focus:border-blue-500 shadow-sm' : 'border-slate-200 bg-slate-100 text-slate-800'}`}
+                placeholder="Report any issues, missing supplies, or pass-downs for the manager here..."
+                className="w-full border-2 border-slate-300 rounded-xl p-4 text-sm font-bold bg-white text-slate-900 focus:border-blue-500 shadow-sm outline-none resize-none transition-colors"
                 rows={3}
               ></textarea>
             </div>
 
             {/* Manual Save Button */}
-            {isActive && (
-              <button 
-                onClick={() => saveInlineReport(completedTasks, notes)} 
-                disabled={isSaving}
-                className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-xl shadow-md transition flex justify-center items-center gap-2"
-              >
-                {isSaving ? (
-                  <span className="animate-pulse">Saving...</span>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    {savedOnce ? 'Shift Report Saved' : 'Save Shift Report'}
-                  </>
-                )}
-              </button>
-            )}
+            <button 
+              onClick={() => saveInlineReport(completedTasks, notes)} 
+              disabled={isSaving}
+              className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-xl shadow-md transition flex justify-center items-center gap-2"
+            >
+              {isSaving ? (
+                <span className="animate-pulse">Saving...</span>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  {savedOnce ? 'Shift Report Saved' : 'Save Shift Report'}
+                </>
+              )}
+            </button>
 
           </div>
         )}

@@ -4,13 +4,14 @@ import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-// Schema for creating/updating checklists (Using coerce to be 100% safe)
+// Ultra-forgiving schema
 const checklistSchema = z.object({
   id: z.coerce.number().optional(), 
   userId: z.coerce.number(),
   locationId: z.coerce.number(),
   timeCardId: z.coerce.number().nullable().optional(),
-  notes: z.string().default(''),
+  // Transforms any null/undefined notes safely into a string
+  notes: z.any().transform(v => v ? String(v) : ''),
   completedTasks: z.array(z.string()).default([]),
   missedTasks: z.array(z.string()).default([]),
 });
@@ -64,10 +65,8 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(newChecklist);
   } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Checklist POST Error:", error);
+    return NextResponse.json({ error: "Failed to save checklist" }, { status: 500 });
   }
 }
 
@@ -88,9 +87,7 @@ export async function PUT(request: Request) {
     });
     return NextResponse.json(updatedChecklist);
   } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Checklist PUT Error:", error);
+    return NextResponse.json({ error: "Failed to update checklist" }, { status: 500 });
   }
 }
