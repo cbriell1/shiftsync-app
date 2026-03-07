@@ -11,25 +11,28 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
 
   const [subTab, setSubTab] = useState<'ANNOUNCEMENTS' | 'CHAT'>('ANNOUNCEMENTS');
 
+  // --- MOBILE RESPONSIVE STATE ---
+  const[showMobileThreadList, setShowMobileThreadList] = useState(true);
+
   // --- ANNOUNCEMENT STATE ---
   const [showAnnounceForm, setShowAnnounceForm] = useState(false);
   const [aTitle, setATitle] = useState('');
-  const[aContent, setAContent] = useState('');
+  const [aContent, setAContent] = useState('');
   const [aTargetType, setATargetType] = useState<'ALL' | 'LOCATIONS'>('ALL');
-  const [aSelectedLocs, setASelectedLocs] = useState<number[]>([]);
+  const[aSelectedLocs, setASelectedLocs] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- CHAT STATE ---
   const [chatInput, setChatInput] = useState('');
-  const [activeThreadId, setActiveThreadId] = useState<string>('global');
+  const[activeThreadId, setActiveThreadId] = useState<string>('global');
   const [showNewChatSelector, setShowNewChatSelector] = useState(false);
-  const[cTargetType, setCTargetType] = useState<'USERS' | 'LOCATIONS'>('USERS');
-  const[cSelectedUsers, setCSelectedUsers] = useState<number[]>([]);
-  const[cSelectedLocs, setCSelectedLocs] = useState<number[]>([]);
+  const [cTargetType, setCTargetType] = useState<'USERS' | 'LOCATIONS'>('USERS');
+  const [cSelectedUsers, setCSelectedUsers] = useState<number[]>([]);
+  const [cSelectedLocs, setCSelectedLocs] = useState<number[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // --- UNREAD TRACKING STATE ---
-  const [readStates, setReadStates] = useState<Record<string, string>>({});
+  const[readStates, setReadStates] = useState<Record<string, string>>({});
 
   // 1. Load the user's thread read states from local storage on mount
   useEffect(() => {
@@ -129,10 +132,10 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
 
   // Auto-scroll chat to bottom
   useEffect(() => {
-    if (subTab === 'CHAT') {
+    if (subTab === 'CHAT' && !showMobileThreadList) {
       chatEndRef.current?.scrollIntoView({ behavior: 'auto' });
     }
-  },[subTab, activeMessages.length, activeThreadId]);
+  }, [subTab, activeMessages.length, activeThreadId, showMobileThreadList]);
 
   // --- ACTIONS ---
   const onPostAnnouncement = async (e: React.FormEvent) => {
@@ -158,7 +161,7 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
 
     if (activeThreadId === 'NEW') {
       const isGlobal = false; // "NEW" is strictly for direct/group/location targeting
-      const tUsers = cTargetType === 'USERS' ? cSelectedUsers :[];
+      const tUsers = cTargetType === 'USERS' ? cSelectedUsers : [];
       const tLocs = cTargetType === 'LOCATIONS' ? cSelectedLocs :[];
 
       if (tUsers.length === 0 && tLocs.length === 0) {
@@ -206,24 +209,25 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
     setShowNewChatSelector(true);
     setCSelectedUsers([]);
     setCSelectedLocs([]);
+    setShowMobileThreadList(false); // Move to chat view on mobile
   };
 
   return (
-    <div className="bg-white p-4 md:p-6 rounded-2xl border border-gray-300 shadow-md h-[80vh] flex flex-col animate-in fade-in duration-300">
+    <div className="bg-white p-2 md:p-6 rounded-2xl border border-gray-300 shadow-md h-[85vh] md:h-[80vh] flex flex-col animate-in fade-in duration-300">
       
       {/* --- Top Sub-Tabs --- */}
-      <div className="flex border-b border-gray-200 mb-4 gap-2">
+      <div className="flex border-b border-gray-200 mb-4 gap-1 md:gap-2 px-2 md:px-0 pt-2 md:pt-0 overflow-x-auto">
         <button
           onClick={() => setSubTab('ANNOUNCEMENTS')}
-          className={`py-2 px-6 font-black text-sm outline-none transition-colors border-b-2 ${
+          className={`py-2 px-4 md:px-6 font-black text-xs md:text-sm outline-none transition-colors border-b-2 whitespace-nowrap ${
             subTab === 'ANNOUNCEMENTS' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
           }`}
         >
           📢 Message Board
         </button>
         <button
-          onClick={() => setSubTab('CHAT')}
-          className={`py-2 px-6 font-black text-sm outline-none transition-colors border-b-2 ${
+          onClick={() => { setSubTab('CHAT'); setShowMobileThreadList(true); }}
+          className={`py-2 px-4 md:px-6 font-black text-xs md:text-sm outline-none transition-colors border-b-2 whitespace-nowrap ${
             subTab === 'CHAT' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
           }`}
         >
@@ -238,11 +242,11 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
           {(isManager || isAdmin) && (
             <div className="mb-4">
               {!showAnnounceForm ? (
-                <button onClick={() => setShowAnnounceForm(true)} className="bg-slate-900 text-white font-black px-5 py-2.5 rounded-xl text-sm shadow-md hover:bg-black transition-colors">
+                <button onClick={() => setShowAnnounceForm(true)} className="w-full md:w-auto bg-slate-900 text-white font-black px-5 py-3 rounded-xl text-sm shadow-md hover:bg-black transition-colors mx-2 md:mx-0">
                   + Post New Announcement
                 </button>
               ) : (
-                <form onSubmit={onPostAnnouncement} className="bg-white p-5 rounded-xl border border-blue-200 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+                <form onSubmit={onPostAnnouncement} className="bg-white p-5 rounded-xl border border-blue-200 shadow-sm animate-in fade-in zoom-in-95 duration-200 m-2 md:m-0">
                   <h3 className="text-sm font-black text-slate-800 mb-3">Create Announcement</h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 border-b border-slate-100 pb-4">
@@ -277,17 +281,17 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
                     <textarea value={aContent} onChange={e => setAContent(e.target.value)} required placeholder="Write your announcement details here..." rows={4} className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 shadow-inner resize-none"></textarea>
                   </div>
                   <div className="flex gap-2">
-                    <button type="submit" disabled={isSubmitting} className="bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-black py-2.5 px-6 rounded-lg text-sm shadow transition-colors">
-                      {isSubmitting ? 'Posting...' : 'Post Announcement'}
+                    <button type="submit" disabled={isSubmitting} className="flex-1 md:flex-none bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-black py-2.5 px-6 rounded-lg text-sm shadow transition-colors">
+                      {isSubmitting ? 'Posting...' : 'Post'}
                     </button>
-                    <button type="button" onClick={() => setShowAnnounceForm(false)} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2.5 px-6 rounded-lg text-sm transition-colors">Cancel</button>
+                    <button type="button" onClick={() => setShowAnnounceForm(false)} className="flex-1 md:flex-none bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2.5 px-6 rounded-lg text-sm transition-colors">Cancel</button>
                   </div>
                 </form>
               )}
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2 pb-6">
+          <div className="flex-1 overflow-y-auto space-y-4 px-2 md:pr-2 pb-6">
             {announcements.length === 0 ? (
               <div className="text-center p-12 bg-white border border-dashed border-slate-300 rounded-2xl text-slate-500 font-bold italic shadow-sm">
                 No announcements posted yet.
@@ -301,16 +305,16 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
                 }
 
                 return (
-                  <div key={a.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow relative">
+                  <div key={a.id} className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-sm hover:shadow-md transition-shadow relative">
                     {(isManager || isAdmin) && (
-                      <button onClick={() => handleDeleteAnnouncement(a.id)} className="absolute top-4 right-4 bg-slate-100 hover:bg-red-100 text-slate-400 hover:text-red-600 w-8 h-8 rounded-full flex items-center justify-center font-black transition-colors" title="Delete">✕</button>
+                      <button onClick={() => handleDeleteAnnouncement(a.id)} className="absolute top-3 right-3 md:top-4 md:right-4 bg-slate-100 hover:bg-red-100 text-slate-400 hover:text-red-600 w-8 h-8 rounded-full flex items-center justify-center font-black transition-colors" title="Delete">✕</button>
                     )}
-                    <h3 className="text-xl font-black text-slate-900 mb-1 pr-10 leading-tight">{a.title}</h3>
-                    <div className="flex items-center gap-2 mb-4">
-                      <p className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 uppercase tracking-widest">
+                    <h3 className="text-lg md:text-xl font-black text-slate-900 mb-1 pr-8 md:pr-10 leading-tight">{a.title}</h3>
+                    <div className="flex flex-wrap items-center gap-2 mb-3 md:mb-4 mt-2">
+                      <p className="text-[9px] md:text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 uppercase tracking-widest">
                         {a.author?.name} • {new Date(a.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                       </p>
-                      <span className="text-[9px] font-black text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded uppercase tracking-widest">
+                      <span className="text-[8px] md:text-[9px] font-black text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded uppercase tracking-widest">
                         {badgeText}
                       </span>
                     </div>
@@ -325,13 +329,17 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
 
       {/* --- STREAMLINED CHAT VIEW (Google Messages Style) --- */}
       {subTab === 'CHAT' && (
-        <div className="flex-1 flex overflow-hidden bg-white rounded-2xl border border-slate-300 shadow-inner">
+        <div className="flex-1 flex overflow-hidden bg-white rounded-2xl border border-slate-300 shadow-inner relative">
           
-          {/* LEFT SIDEBAR: Threads List */}
-          <div className="w-1/3 min-w-[200px] max-w-[300px] border-r border-slate-200 flex flex-col bg-slate-50/50">
-            <div className="p-3 border-b border-slate-200 bg-white flex justify-between items-center z-10 shadow-sm">
-              <h3 className="font-black text-slate-900 text-sm">Messages</h3>
-              <button onClick={startNewChat} className="bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold shadow hover:bg-blue-700 transition" title="New Message">+</button>
+          {/* LEFT SIDEBAR: Threads List (Hides on Mobile when Chat is active) */}
+          <div className={`${showMobileThreadList ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-1/3 md:min-w-[260px] md:max-w-[320px] border-r border-slate-200 bg-slate-50/50 z-20`}>
+            <div className="p-3 border-b border-slate-200 bg-white flex justify-between items-center shadow-sm">
+              <h3 className="font-black text-slate-900 text-sm md:text-base">Inbox</h3>
+              <button onClick={startNewChat} className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-md hover:bg-blue-700 transition" title="New Message">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                  <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+                </svg>
+              </button>
             </div>
             
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -346,8 +354,12 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
                 return (
                   <div 
                     key={t.id} 
-                    onClick={() => { setActiveThreadId(t.id); setShowNewChatSelector(false); }}
-                    className={`p-3 rounded-xl cursor-pointer transition-colors border flex flex-col gap-1 ${
+                    onClick={() => { 
+                      setActiveThreadId(t.id); 
+                      setShowNewChatSelector(false); 
+                      setShowMobileThreadList(false); // Mobile: Slide over to chat view
+                    }}
+                    className={`p-3 md:p-4 rounded-xl cursor-pointer transition-colors border flex flex-col gap-1 ${
                       activeThreadId === t.id 
                         ? 'bg-blue-100 border-blue-300 shadow-sm' 
                         : unreadCount > 0
@@ -356,18 +368,18 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
                     }`}
                   >
                     <div className="flex justify-between items-center">
-                      <div className={`text-xs font-black truncate pr-2 ${activeThreadId === t.id ? 'text-blue-900' : (unreadCount > 0 ? 'text-slate-900' : 'text-slate-800')}`}>
+                      <div className={`text-sm md:text-xs font-black truncate pr-2 ${activeThreadId === t.id ? 'text-blue-900' : (unreadCount > 0 ? 'text-slate-900' : 'text-slate-800')}`}>
                         {t.title}
                       </div>
                       {/* Unread Red Notification Dot */}
                       {unreadCount > 0 && activeThreadId !== t.id && (
-                        <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm animate-pulse">
+                        <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse">
                           {unreadCount}
                         </span>
                       )}
                     </div>
                     {t.messages.length > 0 && (
-                      <div className={`text-[10px] truncate ${activeThreadId === t.id ? 'text-blue-700 font-bold' : (unreadCount > 0 ? 'text-slate-900 font-black' : 'text-slate-500 font-medium')}`}>
+                      <div className={`text-xs md:text-[10px] truncate ${activeThreadId === t.id ? 'text-blue-700 font-bold' : (unreadCount > 0 ? 'text-slate-900 font-black' : 'text-slate-500 font-medium')}`}>
                         {t.messages[t.messages.length - 1].senderId.toString() === selectedUserId ? 'You: ' : ''}
                         {t.messages[t.messages.length - 1].content}
                       </div>
@@ -378,23 +390,34 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
             </div>
           </div>
 
-          {/* RIGHT PANE: Active Chat */}
-          <div className="flex-1 flex flex-col bg-white relative">
+          {/* RIGHT PANE: Active Chat (Hides on Mobile when Inbox is active) */}
+          <div className={`${!showMobileThreadList ? 'flex' : 'hidden'} md:flex flex-col flex-1 bg-white relative`}>
             
             {/* Thread Header */}
-            <div className="p-3 border-b border-slate-200 bg-white/90 backdrop-blur shadow-sm z-10 flex items-center justify-between">
-              {activeThreadId === 'NEW' ? (
-                <div className="font-black text-slate-900 text-sm">Start New Conversation</div>
-              ) : (
-                <div className="font-black text-slate-900 text-sm">{activeThread?.title}</div>
-              )}
+            <div className="p-3 md:p-4 border-b border-slate-200 bg-white/90 backdrop-blur shadow-sm z-10 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {/* Mobile Back Button */}
+                <button 
+                  className="md:hidden p-2 -ml-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors"
+                  onClick={() => setShowMobileThreadList(true)}
+                  title="Back to Inbox"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                    <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
+                  </svg>
+                </button>
+
+                <div className="font-black text-slate-900 text-sm md:text-base truncate">
+                  {activeThreadId === 'NEW' ? 'Start New Conversation' : activeThread?.title}
+                </div>
+              </div>
             </div>
 
             {/* Message Feed */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30">
               {activeThreadId === 'NEW' ? (
                 <div className="h-full flex items-center justify-center text-slate-400 font-bold italic text-sm text-center px-4">
-                  Select recipients below and send your first message to create a group.
+                  Select recipients below and send your first message.
                 </div>
               ) : activeMessages.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-slate-400 font-bold italic text-sm">
@@ -410,12 +433,12 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
                     <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                       {!isMe && (
                         <div className="flex items-center gap-1.5 ml-2 mb-1">
-                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{senderName}</span>
-                          {isManagerLevel && <span className="text-[8px] bg-yellow-400 text-yellow-900 font-black px-1 rounded">ADMIN</span>}
+                          <span className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-widest">{senderName}</span>
+                          {isManagerLevel && <span className="text-[8px] bg-yellow-400 text-yellow-900 font-black px-1.5 rounded-sm">ADMIN</span>}
                         </div>
                       )}
                       
-                      <div className={`max-w-[85%] md:max-w-[75%] px-4 py-2.5 shadow-sm text-sm font-medium whitespace-pre-wrap leading-relaxed ${
+                      <div className={`max-w-[85%] md:max-w-[75%] px-4 py-2.5 shadow-sm text-[13px] md:text-sm font-medium whitespace-pre-wrap leading-relaxed ${
                         isMe 
                           ? 'bg-blue-600 text-white rounded-2xl rounded-tr-sm' 
                           : 'bg-slate-200 border border-slate-300 text-slate-900 rounded-2xl rounded-tl-sm'
@@ -439,15 +462,15 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
               {activeThreadId === 'NEW' && showNewChatSelector && (
                 <div className="mb-3 p-3 bg-slate-100 rounded-xl border border-slate-300 animate-in slide-in-from-bottom-2">
                   <div className="flex gap-2 mb-2">
-                    <button type="button" onClick={() => setCTargetType('USERS')} className={`flex-1 py-1.5 text-xs font-black rounded ${cTargetType === 'USERS' ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}>Specific Staff</button>
+                    <button type="button" onClick={() => setCTargetType('USERS')} className={`flex-1 py-2 text-xs font-black rounded ${cTargetType === 'USERS' ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}>Specific Staff</button>
                     {(isManager || isAdmin) && (
-                      <button type="button" onClick={() => setCTargetType('LOCATIONS')} className={`flex-1 py-1.5 text-xs font-black rounded ${cTargetType === 'LOCATIONS' ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}>Specific Locations</button>
+                      <button type="button" onClick={() => setCTargetType('LOCATIONS')} className={`flex-1 py-2 text-xs font-black rounded ${cTargetType === 'LOCATIONS' ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}>Specific Locations</button>
                     )}
                   </div>
                   
                   <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1 border-t border-slate-200 pt-2">
                     {cTargetType === 'USERS' && users.filter(u => u.id.toString() !== selectedUserId).map(u => (
-                      <label key={u.id} className={`px-2 py-1 text-[10px] font-black rounded-lg cursor-pointer transition-colors border ${cSelectedUsers.includes(u.id) ? 'bg-blue-100 border-blue-400 text-blue-900' : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'}`}>
+                      <label key={u.id} className={`px-3 py-1.5 text-xs font-black rounded-lg cursor-pointer transition-colors border ${cSelectedUsers.includes(u.id) ? 'bg-blue-100 border-blue-400 text-blue-900 shadow-sm' : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'}`}>
                         <input type="checkbox" className="hidden" checked={cSelectedUsers.includes(u.id)} onChange={(e) => {
                           if (e.target.checked) setCSelectedUsers([...cSelectedUsers, u.id]); else setCSelectedUsers(cSelectedUsers.filter(id => id !== u.id));
                         }} />
@@ -455,7 +478,7 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
                       </label>
                     ))}
                     {cTargetType === 'LOCATIONS' && locations.map(l => (
-                      <label key={l.id} className={`px-2 py-1 text-[10px] font-black rounded-lg cursor-pointer transition-colors border ${cSelectedLocs.includes(l.id) ? 'bg-blue-100 border-blue-400 text-blue-900' : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'}`}>
+                      <label key={l.id} className={`px-3 py-1.5 text-xs font-black rounded-lg cursor-pointer transition-colors border ${cSelectedLocs.includes(l.id) ? 'bg-blue-100 border-blue-400 text-blue-900 shadow-sm' : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'}`}>
                         <input type="checkbox" className="hidden" checked={cSelectedLocs.includes(l.id)} onChange={(e) => {
                           if (e.target.checked) setCSelectedLocs([...cSelectedLocs, l.id]); else setCSelectedLocs(cSelectedLocs.filter(id => id !== l.id));
                         }} />
@@ -466,6 +489,7 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
                 </div>
               )}
 
+              {/* Message Text Input */}
               <form onSubmit={onSendChat} className="flex items-end gap-2">
                 <textarea
                   value={chatInput}
