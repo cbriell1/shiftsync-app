@@ -345,4 +345,5 @@ export interface AppState {
   handleDeleteAnnouncement: (id: number) => Promise<{ success: boolean }>;
   
   unreadMessagesCount: number;
+  fetchChecklists: () => void;
 }

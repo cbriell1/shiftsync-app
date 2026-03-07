@@ -24,9 +24,9 @@ import MessagesTab from './components/MessagesTab';
 // 1. LOGIN SCREEN COMPONENT
 // ==================================================================
 function LoginScreen({ sessionData }: { sessionData: any }) {
-  const [email, setEmail] = useState("");
+  const[email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const[loading, setLoading] = useState(false);
   const [usePassword, setUsePassword] = useState(false);
 
   const handlePasskeyLogin = async (action: "authenticate" | "register") => {
@@ -211,14 +211,14 @@ function MainDashboard({ session }: { session: any }) {
   const [reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
   const [editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
   const [clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
-  const [clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
+  const[clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
   const[clNotes, setClNotes] = useState('');
 
   // --- Form States (Members/Passes) ---
   const[passSearch, setPassSearch] = useState('');
   const [expandedMember, setExpandedMember] = useState<number | null>(null);
   const [pDate, setPDate] = useState('');
-  const [pAmt, setPAmt] = useState<number | string>(1);
+  const[pAmt, setPAmt] = useState<number | string>(1);
   const [pInitials, setPInitials] = useState('');
   const[editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
   const[newRenewalDate, setNewRenewalDate] = useState('');
@@ -236,7 +236,7 @@ function MainDashboard({ session }: { session: any }) {
   const [tplEndDate, setTplEndDate] = useState('');     
   const[tplTasks, setTplTasks] = useState<string[]>([]); 
   const[newTaskStr, setNewTaskStr] = useState(''); 
-  const [tplUserId, setTplUserId] = useState(''); 
+  const[tplUserId, setTplUserId] = useState(''); 
   const [tplViewLocs, setTplViewLocs] = useState<number[]>([]);
   const[tplViewDays, setTplViewDays] = useState<number[]>([]);
 
@@ -259,15 +259,15 @@ function MainDashboard({ session }: { session: any }) {
   };
 
   const [periods] = useState(generatePeriods());
-  const [manPeriods, setManPeriods] = useState<number[]>([0]); 
+  const[manPeriods, setManPeriods] = useState<number[]>([0]); 
   const[manLocs, setManLocs] = useState<number[]>([]);
   const[manEmps, setManEmps] = useState<number[]>([]);
   const [managerData, setManagerData] = useState<TimeCard[]>([]);
 
   const DAYS_OF_WEEK =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const YEARS = [2025, 2026, 2027];
-  const AVAILABLE_ROLES = ['Administrator', 'Manager', 'Front Desk', 'Trainer'];
+  const YEARS =[2025, 2026, 2027];
+  const AVAILABLE_ROLES =['Administrator', 'Manager', 'Front Desk', 'Trainer'];
 
   // --- Utilities ---
   const formatTimeSafe = (dStr: string) => {
@@ -298,7 +298,7 @@ function MainDashboard({ session }: { session: any }) {
     return colors[index];
   };
 
-  // --- Initial Data Fetching ---
+  // --- Initial Data Fetching API calls ---
   useEffect(() => {
     if (session?.user?.id && !selectedUserId) {
       setSelectedUserId(session.user.id.toString());
@@ -313,7 +313,8 @@ function MainDashboard({ session }: { session: any }) {
   const fetchGlobalTasks = () => fetch('/api/tasks?t=' + new Date().getTime()).then(res => res.json()).then(data => setGlobalTasks(Array.isArray(data) ? data :[]));
   const fetchGiftCards = () => fetch('/api/giftcards?t=' + new Date().getTime()).then(res => res.json()).then(data => { setGiftCards(Array.isArray(data) ? data :[]); setIsGiftCardsLoading(false); }).catch(() => setIsGiftCardsLoading(false));
   const fetchFeedbacks = () => fetch('/api/feedback?t=' + new Date().getTime()).then(res => res.json()).then(data => { setFeedbacks(Array.isArray(data) ? data :[]); setIsFeedbacksLoading(false); }).catch(() => setIsFeedbacksLoading(false));
-  
+  const fetchTimeCards = () => fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[]));
+
   const fetchLocations = () => fetch('/api/locations?t=' + new Date().getTime()).then(res => res.json()).then(data => { 
     setLocations(Array.isArray(data) ? data :[]); 
     if(Array.isArray(data) && data.length > 0 && !selectedLocation) setSelectedLocation(data[0].id.toString()); 
@@ -335,31 +336,48 @@ function MainDashboard({ session }: { session: any }) {
       .then(data => setAnnouncements(Array.isArray(data) ? data :[]));
   };
 
+  // --- BACKGROUND POLLING & WINDOW FOCUS SYNC ---
+  // This is what makes the app feel "real-time" across phones and computers!
   useEffect(() => {
     setIsMounted(true);
-    if (session) {
-      fetchUsers();
-      fetchMembers();
-      fetchTemplates();
-      fetchChecklists(); 
-      fetchGlobalTasks();
-      fetchGiftCards(); 
-      fetchFeedbacks();
-      fetchLocations();
-      fetchMessages();
-      fetchAnnouncements();
-      fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data : []));
-      fetchShifts();
-    }
-  }, [session]);
+    if (!session) return;
 
-  // Auto-refresh personal messages when the active user identity changes (Manager Dropdown)
-  useEffect(() => {
-    if (isMounted && session && selectedUserId) {
+    // Fetch everything on first mount
+    fetchUsers();
+    fetchMembers();
+    fetchTemplates();
+    fetchChecklists(); 
+    fetchGlobalTasks();
+    fetchGiftCards(); 
+    fetchFeedbacks();
+    fetchLocations();
+    fetchMessages();
+    fetchAnnouncements();
+    fetchTimeCards();
+    fetchShifts();
+
+    // Define the lightweight sync function
+    const syncOperationalData = () => {
+      if (!selectedUserId) return;
+      fetchChecklists();
+      fetchTimeCards();
+      fetchShifts();
       fetchMessages();
       fetchAnnouncements();
-    }
-  }, [selectedUserId]);
+    };
+
+    // Sync whenever the computer window gets focused
+    const onFocus = () => syncOperationalData();
+    window.addEventListener('focus', onFocus);
+
+    // Sync automatically every 30 seconds
+    const intervalId = setInterval(syncOperationalData, 30000);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      clearInterval(intervalId);
+    };
+  }, [session, selectedUserId]); // Re-run if user switches their identity dropdown
 
   // --- Auth & Access Control Logic ---
   const safeUsers = Array.isArray(users) ? users :[];
@@ -389,12 +407,11 @@ function MainDashboard({ session }: { session: any }) {
   const showPasses = isFrontDesk; 
   const showGiftCards = isFrontDesk; 
 
-  // --- Lifecycle Effects ---
   useEffect(() => {
     if (session && (activeTab === 'dashboard' || activeTab === 'timesheets')) {
       fetchManagerData();
     }
-  }, [activeTab, manPeriods, manLocs, manEmps, selectedUserId, isManager, session]);
+  },[activeTab, manPeriods, manLocs, manEmps, selectedUserId, isManager, session]);
 
   useEffect(() => {
     if (!isMounted || !session) return;
@@ -434,7 +451,7 @@ function MainDashboard({ session }: { session: any }) {
         setLastViewedMessages(now);
       }
     }
-  }, [activeTab, selectedUserId, feedbacks, messages, announcements]);
+  },[activeTab, selectedUserId, feedbacks, messages, announcements]);
 
   const unreadFeedbackCount = (Array.isArray(feedbacks) ? feedbacks :[]).filter(fb => {
     const fbUpdated = new Date(fb.updatedAt || fb.createdAt).getTime();
@@ -444,7 +461,7 @@ function MainDashboard({ session }: { session: any }) {
     return fb.userId === parseInt(selectedUserId);
   }).length;
 
-  const unreadMessagesCount = [...(Array.isArray(messages) ? messages : []), ...(Array.isArray(announcements) ? announcements :[])].filter(item => {
+  const unreadMessagesCount =[...(Array.isArray(messages) ? messages : []), ...(Array.isArray(announcements) ? announcements :[])].filter(item => {
     const itemDate = new Date(item.createdAt).getTime();
     const lastViewed = new Date(lastViewedMessages).getTime();
     if (itemDate <= lastViewed) return false;
@@ -488,7 +505,7 @@ function MainDashboard({ session }: { session: any }) {
   const handleUpdateCardStatus = async (ids: number[], status: string) => {
     await fetch('/api/timecards/status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, status }) });
     fetchManagerData();
-    fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[]));
+    fetchTimeCards();
   };
 
   // Toggles
@@ -509,7 +526,7 @@ function MainDashboard({ session }: { session: any }) {
   const handleRoleToggle = async (targetUserId: number, roleName: string) => {
     const targetUser = safeUsers.find(u => u.id === targetUserId);
     if (!targetUser) return;
-    let currentRoles = targetUser.systemRoles ? [...targetUser.systemRoles] :[];
+    let currentRoles = targetUser.systemRoles ?[...targetUser.systemRoles] :[];
     if (currentRoles.includes(roleName)) currentRoles = currentRoles.filter(r => r !== roleName);
     else currentRoles.push(roleName);
     setUsers(safeUsers.map(u => u.id === targetUserId ? { ...u, systemRoles: currentRoles } : u));
@@ -523,7 +540,7 @@ function MainDashboard({ session }: { session: any }) {
 
   const handleSeedEmployees = async () => { if(!confirm("Add all new employees?")) return; const res = await fetch('/api/users/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} new employees added.`); fetchUsers(); };
   const handleImportHistory = async () => { if(!confirm("Import Garner Schedule History?")) return; const res = await fetch('/api/shifts/import-history', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} shifts synced.`); fetchShifts(); };
-  const handleImportTimecards = async () => { if(!confirm("Import Jan/Feb Worked Timecards?")) return; const res = await fetch('/api/timecards/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} missing timecards logged.`); fetch('/api/timecards').then(r => r.json()).then(d => setTimeCards(Array.isArray(d) ? d :[])); if (activeTab === 'dashboard') fetchManagerData(); };
+  const handleImportTimecards = async () => { if(!confirm("Import Jan/Feb Worked Timecards?")) return; const res = await fetch('/api/timecards/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} missing timecards logged.`); fetchTimeCards(); if (activeTab === 'dashboard') fetchManagerData(); };
   const handleImportPasses = async () => { if(!confirm("Import Platinum Guest Passes CSV?")) return; const res = await fetch('/api/members/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! Added ${data.members} members.`); fetchMembers(); };
 
   const handleClaimShift = async (shiftId: number) => { if(!selectedUserId) return alert("Select an employee first!"); await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, userId: parseInt(selectedUserId), action: 'CLAIM' }) }); fetchShifts(); };
@@ -585,7 +602,7 @@ function MainDashboard({ session }: { session: any }) {
       setFormDate('');
       setSelectedLocation('');
 
-      fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[]));
+      fetchTimeCards();
       await fetchManagerData(); 
       setActiveTab('timesheets');
     } catch (err) {
@@ -607,7 +624,7 @@ function MainDashboard({ session }: { session: any }) {
       const diff = Math.abs(mins - tMins);
       if (diff < minDiff && diff <= 180) { minDiff = diff; bestTpl = t; }
     });
-    setClDynamicTasks(bestTpl?.checklistTasks || []);
+    setClDynamicTasks(bestTpl?.checklistTasks ||[]);
     if (card.checklists && card.checklists.length > 0) {
       const existing = card.checklists[0];
       setEditingChecklistId(existing.id); setClCompletedTasks(existing.completedTasks ||[]); setClNotes(existing.notes || '');
@@ -624,7 +641,7 @@ function MainDashboard({ session }: { session: any }) {
     const body = { id: editingChecklistId, userId: reportTargetCard?.userId, locationId: reportTargetCard?.locationId, timeCardId: reportTargetCard?.id, notes: clNotes, completedTasks: clCompletedTasks, missedTasks: missed };
     await fetch('/api/checklists', { method: editingChecklistId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     setShowChecklistModal(false); setReportTargetCard(null); setEditingChecklistId(null);
-    fetch('/api/timecards').then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[]));
+    fetchTimeCards();
     fetchChecklists(); 
   };
 
@@ -669,7 +686,7 @@ function MainDashboard({ session }: { session: any }) {
     setSelectedLocation(card.locationId.toString()); setFormUserId(card.userId.toString()); setEditingCardId(card.id); setActiveTab('timesheets'); window.scrollTo(0, 0);
   };
 
-  const handleDeleteClick = async (cardId: number) => { if(!confirm("Delete?")) return; await fetch('/api/timecards', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: cardId }) }); fetch('/api/timecards').then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[])); fetchManagerData(); };
+  const handleDeleteClick = async (cardId: number) => { if(!confirm("Delete?")) return; await fetch('/api/timecards', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: cardId }) }); fetchTimeCards(); fetchManagerData(); };
 
   const handleExportCSV = () => {
     let csv = "Pay Period,Location,Employee,Hours\n";
@@ -802,7 +819,8 @@ function MainDashboard({ session }: { session: any }) {
     activeUserTimeCards: (Array.isArray(timeCards) ? timeCards :[]).filter(c => c.userId === parseInt(selectedUserId)),
     filteredMembers: (Array.isArray(members) ? members :[]).filter(m => m.lastName.toLowerCase().includes(passSearch.toLowerCase())),
     filteredTemplates: Array.isArray(templates) ? templates :[],
-    unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart, unreadFeedbackCount, unreadMessagesCount
+    unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart, unreadFeedbackCount, unreadMessagesCount,
+    fetchChecklists
   };
 
   if (!isMounted) return <div className="p-10 text-center font-bold">Loading Workspace...</div>;
@@ -991,9 +1009,9 @@ function MainDashboard({ session }: { session: any }) {
   );
 }
 
-// ==================================================================
+// ------------------------------------------------------------------
 // 3. SECURITY GUARD LAYER
-// ==================================================================
+// ------------------------------------------------------------------
 export default function SchedulingAppRoot() {
   const { data: session, status } = useSession();
 

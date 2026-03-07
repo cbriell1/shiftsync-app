@@ -4,7 +4,7 @@ import { AppState, TimeCard, User, Location, ShiftTemplate, Checklist } from '..
 
 // --- SUB-COMPONENT: Individual Time Card Row ---
 const TimeCardRow = ({ 
-  card, activeUser, locations, templates, formatTimeSafe, formatDateSafe, checklists 
+  card, activeUser, locations, templates, formatTimeSafe, formatDateSafe, checklists, fetchChecklists 
 }: {
   card: TimeCard,
   activeUser?: User,
@@ -12,7 +12,8 @@ const TimeCardRow = ({
   templates: ShiftTemplate[],
   formatTimeSafe: (d: string) => string,
   formatDateSafe: (d: string) => string,
-  checklists: Checklist[]
+  checklists: Checklist[],
+  fetchChecklists?: () => void
 }) => {
   const outD = new Date(card.clockOut || '');
   const isActive = !card.clockOut || isNaN(outD.getTime()) || outD.getFullYear() === 1970;
@@ -40,7 +41,7 @@ const TimeCardRow = ({
     });
   }
 
-  const assignedTasks = bestTpl ? (bestTpl.checklistTasks || []) : [];
+  const assignedTasks = bestTpl ? (bestTpl.checklistTasks || []) :[];
   
   // Local State for Inline Editing
   const [isExpanded, setIsExpanded] = useState(isActive); 
@@ -48,17 +49,25 @@ const TimeCardRow = ({
   const [notes, setNotes] = useState(activeReport ? activeReport.notes || '' : '');
   const [reportId, setReportId] = useState<number | null>(activeReport?.id || null);
   const [isSaving, setIsSaving] = useState(false);
-  const[savedOnce, setSavedOnce] = useState(!!activeReport);
+  const [savedOnce, setSavedOnce] = useState(!!activeReport);
 
-  // Ensure state updates if checklists load AFTER the component mounts (on screen refresh)
+  // REAL-TIME SYNC: Update local computer screen if the mobile phone changes the database
   useEffect(() => {
-    if (globalReport && !reportId) {
-      setCompletedTasks(globalReport.completedTasks ||[]);
-      setNotes(globalReport.notes || '');
-      setReportId(globalReport.id);
-      setSavedOnce(true);
+    if (globalReport) {
+      if (!reportId) setReportId(globalReport.id);
+      if (!savedOnce) setSavedOnce(true);
+
+      // Sync tasks if the DB has different ones (e.g. updated from mobile)
+      if (JSON.stringify(globalReport.completedTasks) !== JSON.stringify(completedTasks)) {
+        setCompletedTasks(globalReport.completedTasks ||[]);
+      }
+
+      // Sync notes only if we don't have local unsaved changes, or if local is empty
+      if (globalReport.notes && !notes) {
+        setNotes(globalReport.notes);
+      }
     }
-  }, [globalReport, reportId]);
+  }, [globalReport]);
 
   const progressPct = assignedTasks.length > 0 ? Math.round((completedTasks.length / assignedTasks.length) * 100) : (completedTasks.length > 0 ? 100 : 0);
 
@@ -84,6 +93,10 @@ const TimeCardRow = ({
       }
 
       setSavedOnce(true);
+      
+      // Notify the rest of the app to fetch the latest checklist data
+      if (fetchChecklists) fetchChecklists();
+
       setTimeout(() => setIsSaving(false), 500); 
     } catch (err) {
       console.error("Failed to save report:", err);
@@ -95,7 +108,7 @@ const TimeCardRow = ({
     if (!isActive) return;
     const updatedTasks = completedTasks.includes(task) 
       ? completedTasks.filter(t => t !== task) 
-      : [...completedTasks, task];
+      :[...completedTasks, task];
       
     setCompletedTasks(updatedTasks);
     saveInlineReport(updatedTasks, notes); // Auto-save instantly on click!
@@ -298,7 +311,7 @@ const TimeCardRow = ({
 export default function TimeCardTab({ appState }: { appState: AppState }) {
   const {
     activeUserTimeCards, formatTimeSafe, formatDateSafe,
-    selectedUserId, users, templates, locations, checklists
+    selectedUserId, users, templates, locations, checklists, fetchChecklists
   } = appState;
 
   const activeUser = users?.find(u => u.id === parseInt(selectedUserId));
@@ -324,6 +337,7 @@ export default function TimeCardTab({ appState }: { appState: AppState }) {
                 formatDateSafe={formatDateSafe} 
                 formatTimeSafe={formatTimeSafe} 
                 checklists={checklists}
+                fetchChecklists={fetchChecklists}
               />
             ))}
           </div>

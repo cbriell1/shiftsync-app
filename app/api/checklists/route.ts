@@ -33,6 +33,25 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = checklistSchema.parse(body);
 
+    // PREVENT DUPLICATES: If a checklist already exists for this timecard, update it instead.
+    if (data.timeCardId) {
+      const existing = await prisma.checklist.findFirst({
+        where: { timeCardId: data.timeCardId }
+      });
+
+      if (existing) {
+        const updated = await prisma.checklist.update({
+          where: { id: existing.id },
+          data: {
+            notes: data.notes,
+            completedTasks: data.completedTasks,
+            missedTasks: data.missedTasks
+          }
+        });
+        return NextResponse.json(updated);
+      }
+    }
+
     const newChecklist = await prisma.checklist.create({
       data: {
         userId: data.userId,
