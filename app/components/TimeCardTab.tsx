@@ -45,11 +45,11 @@ const TimeCardRow = ({
   
   // Local State for Inline Editing
   const [isExpanded, setIsExpanded] = useState(isActive); 
-  const [completedTasks, setCompletedTasks] = useState<string[]>(activeReport ? activeReport.completedTasks || [] : []);
+  const [completedTasks, setCompletedTasks] = useState<string[]>(activeReport ? activeReport.completedTasks ||[] : []);
   const [notes, setNotes] = useState(activeReport ? activeReport.notes || '' : '');
   const [reportId, setReportId] = useState<number | null>(activeReport?.id || null);
   const [isSaving, setIsSaving] = useState(false);
-  const [savedOnce, setSavedOnce] = useState(!!activeReport);
+  const[savedOnce, setSavedOnce] = useState(!!activeReport);
 
   // REAL-TIME SYNC: Update local computer screen if the mobile phone changes the database
   useEffect(() => {
@@ -57,16 +57,21 @@ const TimeCardRow = ({
       if (!reportId) setReportId(globalReport.id);
       if (!savedOnce) setSavedOnce(true);
 
+      // Extract raw data from DB to compare
+      const dbTasks = globalReport.completedTasks ||[];
+      const dbNotes = globalReport.notes || '';
+
       // Sync tasks if the DB has different ones (e.g. updated from mobile)
-      if (JSON.stringify(globalReport.completedTasks) !== JSON.stringify(completedTasks)) {
-        setCompletedTasks(globalReport.completedTasks ||[]);
+      if (JSON.stringify(dbTasks) !== JSON.stringify(completedTasks)) {
+        setCompletedTasks(dbTasks);
       }
 
-      // Sync notes only if we don't have local unsaved changes, or if local is empty
-      if (globalReport.notes && !notes) {
-        setNotes(globalReport.notes);
+      // Sync notes if they were updated externally
+      if (dbNotes !== notes) {
+        setNotes(dbNotes);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [globalReport]);
 
   const progressPct = assignedTasks.length > 0 ? Math.round((completedTasks.length / assignedTasks.length) * 100) : (completedTasks.length > 0 ? 100 : 0);
@@ -75,17 +80,36 @@ const TimeCardRow = ({
   const saveInlineReport = async (tasksToSave = completedTasks, notesToSave = notes) => {
     setIsSaving(true);
     const missed = assignedTasks.filter(t => !tasksToSave.includes(t));
-    const payload: any = { notes: notesToSave, completedTasks: tasksToSave, missedTasks: missed };
+    
+    // CRITICAL FIX: We MUST pass userId and locationId every single time, 
+    // even on updates, otherwise the API's security validation rejects it!
+    const payload: any = { 
+      notes: notesToSave, 
+      completedTasks: tasksToSave, 
+      missedTasks: missed,
+      userId: card.userId,
+      locationId: card.locationId,
+      timeCardId: card.id
+    };
 
     try {
       if (reportId) {
         payload.id = reportId;
-        await fetch('/api/checklists', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        const res = await fetch('/api/checklists', { 
+          method: 'PUT', 
+          headers: {'Content-Type': 'application/json'}, 
+          body: JSON.stringify(payload) 
+        });
+        
+        if (!res.ok) {
+          console.error("Failed to update report:", await res.json());
+        }
       } else {
-        payload.userId = card.userId;
-        payload.locationId = card.locationId;
-        payload.timeCardId = card.id;
-        const res = await fetch('/api/checklists', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        const res = await fetch('/api/checklists', { 
+          method: 'POST', 
+          headers: {'Content-Type': 'application/json'}, 
+          body: JSON.stringify(payload) 
+        });
         const data = await res.json();
         if (data && data.id) {
           setReportId(data.id);
@@ -99,7 +123,7 @@ const TimeCardRow = ({
 
       setTimeout(() => setIsSaving(false), 500); 
     } catch (err) {
-      console.error("Failed to save report:", err);
+      console.error("Network error saving report:", err);
       setIsSaving(false);
     }
   };
@@ -108,7 +132,7 @@ const TimeCardRow = ({
     if (!isActive) return;
     const updatedTasks = completedTasks.includes(task) 
       ? completedTasks.filter(t => t !== task) 
-      :[...completedTasks, task];
+      : [...completedTasks, task];
       
     setCompletedTasks(updatedTasks);
     saveInlineReport(updatedTasks, notes); // Auto-save instantly on click!
