@@ -1,11 +1,10 @@
-// filepath: app/page.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
 import { signOut, useSession, signIn as signInReact } from "next-auth/react";
 import { signIn as signInPasskey } from "next-auth/webauthn"; 
 import { 
   User, Location, TimeCard, Shift, Member, ShiftTemplate, 
-  Checklist, GlobalTask, GiftCard, Feedback, AppState 
+  Checklist, GlobalTask, GiftCard, Feedback, Message, Announcement, AppState 
 } from '../lib/types';
 
 import CalendarTab from './components/CalendarTab';
@@ -19,10 +18,11 @@ import StaffTab from './components/StaffTab';
 import GiftCardTab from './components/GiftCardTab';
 import FeedbackTab from './components/FeedbackTab'; 
 import LocationsTab from './components/LocationsTab';
+import MessagesTab from './components/MessagesTab';
 
-// ------------------------------------------------------------------
-// 1. LOGIN SCREEN
-// ------------------------------------------------------------------
+// ==================================================================
+// 1. LOGIN SCREEN COMPONENT
+// ==================================================================
 function LoginScreen({ sessionData }: { sessionData: any }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -150,48 +150,63 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
   );
 }
 
-// ------------------------------------------------------------------
-// 2. MAIN DASHBOARD APP (Only renders if authenticated)
-// ------------------------------------------------------------------
+// ==================================================================
+// 2. MAIN DASHBOARD APP (Requires Authentication)
+// ==================================================================
 function MainDashboard({ session }: { session: any }) {
+  // --- UI & Global App State ---
   const[isMounted, setIsMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('setup'); 
   
+  // --- Data States ---
   const [users, setUsers] = useState<User[]>([]);
-  const[locations, setLocations] = useState<Location[]>([]);
-  const [timeCards, setTimeCards] = useState<TimeCard[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const[timeCards, setTimeCards] = useState<TimeCard[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const [checklists, setChecklists] = useState<Checklist[]>([]);
-  const[globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
-  
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
+  const[feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+
+  // --- Loading States ---
   const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
-  const [lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
-  const [highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
-  
-  const[giftCards, setGiftCards] = useState<GiftCard[]>([]);
   const[isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
 
-  const [selectedUserId, setSelectedUserId] = useState(session?.user?.id?.toString() || '');
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  // --- User & Date Context ---
+  const[selectedUserId, setSelectedUserId] = useState(session?.user?.id?.toString() || '');
+  const[currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
-  const[calLocFilter, setCalLocFilter] = useState('');
-  const [calEmpFilter, setCalEmpFilter] = useState('');
+  // --- Notifications & Local Storage Trackers ---
+  const[lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
+  const [highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
+  const [lastViewedMessages, setLastViewedMessages] = useState<string>('1970-01-01T00:00:00.000Z');
 
-  const getMonday = (d: Date) => { const dt = new Date(d); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); return new Date(dt.setDate(diff)).toISOString().split('T')[0]; };
-  const[builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
+  // --- Calendar & Filter States ---
+  const [calLocFilter, setCalLocFilter] = useState('');
+  const[calEmpFilter, setCalEmpFilter] = useState('');
 
-  // Timecard Editing Form State
+  const getMonday = (d: Date) => { 
+    const dt = new Date(d); 
+    const day = dt.getDay(); 
+    const diff = dt.getDate() - day + (day === 0 ? -6 : 1); 
+    return new Date(dt.setDate(diff)).toISOString().split('T')[0]; 
+  };
+  const [builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
+
+  // --- Form States (Timecards) ---
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
-  const[formUserId, setFormUserId] = useState<string>(''); 
-  const [formDate, setFormDate] = useState('');
+  const [formUserId, setFormUserId] = useState<string>(''); 
+  const[formDate, setFormDate] = useState('');
   const [formStartTime, setFormStartTime] = useState('');
-  const [formEndTime, setFormEndTime] = useState('');
-  const[selectedLocation, setSelectedLocation] = useState('');
+  const[formEndTime, setFormEndTime] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
 
+  // --- Form States (Checklists & Reports) ---
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
   const [editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
@@ -199,38 +214,43 @@ function MainDashboard({ session }: { session: any }) {
   const [clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
   const[clNotes, setClNotes] = useState('');
 
-  const [passSearch, setPassSearch] = useState('');
-  const[expandedMember, setExpandedMember] = useState<number | null>(null);
+  // --- Form States (Members/Passes) ---
+  const[passSearch, setPassSearch] = useState('');
+  const [expandedMember, setExpandedMember] = useState<number | null>(null);
   const [pDate, setPDate] = useState('');
   const [pAmt, setPAmt] = useState<number | string>(1);
-  const[pInitials, setPInitials] = useState('');
-  const [editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
-  const [newRenewalDate, setNewRenewalDate] = useState('');
-  const[editingTotalId, setEditingTotalId] = useState<number | null>(null);
-  const[newTotalVal, setNewTotalVal] = useState<number | string>(12);
-  const[newBonusNotes, setNewBonusNotes] = useState('');
+  const [pInitials, setPInitials] = useState('');
+  const[editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
+  const[newRenewalDate, setNewRenewalDate] = useState('');
+  const [editingTotalId, setEditingTotalId] = useState<number | null>(null);
+  const [newTotalVal, setNewTotalVal] = useState<number | string>(12);
+  const [newBonusNotes, setNewBonusNotes] = useState('');
 
+  // --- Form States (Templates) ---
   const [editingTplId, setEditingTplId] = useState<number | null>(null); 
-  const [tplLocs, setTplLocs] = useState<number[]>([]);
-  const [tplDays, setTplDays] = useState<(string | number)[]>([]);
-  const [tplStart, setTplStart] = useState('');
+  const[tplLocs, setTplLocs] = useState<number[]>([]);
+  const[tplDays, setTplDays] = useState<(string | number)[]>([]);
+  const[tplStart, setTplStart] = useState('');
   const [tplEnd, setTplEnd] = useState('');
-  const [tplStartDate, setTplStartDate] = useState(''); 
+  const[tplStartDate, setTplStartDate] = useState(''); 
   const [tplEndDate, setTplEndDate] = useState('');     
-  const [tplTasks, setTplTasks] = useState<string[]>([]); 
-  const [newTaskStr, setNewTaskStr] = useState(''); 
-  const[tplUserId, setTplUserId] = useState(''); 
-
+  const[tplTasks, setTplTasks] = useState<string[]>([]); 
+  const[newTaskStr, setNewTaskStr] = useState(''); 
+  const [tplUserId, setTplUserId] = useState(''); 
   const [tplViewLocs, setTplViewLocs] = useState<number[]>([]);
-  const [tplViewDays, setTplViewDays] = useState<number[]>([]);
+  const[tplViewDays, setTplViewDays] = useState<number[]>([]);
 
+  // --- Constants & Generators ---
   const generatePeriods = () => {
     const p =[];
     const today = new Date();
     let curM = today.getMonth();
     let curY = today.getFullYear();
-    if (today.getDate() < 28) { curM--; if(curM < 0) { curM = 11; curY--; } }
-    for(let i=0; i<6; i++) {
+    if (today.getDate() < 28) { 
+      curM--; 
+      if(curM < 0) { curM = 11; curY--; } 
+    }
+    for(let i = 0; i < 6; i++) {
       const s = new Date(curY, curM - i, 28);
       const e = new Date(curY, curM - i + 1, 27);
       p.push({ label: `${s.toLocaleDateString()} - ${e.toLocaleDateString()}`, start: s.toISOString(), end: e.toISOString() });
@@ -241,14 +261,15 @@ function MainDashboard({ session }: { session: any }) {
   const [periods] = useState(generatePeriods());
   const [manPeriods, setManPeriods] = useState<number[]>([0]); 
   const[manLocs, setManLocs] = useState<number[]>([]);
-  const [manEmps, setManEmps] = useState<number[]>([]);
+  const[manEmps, setManEmps] = useState<number[]>([]);
   const [managerData, setManagerData] = useState<TimeCard[]>([]);
 
   const DAYS_OF_WEEK =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const YEARS =[2025, 2026, 2027];
-  const AVAILABLE_ROLES =['Administrator', 'Manager', 'Front Desk', 'Trainer'];
+  const YEARS = [2025, 2026, 2027];
+  const AVAILABLE_ROLES = ['Administrator', 'Manager', 'Front Desk', 'Trainer'];
 
+  // --- Utilities ---
   const formatTimeSafe = (dStr: string) => {
     if (!dStr) return 'Active';
     const d = new Date(dStr);
@@ -277,11 +298,12 @@ function MainDashboard({ session }: { session: any }) {
     return colors[index];
   };
 
+  // --- Initial Data Fetching ---
   useEffect(() => {
     if (session?.user?.id && !selectedUserId) {
       setSelectedUserId(session.user.id.toString());
     }
-  },[session?.user?.id]);
+  }, [session?.user?.id]);
 
   const fetchUsers = () => fetch('/api/users?t=' + new Date().getTime()).then(res => res.json()).then(data => setUsers(Array.isArray(data) ? data :[]));
   const fetchMembers = () => fetch('/api/members?t=' + new Date().getTime()).then(res => res.json()).then(data => setMembers(Array.isArray(data) ? data :[]));
@@ -291,10 +313,27 @@ function MainDashboard({ session }: { session: any }) {
   const fetchGlobalTasks = () => fetch('/api/tasks?t=' + new Date().getTime()).then(res => res.json()).then(data => setGlobalTasks(Array.isArray(data) ? data :[]));
   const fetchGiftCards = () => fetch('/api/giftcards?t=' + new Date().getTime()).then(res => res.json()).then(data => { setGiftCards(Array.isArray(data) ? data :[]); setIsGiftCardsLoading(false); }).catch(() => setIsGiftCardsLoading(false));
   const fetchFeedbacks = () => fetch('/api/feedback?t=' + new Date().getTime()).then(res => res.json()).then(data => { setFeedbacks(Array.isArray(data) ? data :[]); setIsFeedbacksLoading(false); }).catch(() => setIsFeedbacksLoading(false));
+  
   const fetchLocations = () => fetch('/api/locations?t=' + new Date().getTime()).then(res => res.json()).then(data => { 
     setLocations(Array.isArray(data) ? data :[]); 
     if(Array.isArray(data) && data.length > 0 && !selectedLocation) setSelectedLocation(data[0].id.toString()); 
   });
+  
+  const fetchMessages = () => {
+    const id = selectedUserId || session?.user?.id?.toString();
+    if (!id) return;
+    fetch(`/api/messages?userId=${id}&t=${new Date().getTime()}`)
+      .then(res => res.json())
+      .then(data => setMessages(Array.isArray(data) ? data :[]));
+  };
+  
+  const fetchAnnouncements = () => {
+    const id = selectedUserId || session?.user?.id?.toString();
+    if (!id) return;
+    fetch(`/api/announcements?userId=${id}&t=${new Date().getTime()}`)
+      .then(res => res.json())
+      .then(data => setAnnouncements(Array.isArray(data) ? data :[]));
+  };
 
   useEffect(() => {
     setIsMounted(true);
@@ -307,13 +346,23 @@ function MainDashboard({ session }: { session: any }) {
       fetchGiftCards(); 
       fetchFeedbacks();
       fetchLocations();
-      fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[]));
+      fetchMessages();
+      fetchAnnouncements();
+      fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data : []));
       fetchShifts();
     }
   }, [session]);
 
-  const safeUsers = Array.isArray(users) ? users :[];
+  // Auto-refresh personal messages when the active user identity changes (Manager Dropdown)
+  useEffect(() => {
+    if (isMounted && session && selectedUserId) {
+      fetchMessages();
+      fetchAnnouncements();
+    }
+  }, [selectedUserId]);
 
+  // --- Auth & Access Control Logic ---
+  const safeUsers = Array.isArray(users) ? users :[];
   const authenticatedUserId = session?.user?.id?.toString();
   const authenticatedUserObj = safeUsers.find(u => u.id.toString() === authenticatedUserId);
   const authRoles = authenticatedUserObj?.systemRoles || session?.user?.systemRoles ||[];
@@ -340,11 +389,12 @@ function MainDashboard({ session }: { session: any }) {
   const showPasses = isFrontDesk; 
   const showGiftCards = isFrontDesk; 
 
+  // --- Lifecycle Effects ---
   useEffect(() => {
     if (session && (activeTab === 'dashboard' || activeTab === 'timesheets')) {
       fetchManagerData();
     }
-  },[activeTab, manPeriods, manLocs, manEmps, selectedUserId, isManager, session]);
+  }, [activeTab, manPeriods, manLocs, manEmps, selectedUserId, isManager, session]);
 
   useEffect(() => {
     if (!isMounted || !session) return;
@@ -358,26 +408,33 @@ function MainDashboard({ session }: { session: any }) {
     if (activeTab === 'locations' && !showLocationsTab) setActiveTab('calendar');
   },[selectedUserId, users, activeTab, session, isMounted, showDashboard, showTimesheets, showBuilder, showPasses, showGiftCards, showSetup, showStaff, showLocationsTab]);
 
+  // --- Notification / LocalStorage Logic ---
   useEffect(() => {
     if (typeof window !== 'undefined' && selectedUserId) {
-      const stored = localStorage.getItem('lastViewedFeedback_' + selectedUserId);
-      if (stored) {
-        setLastViewedFeedback(stored);
-        setHighlightBaseline(stored);
-      } else {
-        setLastViewedFeedback('1970-01-01T00:00:00.000Z');
-        setHighlightBaseline('1970-01-01T00:00:00.000Z');
-      }
+      // Sync Feedback Tracking
+      const storedFb = localStorage.getItem('lastViewedFeedback_' + selectedUserId);
+      setLastViewedFeedback(storedFb || '1970-01-01T00:00:00.000Z');
+      setHighlightBaseline(storedFb || '1970-01-01T00:00:00.000Z');
+
+      // Sync Messages Tracking
+      const storedMsg = localStorage.getItem('lastViewedMessages_' + selectedUserId);
+      setLastViewedMessages(storedMsg || '1970-01-01T00:00:00.000Z');
     }
   }, [selectedUserId]);
 
   useEffect(() => {
-    if (activeTab === 'feedback' && typeof window !== 'undefined' && selectedUserId) {
+    if (typeof window !== 'undefined' && selectedUserId) {
       const now = new Date().toISOString();
-      localStorage.setItem('lastViewedFeedback_' + selectedUserId, now);
-      setLastViewedFeedback(now);
+      if (activeTab === 'feedback') {
+        localStorage.setItem('lastViewedFeedback_' + selectedUserId, now);
+        setLastViewedFeedback(now);
+      }
+      if (activeTab === 'messages') {
+        localStorage.setItem('lastViewedMessages_' + selectedUserId, now);
+        setLastViewedMessages(now);
+      }
     }
-  },[activeTab, selectedUserId, feedbacks]);
+  }, [activeTab, selectedUserId, feedbacks, messages, announcements]);
 
   const unreadFeedbackCount = (Array.isArray(feedbacks) ? feedbacks :[]).filter(fb => {
     const fbUpdated = new Date(fb.updatedAt || fb.createdAt).getTime();
@@ -387,6 +444,16 @@ function MainDashboard({ session }: { session: any }) {
     return fb.userId === parseInt(selectedUserId);
   }).length;
 
+  const unreadMessagesCount = [...(Array.isArray(messages) ? messages : []), ...(Array.isArray(announcements) ? announcements :[])].filter(item => {
+    const itemDate = new Date(item.createdAt).getTime();
+    const lastViewed = new Date(lastViewedMessages).getTime();
+    if (itemDate <= lastViewed) return false;
+    if ('senderId' in item && item.senderId === parseInt(selectedUserId)) return false;
+    if ('authorId' in item && item.authorId === parseInt(selectedUserId)) return false;
+    return true;
+  }).length;
+
+  // --- API / Handler Functions ---
   const fetchManagerData = async () => {
     const selectedPeriods = manPeriods.map(idx => periods[idx]);
     let targetEmployees = manEmps;
@@ -424,6 +491,7 @@ function MainDashboard({ session }: { session: any }) {
     fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[]));
   };
 
+  // Toggles
   const toggleManPeriod = (idx: number) => manPeriods.includes(idx) ? setManPeriods(manPeriods.filter(x => x !== idx)) : setManPeriods([...manPeriods, idx]);
   const toggleManLoc = (id: number) => manLocs.includes(id) ? setManLocs(manLocs.filter(x => x !== id)) : setManLocs([...manLocs, id]);
   const toggleManEmp = (id: number) => manEmps.includes(id) ? setManEmps(manEmps.filter(x => x !== id)) : setManEmps([...manEmps, id]);
@@ -441,7 +509,7 @@ function MainDashboard({ session }: { session: any }) {
   const handleRoleToggle = async (targetUserId: number, roleName: string) => {
     const targetUser = safeUsers.find(u => u.id === targetUserId);
     if (!targetUser) return;
-    let currentRoles = targetUser.systemRoles ?[...targetUser.systemRoles] :[];
+    let currentRoles = targetUser.systemRoles ? [...targetUser.systemRoles] :[];
     if (currentRoles.includes(roleName)) currentRoles = currentRoles.filter(r => r !== roleName);
     else currentRoles.push(roleName);
     setUsers(safeUsers.map(u => u.id === targetUserId ? { ...u, systemRoles: currentRoles } : u));
@@ -539,7 +607,7 @@ function MainDashboard({ session }: { session: any }) {
       const diff = Math.abs(mins - tMins);
       if (diff < minDiff && diff <= 180) { minDiff = diff; bestTpl = t; }
     });
-    setClDynamicTasks(bestTpl?.checklistTasks ||[]);
+    setClDynamicTasks(bestTpl?.checklistTasks || []);
     if (card.checklists && card.checklists.length > 0) {
       const existing = card.checklists[0];
       setEditingChecklistId(existing.id); setClCompletedTasks(existing.completedTasks ||[]); setClNotes(existing.notes || '');
@@ -630,10 +698,34 @@ function MainDashboard({ session }: { session: any }) {
     fetchFeedbacks(); return { success: res.ok };
   };
 
+  const handleSendMessage = async (content: string, isGlobal: boolean, targetUserIds: number[], targetLocationIds: number[]) => {
+    const res = await fetch('/api/messages', { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ senderId: selectedUserId, content, isGlobal, targetUserIds, targetLocationIds }) 
+    });
+    if (res.ok) fetchMessages();
+    return { success: res.ok };
+  };
+
+  const handleCreateAnnouncement = async (title: string, content: string, isGlobal: boolean, targetLocationIds: number[]) => {
+    const res = await fetch('/api/announcements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ authorId: selectedUserId, title, content, isGlobal, targetLocationIds }) });
+    if (res.ok) fetchAnnouncements();
+    return { success: res.ok };
+  };
+
+  const handleDeleteAnnouncement = async (id: number) => {
+    if (!confirm("Delete this announcement?")) return { success: false };
+    const res = await fetch('/api/announcements', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    if (res.ok) fetchAnnouncements();
+    return { success: res.ok };
+  };
+
   const TAB_LABELS: Record<string, string> = {
     calendar: 'Calendar',
     builder: 'Builder', 
     manual: 'My Time', 
+    messages: 'Team Chat',
     timesheets: 'Timesheets',
     dashboard: 'Payroll',
     privileges: 'Passes',
@@ -671,9 +763,12 @@ function MainDashboard({ session }: { session: any }) {
   const pendingCards = isManager ? (Array.isArray(managerData) ? managerData :[]).filter(c => (!c.status || c.status === 'PENDING') && c.clockOut) :[];
   const unapprovedCount = pendingCards.length;
 
+  // --- Build Master AppState Prop ---
   const appState: AppState = {
     isMounted, activeTab, setActiveTab, users: safeUsers, locations, timeCards, shifts, setShifts, members, templates, checklists,
     selectedUserId, setSelectedUserId, currentMonth, setCurrentMonth, currentYear, setCurrentYear,
+    messages, setMessages, fetchMessages, handleSendMessage,
+    announcements, setAnnouncements, fetchAnnouncements, handleCreateAnnouncement, handleDeleteAnnouncement,
     calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter, editingCardId, setEditingCardId,
     formUserId, setFormUserId,
     formDate, setFormDate, formStartTime, setFormStartTime, formEndTime, setFormEndTime,
@@ -707,13 +802,13 @@ function MainDashboard({ session }: { session: any }) {
     activeUserTimeCards: (Array.isArray(timeCards) ? timeCards :[]).filter(c => c.userId === parseInt(selectedUserId)),
     filteredMembers: (Array.isArray(members) ? members :[]).filter(m => m.lastName.toLowerCase().includes(passSearch.toLowerCase())),
     filteredTemplates: Array.isArray(templates) ? templates :[],
-    unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart, unreadFeedbackCount
+    unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart, unreadFeedbackCount, unreadMessagesCount
   };
 
   if (!isMounted) return <div className="p-10 text-center font-bold">Loading Workspace...</div>;
 
-  const generalTabs =['calendar', 'manual', 'privileges', 'giftcards', 'feedback'];
-  const adminTabs =['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
+  const generalTabs = ['calendar', 'manual', 'messages', 'privileges', 'giftcards', 'feedback'];
+  const adminTabs = ['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
 
   return (
     <div className="min-h-screen bg-gray-100 p-2 md:p-4 font-sans relative">
@@ -813,7 +908,7 @@ function MainDashboard({ session }: { session: any }) {
             <div className="flex flex-wrap gap-1.5 justify-start lg:justify-end items-center bg-slate-800/50 p-1.5 rounded-xl w-full lg:w-auto">
               {isManager && <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest hidden md:block px-2">Staff Space</span>}
               {generalTabs.map(tab => {
-                const visible = (tab === 'calendar' || tab === 'manual' || tab === 'feedback') || 
+                const visible = (tab === 'calendar' || tab === 'manual' || tab === 'feedback' || tab === 'messages') || 
                                 (tab === 'privileges' && showPasses) || 
                                 (tab === 'giftcards' && showGiftCards);
                 if (!visible) return null;
@@ -830,6 +925,11 @@ function MainDashboard({ session }: { session: any }) {
                     {tab === 'feedback' && unreadFeedbackCount > 0 && (
                       <span className="absolute -top-1.5 -right-1.5 bg-purple-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">
                         {unreadFeedbackCount}
+                      </span>
+                    )}
+                    {tab === 'messages' && unreadMessagesCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">
+                        {unreadMessagesCount}
                       </span>
                     )}
                   </button>
@@ -884,15 +984,16 @@ function MainDashboard({ session }: { session: any }) {
           {activeTab === 'locations' && <LocationsTab appState={appState} />}
           {activeTab === 'giftcards' && <GiftCardTab appState={appState} />}
           {activeTab === 'feedback' && <FeedbackTab appState={appState} />}
+          {activeTab === 'messages' && <MessagesTab appState={appState} />}
         </div>
       </div>
     </div>
   );
 }
 
-// ------------------------------------------------------------------
+// ==================================================================
 // 3. SECURITY GUARD LAYER
-// ------------------------------------------------------------------
+// ==================================================================
 export default function SchedulingAppRoot() {
   const { data: session, status } = useSession();
 

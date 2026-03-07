@@ -1,4 +1,3 @@
-// filepath: prisma/schema.prisma
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -53,6 +52,10 @@ model User {
   checklists     Checklist[]     
   templates      ShiftTemplate[]
   feedbacks      Feedback[]
+  
+  // NEW RELATIONS
+  messages       Message[]
+  announcements  Announcement[]
 
   // NextAuth Relations
   accounts       Account[]
@@ -74,7 +77,7 @@ model Account {
   id_token          String? 
   session_state     String?
  
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields:[userId], references: [id], onDelete: Cascade)
   @@unique([provider, providerAccountId])
 }
  
@@ -83,7 +86,7 @@ model Session {
   sessionToken String   @unique
   userId       Int
   expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields:[userId], references: [id], onDelete: Cascade)
 }
  
 model Authenticator {
@@ -117,9 +120,9 @@ model Shift {
   endTime     DateTime
   status      String     @default("OPEN") 
   locationId  Int
-  location    Location   @relation(fields: [ locationId ], references: [ id ])
+  location    Location   @relation(fields: [ locationId ], references:[ id ])
   userId      Int?
-  assignedTo  User?      @relation(fields: [ userId ], references: [ id ])
+  assignedTo  User?      @relation(fields: [ userId ], references:[ id ])
 }
 
 model TimeCard {
@@ -169,7 +172,7 @@ model GiftCard {
   remainingBalance Float
   recipientName    String?  
   memberId         Int?     
-  member           Member?  @relation(fields: [memberId], references:[id])
+  member           Member?  @relation(fields:[memberId], references:[id])
   issuedAt         DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
@@ -194,7 +197,7 @@ model Checklist {
   userId         Int
   user           User      @relation(fields: [userId], references:[id])
   locationId     Int
-  location       Location  @relation(fields: [locationId], references:[id])
+  location       Location  @relation(fields:[locationId], references:[id])
   timeCardId     Int?      
   timeCard       TimeCard? @relation(fields:[timeCardId], references:[id]) 
   notes          String?
@@ -217,4 +220,26 @@ model Feedback {
   devNotes    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
+}
+
+model Message {
+  id                Int      @id @default(autoincrement())
+  content           String
+  senderId          Int
+  sender            User     @relation(fields:[senderId], references: [id], onDelete: Cascade)
+  isGlobal          Boolean  @default(true)
+  targetUserIds     Int[]    @default([])
+  targetLocationIds Int[]    @default([])
+  createdAt         DateTime @default(now())
+}
+
+model Announcement {
+  id                Int      @id @default(autoincrement())
+  title             String
+  content           String
+  authorId          Int
+  author            User     @relation(fields:[authorId], references: [id], onDelete: Cascade)
+  isGlobal          Boolean  @default(true)
+  targetLocationIds Int[]    @default([])
+  createdAt         DateTime @default(now())
 }

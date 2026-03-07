@@ -1,4 +1,3 @@
-// filepath: lib/types.ts
 export type Role = 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
 
 export interface Location {
@@ -124,6 +123,28 @@ export interface Feedback {
   devNotes?: string | null;
   createdAt: string;
   updatedAt?: string; 
+}
+
+export interface Message {
+  id: number;
+  content: string;
+  senderId: number;
+  sender?: User;
+  isGlobal: boolean;
+  targetUserIds: number[];
+  targetLocationIds: number[];
+  createdAt: string;
+}
+
+export interface Announcement {
+  id: number;
+  title: string;
+  content: string;
+  authorId: number;
+  author?: User;
+  isGlobal: boolean;
+  targetLocationIds: number[];
+  createdAt: string;
 }
 
 export interface AppState {
@@ -312,4 +333,16 @@ export interface AppState {
   builderWeekStart: string;
   setBuilderWeekStart: (d: string) => void;
   unreadFeedbackCount: number;
+  
+  messages: Message[];
+  setMessages: (m: Message[]) => void;
+  fetchMessages: () => void;
+  handleSendMessage: (content: string, isGlobal: boolean, targetUserIds: number[], targetLocationIds: number[]) => Promise<{ success: boolean }>;
+  announcements: Announcement[];
+  setAnnouncements: (a: Announcement[]) => void;
+  fetchAnnouncements: () => void;
+  handleCreateAnnouncement: (title: string, content: string, isGlobal: boolean, targetLocationIds: number[]) => Promise<{ success: boolean }>;
+  handleDeleteAnnouncement: (id: number) => Promise<{ success: boolean }>;
+  
+  unreadMessagesCount: number;
 }
