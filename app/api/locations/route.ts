@@ -1,4 +1,3 @@
-// filepath: app/api/locations/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -11,6 +10,7 @@ const locationSchema = z.object({
   address: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
   phoneNumber: z.string().nullable().optional(),
+  isActive: z.boolean().optional().default(true),
 });
 
 export async function GET() {
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
         address: data.address || null,
         email: data.email || null,
         phoneNumber: data.phoneNumber || null,
+        isActive: data.isActive !== undefined ? data.isActive : true
       }
     });
 
@@ -65,6 +66,7 @@ export async function PUT(request: Request) {
         address: data.address !== undefined ? data.address : undefined,
         email: data.email !== undefined ? data.email : undefined,
         phoneNumber: data.phoneNumber !== undefined ? data.phoneNumber : undefined,
+        isActive: data.isActive !== undefined ? data.isActive : undefined
       }
     });
 

@@ -6,6 +6,7 @@ export interface Location {
   address?: string | null;
   email?: string | null;
   phoneNumber?: string | null;
+  isActive?: boolean;
 }
 
 export interface User {
@@ -153,6 +154,7 @@ export interface AppState {
   setActiveTab: (tab: string) => void;
   users: User[];
   locations: Location[];
+  visibleLocations: Location[];
   timeCards: TimeCard[];
   shifts: Shift[];
   setShifts: React.Dispatch<React.SetStateAction<Shift[]>>;

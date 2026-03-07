@@ -1,4 +1,3 @@
-// filepath: app/components/TimesheetsTab.tsx
 "use client";
 import React, { useState } from 'react';
 import { AppState, TimeCard } from '../lib/types';
@@ -8,14 +7,14 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
     managerData, formDate, setFormDate, formStartTime, setFormStartTime, 
     formEndTime, setFormEndTime, selectedLocation, setSelectedLocation, 
     handleManualSubmit, editingCardId, setEditingCardId, 
-    formUserId, setFormUserId, // Changed from selectedUserId!
+    formUserId, setFormUserId,
     setActiveTab, handleEditClick, handleDeleteClick, 
     formatDateSafe, formatTimeSafe, handleUpdateCardStatus, checklists,
     users, locations, manLocs
   } = appState;
 
   const[expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-  const [expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
+  const[expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
   
   const toggleGroup = (key: string) => {
     setExpandedGroups(prev => ({ ...prev,[key]: !prev[key] }));
@@ -99,7 +98,10 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
             <label className="block text-sm font-bold text-slate-700 mb-1">Location</label>
             <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} required className="w-full border border-gray-400 rounded-lg p-2.5 text-slate-900 font-black focus:ring-2 focus:ring-blue-500 outline-none shadow-sm">
               <option value="">-- Select --</option>
-              {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
+              {/* Only show active locations for NEW entries */}
+              {locations.filter(l => l.isActive !== false || (editingCardId && l.id.toString() === selectedLocation)).map(loc => (
+                <option key={loc.id} value={loc.id}>{loc.name} {loc.isActive === false && '(Archived)'}</option>
+              ))}
             </select>
           </div>
 
@@ -130,10 +132,16 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
             let locTotal = 0;
             Object.values(empGroups).forEach(group => group.forEach(c => locTotal += (c.totalHours || 0)));
 
+            const locObj = locations.find(l => l.name === locName);
+            const isArchived = locObj && locObj.isActive === false;
+
             return (
               <div key={locName} className="bg-white border border-slate-300 rounded-2xl overflow-hidden shadow-sm">
                 <button onClick={() => toggleGroup(locKey)} className="w-full bg-slate-800 text-white p-4 md:p-5 flex justify-between items-center hover:bg-slate-700 transition">
-                  <span className="text-lg md:text-xl font-black tracking-wide">{locName}</span>
+                  <span className="text-lg md:text-xl font-black tracking-wide flex items-center gap-2">
+                    {locName}
+                    {isArchived && <span className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded uppercase tracking-widest font-black ml-2 shadow-inner">Archived</span>}
+                  </span>
                   <div className="flex items-center gap-4">
                     <span className="text-sm font-bold bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-600">{locTotal.toFixed(2)} hrs</span>
                     <svg className={`h-6 w-6 transition-transform ${expandedGroups[locKey] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>

@@ -1,16 +1,15 @@
-// filepath: app/components/SetupTab.tsx
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, Location, GlobalTask } from '../lib/types';
 
 export default function SetupTab({ appState }: { appState: AppState }) {
-  const [activeTab, setActiveTab] = useState('templates');
+  const[activeTab, setActiveTab] = useState('templates');
   const[showLocFilter, setShowLocFilter] = useState(false);
   const [showDayFilter, setShowDayFilter] = useState(false);
-  const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'}>({ key: 'location', direction: 'asc' });
+  const[sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'}>({ key: 'location', direction: 'asc' });
 
   // Editing State for Master Tasks
-  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const[editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [editTaskStr, setEditTaskStr] = useState('');
 
   const locFilterRef = useRef<HTMLTableHeaderCellElement>(null);
@@ -26,6 +25,9 @@ export default function SetupTab({ appState }: { appState: AppState }) {
     handleSaveTemplate, newTaskStr, setNewTaskStr, tplUserId, setTplUserId,
     handleAddMasterTask, handleEditMasterTask, handleDeleteMasterTask
   } = appState;
+
+  // Filter for ACTIVE locations only in the template creator
+  const activeLocations = locations.filter(l => l.isActive !== false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -129,9 +131,9 @@ export default function SetupTab({ appState }: { appState: AppState }) {
               </div>
 
               <div>
-                <label className="block text-sm font-black text-slate-900 mb-1.5">2. Locations</label>
+                <label className="block text-sm font-black text-slate-900 mb-1.5">2. Locations (Active Only)</label>
                 <div className="max-h-32 overflow-y-auto bg-white p-2 border-2 border-slate-300 rounded-lg shadow-sm space-y-1">
-                  {locations?.map((loc: Location) => (
+                  {activeLocations?.map((loc: Location) => (
                     <label key={loc.id} className="flex items-center space-x-2 cursor-pointer text-sm hover:bg-slate-50 p-1.5 rounded">
                       <input 
                         type="checkbox" 
@@ -142,6 +144,9 @@ export default function SetupTab({ appState }: { appState: AppState }) {
                       <span className="text-slate-900 font-bold">{loc.name}</span>
                     </label>
                   ))}
+                  {activeLocations.length === 0 && (
+                    <div className="text-xs font-bold text-red-500 p-2">No active locations found! Check the Locations tab.</div>
+                  )}
                 </div>
               </div>
 
@@ -315,7 +320,7 @@ export default function SetupTab({ appState }: { appState: AppState }) {
                                     onChange={() => toggleTplViewLoc(loc.id)} 
                                     className="w-4 h-4 text-blue-600 rounded border-slate-400"
                                   />
-                                  <span className="truncate font-bold">{loc.name}</span>
+                                  <span className="truncate font-bold">{loc.name} {loc.isActive === false && '(Archived)'}</span>
                                 </label>
                               ))}
                             </div>
@@ -414,7 +419,7 @@ export default function SetupTab({ appState }: { appState: AppState }) {
                         const hasDates = tpl.startDate || tpl.endDate;
                         return (
                           <tr key={tpl.id} className="border-b border-slate-200 hover:bg-slate-100 transition-colors">
-                            <td className="p-3 font-bold max-w-[120px] truncate" title={tpl.location?.name}>
+                            <td className={`p-3 font-bold max-w-[120px] truncate ${tpl.location?.isActive === false ? 'text-slate-400 line-through' : ''}`} title={tpl.location?.name}>
                               {tpl.location?.name || 'Unknown Location'}
                             </td>
                             <td className="p-3 font-bold">

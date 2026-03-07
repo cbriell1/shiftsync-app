@@ -1,4 +1,3 @@
-// filepath: app/components/StaffTab.tsx
 "use client";
 import React, { useState } from 'react';
 import { AppState, User, Location } from '../lib/types';
@@ -33,7 +32,7 @@ export default function StaffTab({ appState }: { appState: AppState }) {
 
   // Function to handle toggling a location array for a user
   const toggleLocation = async (user: User, locationId: number) => {
-    const currentLocs = user.locationIds ? [...user.locationIds] :[];
+    const currentLocs = user.locationIds ?[...user.locationIds] :[];
     let newLocs: number[];
 
     if (currentLocs.includes(locationId)) {
@@ -165,6 +164,9 @@ export default function StaffTab({ appState }: { appState: AppState }) {
           <div className="flex flex-wrap gap-1">
             {locations.map(loc => {
               const isAssigned = userLocs.includes(loc.id);
+              // Hide unassigned inactive locations to clean up the UI
+              if (!isAssigned && loc.isActive === false) return null;
+              
               return (
                 <button
                   key={loc.id}
@@ -173,10 +175,11 @@ export default function StaffTab({ appState }: { appState: AppState }) {
                     isAssigned 
                       ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' 
                       : 'bg-white border-slate-200 text-slate-500 hover:border-slate-400 hover:text-slate-800'
-                  }`}
+                  } ${loc.isActive === false ? 'opacity-60' : ''}`}
+                  title={loc.isActive === false ? 'This location is archived' : ''}
                 >
                   <div className={`w-1.5 h-1.5 rounded-full ${isAssigned ? 'bg-blue-600' : 'bg-slate-300'}`} />
-                  {loc.name}
+                  {loc.name} {loc.isActive === false && '[ARCHIVED]'}
                 </button>
               );
             })}
@@ -210,7 +213,7 @@ export default function StaffTab({ appState }: { appState: AppState }) {
               <div key={loc.id} className="space-y-2">
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b border-slate-200 pb-1 flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500 block"></span>
-                  {loc.name} 
+                  {loc.name} {loc.isActive === false && '(Archived)'}
                   <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full ml-2">{groupUsers.length}</span>
                 </h3>
                 {groupUsers.map(renderUserRow)}
@@ -312,7 +315,7 @@ export default function StaffTab({ appState }: { appState: AppState }) {
           className="w-full md:w-auto border border-slate-300 rounded-lg py-2 px-3 text-xs font-bold text-slate-700 bg-slate-50 focus:bg-white outline-none cursor-pointer"
         >
           <option value="ALL">All Locations</option>
-          {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
+          {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name} {loc.isActive === false ? '(Archived)' : ''}</option>)}
         </select>
 
         {/* Role Filter */}

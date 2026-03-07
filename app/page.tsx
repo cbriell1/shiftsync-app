@@ -24,10 +24,10 @@ import MessagesTab from './components/MessagesTab';
 // 1. LOGIN SCREEN COMPONENT
 // ==================================================================
 function LoginScreen({ sessionData }: { sessionData: any }) {
-  const[email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const[loading, setLoading] = useState(false);
-  const [usePassword, setUsePassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const[password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const[usePassword, setUsePassword] = useState(false);
 
   const handlePasskeyLogin = async (action: "authenticate" | "register") => {
     setLoading(true);
@@ -177,18 +177,18 @@ function MainDashboard({ session }: { session: any }) {
   const[isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
 
   // --- User & Date Context ---
-  const[selectedUserId, setSelectedUserId] = useState(session?.user?.id?.toString() || '');
-  const[currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [selectedUserId, setSelectedUserId] = useState(session?.user?.id?.toString() || '');
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
   // --- Notifications & Local Storage Trackers ---
-  const[lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
+  const [lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
   const [highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
   const [lastViewedMessages, setLastViewedMessages] = useState<string>('1970-01-01T00:00:00.000Z');
 
   // --- Calendar & Filter States ---
   const [calLocFilter, setCalLocFilter] = useState('');
-  const[calEmpFilter, setCalEmpFilter] = useState('');
+  const [calEmpFilter, setCalEmpFilter] = useState('');
 
   const getMonday = (d: Date) => { 
     const dt = new Date(d); 
@@ -210,35 +210,35 @@ function MainDashboard({ session }: { session: any }) {
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
   const [editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
-  const [clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
-  const[clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
-  const[clNotes, setClNotes] = useState('');
+  const[clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
+  const [clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
+  const [clNotes, setClNotes] = useState('');
 
   // --- Form States (Members/Passes) ---
-  const[passSearch, setPassSearch] = useState('');
+  const [passSearch, setPassSearch] = useState('');
   const [expandedMember, setExpandedMember] = useState<number | null>(null);
-  const [pDate, setPDate] = useState('');
-  const[pAmt, setPAmt] = useState<number | string>(1);
+  const[pDate, setPDate] = useState('');
+  const [pAmt, setPAmt] = useState<number | string>(1);
   const [pInitials, setPInitials] = useState('');
-  const[editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
-  const[newRenewalDate, setNewRenewalDate] = useState('');
-  const [editingTotalId, setEditingTotalId] = useState<number | null>(null);
-  const [newTotalVal, setNewTotalVal] = useState<number | string>(12);
-  const [newBonusNotes, setNewBonusNotes] = useState('');
+  const [editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
+  const [newRenewalDate, setNewRenewalDate] = useState('');
+  const[editingTotalId, setEditingTotalId] = useState<number | null>(null);
+  const[newTotalVal, setNewTotalVal] = useState<number | string>(12);
+  const[newBonusNotes, setNewBonusNotes] = useState('');
 
   // --- Form States (Templates) ---
-  const [editingTplId, setEditingTplId] = useState<number | null>(null); 
-  const[tplLocs, setTplLocs] = useState<number[]>([]);
-  const[tplDays, setTplDays] = useState<(string | number)[]>([]);
-  const[tplStart, setTplStart] = useState('');
-  const [tplEnd, setTplEnd] = useState('');
-  const[tplStartDate, setTplStartDate] = useState(''); 
-  const [tplEndDate, setTplEndDate] = useState('');     
-  const[tplTasks, setTplTasks] = useState<string[]>([]); 
-  const[newTaskStr, setNewTaskStr] = useState(''); 
-  const[tplUserId, setTplUserId] = useState(''); 
-  const [tplViewLocs, setTplViewLocs] = useState<number[]>([]);
-  const[tplViewDays, setTplViewDays] = useState<number[]>([]);
+  const[editingTplId, setEditingTplId] = useState<number | null>(null); 
+  const [tplLocs, setTplLocs] = useState<number[]>([]);
+  const [tplDays, setTplDays] = useState<(string | number)[]>([]);
+  const [tplStart, setTplStart] = useState('');
+  const[tplEnd, setTplEnd] = useState('');
+  const [tplStartDate, setTplStartDate] = useState(''); 
+  const[tplEndDate, setTplEndDate] = useState('');     
+  const [tplTasks, setTplTasks] = useState<string[]>([]); 
+  const [newTaskStr, setNewTaskStr] = useState(''); 
+  const [tplUserId, setTplUserId] = useState(''); 
+  const[tplViewLocs, setTplViewLocs] = useState<number[]>([]);
+  const [tplViewDays, setTplViewDays] = useState<number[]>([]);
 
   // --- Constants & Generators ---
   const generatePeriods = () => {
@@ -259,12 +259,12 @@ function MainDashboard({ session }: { session: any }) {
   };
 
   const [periods] = useState(generatePeriods());
-  const[manPeriods, setManPeriods] = useState<number[]>([0]); 
+  const [manPeriods, setManPeriods] = useState<number[]>([0]); 
   const[manLocs, setManLocs] = useState<number[]>([]);
-  const[manEmps, setManEmps] = useState<number[]>([]);
+  const [manEmps, setManEmps] = useState<number[]>([]);
   const [managerData, setManagerData] = useState<TimeCard[]>([]);
 
-  const DAYS_OF_WEEK =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const YEARS =[2025, 2026, 2027];
   const AVAILABLE_ROLES =['Administrator', 'Manager', 'Front Desk', 'Trainer'];
@@ -303,7 +303,7 @@ function MainDashboard({ session }: { session: any }) {
     if (session?.user?.id && !selectedUserId) {
       setSelectedUserId(session.user.id.toString());
     }
-  }, [session?.user?.id]);
+  },[session?.user?.id]);
 
   const fetchUsers = () => fetch('/api/users?t=' + new Date().getTime()).then(res => res.json()).then(data => setUsers(Array.isArray(data) ? data :[]));
   const fetchMembers = () => fetch('/api/members?t=' + new Date().getTime()).then(res => res.json()).then(data => setMembers(Array.isArray(data) ? data :[]));
@@ -337,12 +337,10 @@ function MainDashboard({ session }: { session: any }) {
   };
 
   // --- BACKGROUND POLLING & WINDOW FOCUS SYNC ---
-  // This is what makes the app feel "real-time" across phones and computers!
   useEffect(() => {
     setIsMounted(true);
     if (!session) return;
 
-    // Fetch everything on first mount
     fetchUsers();
     fetchMembers();
     fetchTemplates();
@@ -356,7 +354,6 @@ function MainDashboard({ session }: { session: any }) {
     fetchTimeCards();
     fetchShifts();
 
-    // Define the lightweight sync function
     const syncOperationalData = () => {
       if (!selectedUserId) return;
       fetchChecklists();
@@ -366,20 +363,18 @@ function MainDashboard({ session }: { session: any }) {
       fetchAnnouncements();
     };
 
-    // Sync whenever the computer window gets focused
     const onFocus = () => syncOperationalData();
     window.addEventListener('focus', onFocus);
 
-    // Sync automatically every 30 seconds
     const intervalId = setInterval(syncOperationalData, 30000);
 
     return () => {
       window.removeEventListener('focus', onFocus);
       clearInterval(intervalId);
     };
-  }, [session, selectedUserId]); // Re-run if user switches their identity dropdown
+  }, [session, selectedUserId]); 
 
-  // --- Auth & Access Control Logic ---
+  // --- Auth & Security ---
   const safeUsers = Array.isArray(users) ? users :[];
   const authenticatedUserId = session?.user?.id?.toString();
   const authenticatedUserObj = safeUsers.find(u => u.id.toString() === authenticatedUserId);
@@ -407,6 +402,13 @@ function MainDashboard({ session }: { session: any }) {
   const showPasses = isFrontDesk; 
   const showGiftCards = isFrontDesk; 
 
+  // --- COMPUTE VISIBLE LOCATIONS ---
+  // This physically stops staff from seeing or interacting with locations they aren't assigned to
+  const allowedLocationIds = activeUserObj?.locationIds?.map(id => typeof id === 'string' ? parseInt(id, 10) : id) ||[];
+  const visibleLocations = isAdmin 
+    ? locations 
+    : locations.filter(loc => allowedLocationIds.includes(loc.id));
+
   useEffect(() => {
     if (session && (activeTab === 'dashboard' || activeTab === 'timesheets')) {
       fetchManagerData();
@@ -428,12 +430,10 @@ function MainDashboard({ session }: { session: any }) {
   // --- Notification / LocalStorage Logic ---
   useEffect(() => {
     if (typeof window !== 'undefined' && selectedUserId) {
-      // Sync Feedback Tracking
       const storedFb = localStorage.getItem('lastViewedFeedback_' + selectedUserId);
       setLastViewedFeedback(storedFb || '1970-01-01T00:00:00.000Z');
       setHighlightBaseline(storedFb || '1970-01-01T00:00:00.000Z');
 
-      // Sync Messages Tracking
       const storedMsg = localStorage.getItem('lastViewedMessages_' + selectedUserId);
       setLastViewedMessages(storedMsg || '1970-01-01T00:00:00.000Z');
     }
@@ -451,7 +451,7 @@ function MainDashboard({ session }: { session: any }) {
         setLastViewedMessages(now);
       }
     }
-  },[activeTab, selectedUserId, feedbacks, messages, announcements]);
+  }, [activeTab, selectedUserId, feedbacks, messages, announcements]);
 
   const unreadFeedbackCount = (Array.isArray(feedbacks) ? feedbacks :[]).filter(fb => {
     const fbUpdated = new Date(fb.updatedAt || fb.createdAt).getTime();
@@ -461,7 +461,7 @@ function MainDashboard({ session }: { session: any }) {
     return fb.userId === parseInt(selectedUserId);
   }).length;
 
-  const unreadMessagesCount =[...(Array.isArray(messages) ? messages : []), ...(Array.isArray(announcements) ? announcements :[])].filter(item => {
+  const unreadMessagesCount = [...(Array.isArray(messages) ? messages : []), ...(Array.isArray(announcements) ? announcements :[])].filter(item => {
     const itemDate = new Date(item.createdAt).getTime();
     const lastViewed = new Date(lastViewedMessages).getTime();
     if (itemDate <= lastViewed) return false;
@@ -526,7 +526,7 @@ function MainDashboard({ session }: { session: any }) {
   const handleRoleToggle = async (targetUserId: number, roleName: string) => {
     const targetUser = safeUsers.find(u => u.id === targetUserId);
     if (!targetUser) return;
-    let currentRoles = targetUser.systemRoles ?[...targetUser.systemRoles] :[];
+    let currentRoles = targetUser.systemRoles ? [...targetUser.systemRoles] :[];
     if (currentRoles.includes(roleName)) currentRoles = currentRoles.filter(r => r !== roleName);
     else currentRoles.push(roleName);
     setUsers(safeUsers.map(u => u.id === targetUserId ? { ...u, systemRoles: currentRoles } : u));
@@ -762,6 +762,9 @@ function MainDashboard({ session }: { session: any }) {
   const activeManPeriods = manPeriods.map(idx => periods[idx]);
 
   (Array.isArray(managerData) ? managerData :[]).forEach(card => {
+    // Hide locations entirely from the Payroll Matrix if the user is not assigned to them
+    if (!visibleLocations.some(l => l.id === card.locationId)) return;
+
     if (manLocs.length > 0 && !manLocs.includes(card.locationId)) {
       if (!hiddenWarningsMap.has(card.user?.name)) hiddenWarningsMap.set(card.user?.name, new Set());
       hiddenWarningsMap.get(card.user?.name).add(card.location?.name); return;
@@ -782,7 +785,7 @@ function MainDashboard({ session }: { session: any }) {
 
   // --- Build Master AppState Prop ---
   const appState: AppState = {
-    isMounted, activeTab, setActiveTab, users: safeUsers, locations, timeCards, shifts, setShifts, members, templates, checklists,
+    isMounted, activeTab, setActiveTab, users: safeUsers, locations, visibleLocations, timeCards, shifts, setShifts, members, templates, checklists,
     selectedUserId, setSelectedUserId, currentMonth, setCurrentMonth, currentYear, setCurrentYear,
     messages, setMessages, fetchMessages, handleSendMessage,
     announcements, setAnnouncements, fetchAnnouncements, handleCreateAnnouncement, handleDeleteAnnouncement,
@@ -825,8 +828,8 @@ function MainDashboard({ session }: { session: any }) {
 
   if (!isMounted) return <div className="p-10 text-center font-bold">Loading Workspace...</div>;
 
-  const generalTabs = ['calendar', 'manual', 'messages', 'privileges', 'giftcards', 'feedback'];
-  const adminTabs = ['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
+  const generalTabs =['calendar', 'manual', 'messages', 'privileges', 'giftcards', 'feedback'];
+  const adminTabs =['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
 
   return (
     <div className="min-h-screen bg-gray-100 p-2 md:p-4 font-sans relative">

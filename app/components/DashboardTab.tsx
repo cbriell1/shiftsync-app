@@ -1,4 +1,3 @@
-// filepath: app/components/DashboardTab.tsx
 "use client";
 import React from 'react';
 import { AppState } from '../lib/types';
@@ -114,7 +113,9 @@ export default function DashboardTab({ appState }: { appState: AppState }) {
             {locations.map(loc => (
               <label key={loc.id} className="flex items-center space-x-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
                 <input type="checkbox" checked={manLocs.includes(loc.id)} onChange={() => toggleManLoc(loc.id)} className="w-5 h-5 md:w-4 md:h-4 text-orange-500 rounded border-gray-400 cursor-pointer" />
-                <span className="text-xs md:text-sm font-bold text-slate-900">{loc.name}</span>
+                <span className="text-xs md:text-sm font-bold text-slate-900">
+                  {loc.name} {loc.isActive === false && <span className="text-red-500 text-[10px] uppercase">(Archived)</span>}
+                </span>
               </label>
             ))}
           </div>
@@ -150,21 +151,28 @@ export default function DashboardTab({ appState }: { appState: AppState }) {
             {matrixRows.length === 0 ? (
               <tr><td colSpan={10} className="p-6 text-center font-bold text-slate-500 italic bg-white">No data match.</td></tr>
             ) : (
-              matrixRows.map((row, idx) => (
-                <tr key={idx} className="border-b border-gray-200 hover:bg-slate-50 transition whitespace-nowrap">
-                  <td className="p-3 font-bold text-gray-700 border-r border-gray-200">{row.locName}</td>
-                  <td className="p-3 font-black text-slate-900 border-r border-gray-200">{row.empName}</td>
-                  {activeManPeriods.map(p => {
-                    const val = row.periodTotals.get(p.label);
-                    return (
-                      <td key={p.label} className={`p-3 font-bold text-center border-r border-gray-200 ${val > 0 ? 'text-green-800 bg-green-50' : 'text-gray-400'}`}>
-                        {val > 0 ? val.toFixed(2) + 'h' : '-'}
-                      </td>
-                    );
-                  })}
-                  <td className="p-3 font-black text-blue-900 bg-blue-50 text-center border-l-2 border-blue-200">{row.totalRowHours.toFixed(2)}h</td>
-                </tr>
-              ))
+              matrixRows.map((row, idx) => {
+                const locObj = locations.find(l => l.name === row.locName);
+                const isArchived = locObj && locObj.isActive === false;
+
+                return (
+                  <tr key={idx} className="border-b border-gray-200 hover:bg-slate-50 transition whitespace-nowrap">
+                    <td className="p-3 font-bold text-gray-700 border-r border-gray-200">
+                      {row.locName} {isArchived && <span className="text-[10px] text-red-500 uppercase tracking-widest block">Archived</span>}
+                    </td>
+                    <td className="p-3 font-black text-slate-900 border-r border-gray-200">{row.empName}</td>
+                    {activeManPeriods.map(p => {
+                      const val = row.periodTotals.get(p.label);
+                      return (
+                        <td key={p.label} className={`p-3 font-bold text-center border-r border-gray-200 ${val > 0 ? 'text-green-800 bg-green-50' : 'text-gray-400'}`}>
+                          {val > 0 ? val.toFixed(2) + 'h' : '-'}
+                        </td>
+                      );
+                    })}
+                    <td className="p-3 font-black text-blue-900 bg-blue-50 text-center border-l-2 border-blue-200">{row.totalRowHours.toFixed(2)}h</td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

@@ -1,91 +1,167 @@
 "use client";
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { AppState, Shift, Location, User } from '../lib/types';
+
+// Constants for the Timeline View (Week & Day)
+const TIMELINE_START_HOUR = 6; // 6:00 AM
+const TIMELINE_END_HOUR = 24;  // 12:00 AM (Midnight)
+const HOUR_HEIGHT = 70;        // pixels per hour
+
+// Generate array of hours[6, 7, 8... 23]
+const TIME_LABELS = Array.from(
+  { length: TIMELINE_END_HOUR - TIMELINE_START_HOUR }, 
+  (_, i) => i + TIMELINE_START_HOUR
+);
 
 export default function CalendarTab({ appState }: { appState: AppState }) {
   const {
     currentMonth, setCurrentMonth, currentYear, setCurrentYear, MONTHS, YEARS,
-    calLocFilter, setCalLocFilter, locations, calEmpFilter, setCalEmpFilter, users,
-    showSetup, handleGenerateSchedule, DAYS_OF_WEEK, activeCalColor, calendarCells,
+    locations, users, showSetup, handleGenerateSchedule, DAYS_OF_WEEK, activeCalColor, calendarCells,
     shifts, selectedUserId, getLocationColor, formatTimeSafe,
     isAdmin, isManager, setShifts, handleUpdateShiftTime, handleClaimShift
   } = appState;
+
+  // --- VIEW MODE & DATE TRACKING ---
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('week');
+  
+  const [baseDate, setBaseDate] = useState(() => {
+    const today = new Date();
+    if (today.getMonth() === currentMonth && today.getFullYear() === currentYear) {
+      return today;
+    }
+    return new Date(currentYear, currentMonth, 1);
+  });
+
+  useEffect(() => {
+    setCurrentMonth(baseDate.getMonth());
+    setCurrentYear(baseDate.getFullYear());
+  }, [baseDate, setCurrentMonth, setCurrentYear]);
+
+  // --- MULTI-SELECT FILTER STATE ---
+  const [selectedLocs, setSelectedLocs] = useState<number[]>([]);
+  const [selectedEmps, setSelectedEmps] = useState<number[]>([]);
+  const [showLocDropdown, setShowLocDropdown] = useState(false);
+  const [showEmpDropdown, setShowEmpDropdown] = useState(false);
 
   // --- ROLE & LOCATION FILTERING LOGIC ---
   const activeUserObj = users.find(u => u.id === parseInt(selectedUserId));
   const userLocationIds = activeUserObj?.locationIds ||[];
   const allowedLocationIds = userLocationIds.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
 
-  const visibleLocations = (isAdmin || isManager) 
-    ? locations 
-    : locations.filter(loc => allowedLocationIds.includes(loc.id));
+  // Only ACTIVE locations show in the Dropdown filters
+  const activeLocations = (isAdmin || isManager) 
+    ? locations.filter(l => l.isActive !== false) 
+    : locations.filter(loc => allowedLocationIds.includes(loc.id) && loc.isActive !== false);
 
-  // --- ARROW NAVIGATION LOGIC ---
   const minYear = Math.min(...YEARS);
   const maxYear = Math.max(...YEARS);
 
-  const handlePrevMonth = () => {
-    if (currentMonth === 0) {
-      if (currentYear > minYear) {
-        setCurrentMonth(11); // Loop to December
-        setCurrentYear(currentYear - 1);
-      }
-    } else {
-      setCurrentMonth(currentMonth - 1);
+  // --- NAVIGATION LOGIC ---
+  const handlePrev = () => {
+    const newDate = new Date(baseDate);
+    if (viewMode === 'month') newDate.setMonth(newDate.getMonth() - 1);
+    else if (viewMode === 'week') newDate.setDate(newDate.getDate() - 7);
+    else newDate.setDate(newDate.getDate() - 1);
+    setBaseDate(newDate);
+  };
+
+  const handleNext = () => {
+    const newDate = new Date(baseDate);
+    if (viewMode === 'month') newDate.setMonth(newDate.getMonth() + 1);
+    else if (viewMode === 'week') newDate.setDate(newDate.getDate() + 7);
+    else newDate.setDate(newDate.getDate() + 1);
+    setBaseDate(newDate);
+  };
+
+  const jumpToToday = () => setBaseDate(new Date());
+
+  const handleMonthDropdown = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const m = parseInt(e.target.value);
+    const newDate = new Date(baseDate);
+    newDate.setMonth(m);
+    setBaseDate(newDate);
+  };
+
+  const handleYearDropdown = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const y = parseInt(e.target.value);
+    const newDate = new Date(baseDate);
+    newDate.setFullYear(y);
+    setBaseDate(newDate);
+  };
+
+  const toggleEmpFilter = (id: number) => {
+    if (selectedEmps.includes(id)) setSelectedEmps(selectedEmps.filter(x => x !== id));
+    else setSelectedEmps([...selectedEmps, id]);
+  };
+
+  const toggleLocFilter = (id: number) => {
+    if (selectedLocs.includes(id)) setSelectedLocs(selectedLocs.filter(x => x !== id));
+    else setSelectedLocs([...selectedLocs, id]);
+  };
+
+  // --- GENERATE TIMELINE COLUMNS (For Week and Day View) ---
+  const dayArray = useMemo(() => {
+    const days = viewMode === 'week' ? 7 : 1;
+    const startOfGrid = new Date(baseDate);
+    if (viewMode === 'week') {
+      startOfGrid.setDate(startOfGrid.getDate() - startOfGrid.getDay());
     }
-  };
+    return Array.from({ length: days }, (_, i) => {
+      const d = new Date(startOfGrid);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  },[baseDate, viewMode]);
 
-  const handleNextMonth = () => {
-    if (currentMonth === 11) {
-      if (currentYear < maxYear) {
-        setCurrentMonth(0); // Loop to January
-        setCurrentYear(currentYear + 1);
-      }
+  // Determine which locations to show columns for. 
+  // If an inactive location has shifts on this day, we MUST show its column so history isn't lost.
+  const timelineColumns = useMemo(() => {
+    const locsToRender = new Set<number>();
+    
+    // Always include selected locations, or all ACTIVE locations if none selected
+    if (selectedLocs.length > 0) {
+      selectedLocs.forEach(id => locsToRender.add(id));
     } else {
-      setCurrentMonth(currentMonth + 1);
+      activeLocations.forEach(l => locsToRender.add(l.id));
     }
-  };
 
-  const handlePrevYear = () => {
-    if (currentYear > minYear) setCurrentYear(currentYear - 1);
-  };
+    // Pass 2: Look for historical shifts on these dates that belong to INACTIVE locations
+    dayArray.forEach(d => {
+      shifts.forEach(s => {
+        const sd = new Date(s.startTime);
+        if (sd.getFullYear() === d.getFullYear() && sd.getMonth() === d.getMonth() && sd.getDate() === d.getDate()) {
+          // Only add the column if they have permission to see it
+          if ((isAdmin || isManager) || allowedLocationIds.includes(s.locationId)) {
+            locsToRender.add(s.locationId);
+          }
+        }
+      });
+    });
 
-  const handleNextYear = () => {
-    if (currentYear < maxYear) setCurrentYear(currentYear + 1);
-  };
+    const renderedLocs = Array.from(locsToRender).map(id => locations.find(l => l.id === id)).filter(Boolean) as Location[];
+    const safeLocs = renderedLocs.length > 0 ? renderedLocs.sort((a,b) => a.name.localeCompare(b.name)) :[{ id: 0, name: 'No Locations' } as Location];
+
+    return dayArray.flatMap(d => 
+      safeLocs.map(loc => ({ date: d, location: loc }))
+    );
+  },[dayArray, activeLocations, selectedLocs, shifts, locations, isAdmin, isManager, allowedLocationIds]);
+
 
   // --- SHIFT HELPERS ---
-  const refreshShifts = async () => {
-    try {
-      const res = await fetch('/api/shifts?t=' + new Date().getTime());
-      const data = await res.json();
-      setShifts(data);
-    } catch (err) {
-      console.error("Failed to refresh shifts", err);
-    }
-  };
-
   const handleRequestCover = async (shiftId: number) => {
     if(!confirm("Are you sure you need coverage? The shift will turn red and explicitly alert managers.")) return;
-    await fetch('/api/shifts', { 
-      method: 'POST', 
-      headers: {'Content-Type': 'application/json'}, 
-      body: JSON.stringify({ shiftId: shiftId, action: 'REQUEST_COVER' }) 
-    });
-    refreshShifts(); 
+    await fetch('/api/shifts', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ shiftId: shiftId, action: 'REQUEST_COVER' }) });
+    const res = await fetch('/api/shifts?t=' + new Date().getTime());
+    setShifts(await res.json());
   };
 
   const handleCancelCover = async (shiftId: number) => {
-    await fetch('/api/shifts', { 
-      method: 'POST', 
-      headers: {'Content-Type': 'application/json'}, 
-      body: JSON.stringify({ shiftId: shiftId, action: 'CANCEL_COVER' }) 
-    });
-    refreshShifts();
+    await fetch('/api/shifts', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ shiftId: shiftId, action: 'CANCEL_COVER' }) });
+    const res = await fetch('/api/shifts?t=' + new Date().getTime());
+    setShifts(await res.json());
   };
 
-  // --- DRAG AND DROP HANDLER ---
-  const handleDrop = (e: React.DragEvent, dayNum: number) => {
+  const handleDrop = (e: React.DragEvent, targetDate: Date) => {
     e.preventDefault();
     const shiftId = Number(e.dataTransfer.getData('shiftId'));
     if (!shiftId) return;
@@ -97,244 +173,519 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
     const originalEnd = new Date(targetShift.endTime);
     const durationMs = originalEnd.getTime() - originalStart.getTime();
 
-    // Reconstruct exact time on the new dropped day
-    const newStart = new Date(currentYear, currentMonth, dayNum);
+    const newStart = new Date(targetDate);
     newStart.setHours(originalStart.getHours(), originalStart.getMinutes(), 0, 0);
-
     const newEnd = new Date(newStart.getTime() + durationMs);
 
-    // Call the global update function
     handleUpdateShiftTime(shiftId, newStart.toISOString(), newEnd.toISOString(), targetShift.userId || null);
   };
 
+  // Centralized Shift Filtering Logic
+  const getFilteredShifts = (dateObj: Date, columnLocId?: number) => {
+    return shifts.filter(shift => {
+      if (!isAdmin && !isManager && !allowedLocationIds.includes(shift.locationId)) return false;
+
+      const sd = new Date(shift.startTime);
+      if (sd.getFullYear() !== dateObj.getFullYear() || sd.getMonth() !== dateObj.getMonth() || sd.getDate() !== dateObj.getDate()) return false;
+      
+      // Location Filtering
+      if (columnLocId) {
+        if (shift.locationId !== columnLocId) return false;
+      } else if (selectedLocs.length > 0) {
+        if (!selectedLocs.includes(shift.locationId)) return false;
+      } else {
+        // If no loc selected in Month view, only show shifts for ACTIVE locations + historical ones
+        const isActiveOrHistorical = locations.find(l => l.id === shift.locationId)?.isActive !== false;
+        // In month view we just show everything they have access to. In week view it's handled by columns.
+      }
+      
+      // Employee Filtering
+      if (selectedEmps.length > 0) {
+        const isOpen = shift.status === 'OPEN';
+        const hasOpenFilter = selectedEmps.includes(-1);
+        const hasEmpFilter = shift.userId !== null && selectedEmps.includes(shift.userId);
+        if (!((isOpen && hasOpenFilter) || hasEmpFilter)) return false;
+      }
+      
+      return true;
+    });
+  };
+
   return (
-    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-300 shadow-sm">
-      <div className="flex flex-col xl:flex-row justify-between items-center mb-6 bg-slate-100 p-4 rounded-xl border border-gray-300 gap-4 shadow-inner text-sm">
+    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-300 shadow-sm animate-in fade-in duration-300">
+      
+      {/* --- TOOLBAR --- */}
+      <div className="flex flex-col xl:flex-row justify-between items-center mb-6 bg-slate-100 p-3 rounded-xl border border-gray-300 gap-4 shadow-inner text-sm">
         
-        {/* Navigation Arrows for Month & Year */}
-        <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 w-full xl:w-auto">
-          
-          <div className="flex items-center space-x-1 w-full sm:w-auto">
-            <button onClick={handlePrevMonth} className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition" title="Previous Month">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
+          {/* View Toggle */}
+          <div className="flex bg-slate-200 p-1 rounded-lg border border-slate-300 shadow-sm w-full sm:w-auto">
+            {['month', 'week', 'day'].map(mode => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode as any)}
+                className={`flex-1 sm:flex-none px-4 py-1.5 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-md transition-all ${
+                  viewMode === mode ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+
+          {/* Date Navigation */}
+          <div className="flex items-center space-x-1 w-full sm:w-auto justify-center">
+            <button onClick={handlePrev} className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition">
               &lt;
             </button>
-            <select value={currentMonth} onChange={(e) => setCurrentMonth(parseInt(e.target.value))} className="w-full sm:w-32 h-10 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer">
+            <select value={baseDate.getMonth()} onChange={handleMonthDropdown} className="w-28 sm:w-32 h-10 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer">
               {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
             </select>
-            <button onClick={handleNextMonth} className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition" title="Next Month">
-              &gt;
-            </button>
-          </div>
-
-          <div className="flex items-center space-x-1 w-full sm:w-auto">
-            <button onClick={handlePrevYear} disabled={currentYear <= minYear} className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition" title="Previous Year">
-              &lt;
-            </button>
-            <select value={currentYear} onChange={(e) => setCurrentYear(parseInt(e.target.value))} className="w-full sm:w-24 h-10 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer">
+            <select value={baseDate.getFullYear()} onChange={handleYearDropdown} className="w-20 sm:w-24 h-10 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer">
               {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
-            <button onClick={handleNextYear} disabled={currentYear >= maxYear} className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition" title="Next Year">
+            <button onClick={handleNext} className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition">
               &gt;
             </button>
+            <button onClick={jumpToToday} className="ml-2 h-10 px-3 bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-[10px] text-slate-600 uppercase tracking-widest transition">
+              Today
+            </button>
           </div>
-
         </div>
 
-        {/* Global Filters & Generation */}
+        {/* Global Multi-Select Filters & Generation */}
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full xl:w-auto items-center">
-          <select value={calLocFilter} onChange={(e) => setCalLocFilter(e.target.value)} className="w-full sm:w-auto border border-blue-400 rounded-lg p-2.5 font-bold text-slate-900 bg-blue-50 shadow-sm outline-none cursor-pointer">
-            <option value="">All Available Locations</option>
-            {visibleLocations.map(loc => (
-              <option key={loc.id} value={loc.id}>{loc.name}</option>
-            ))}
-          </select>
-          <select value={calEmpFilter} onChange={(e) => setCalEmpFilter(e.target.value)} className="w-full sm:w-auto border border-blue-400 rounded-lg p-2.5 font-bold text-slate-900 bg-blue-50 shadow-sm outline-none cursor-pointer">
-            <option value="">All Employees</option>
-            <option value="OPEN">Open (Unassigned)</option>
-            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
+          
+          {/* Location Multi-Select */}
+          <div className="relative w-full sm:w-auto">
+            <button 
+              onClick={() => setShowLocDropdown(!showLocDropdown)} 
+              className="w-full sm:w-auto bg-white border border-blue-400 rounded-lg p-2.5 font-bold text-slate-900 shadow-sm flex items-center justify-between gap-2"
+            >
+              <span>Locations ({selectedLocs.length === 0 ? 'All Active' : selectedLocs.length})</span>
+              <span className="text-[10px]">▼</span>
+            </button>
+            {showLocDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowLocDropdown(false)} />
+                <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-300 rounded-lg shadow-xl z-50 p-2 max-h-60 overflow-y-auto flex flex-col gap-1">
+                  <label className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer border-b border-slate-200 mb-1 transition-colors">
+                    <input type="checkbox" checked={selectedLocs.length === 0} onChange={() => setSelectedLocs([])} className="w-4 h-4 rounded text-blue-600" />
+                    <span className="font-black text-sm text-slate-900">All Active Locations</span>
+                  </label>
+                  {activeLocations.map(l => (
+                    <label key={l.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer transition-colors">
+                      <input type="checkbox" checked={selectedLocs.includes(l.id)} onChange={() => toggleLocFilter(l.id)} className="w-4 h-4 rounded text-blue-600" />
+                      <span className="font-bold text-sm text-slate-700">{l.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
-          {(isAdmin || isManager) && (
-            <span className="text-xs text-slate-500 font-bold hidden 2xl:block ml-2">
-              💡 Drag & drop shifts to move dates
-            </span>
+          {/* Staff Multi-Select */}
+          <div className="relative w-full sm:w-auto">
+            <button 
+              onClick={() => setShowEmpDropdown(!showEmpDropdown)} 
+              className="w-full sm:w-auto bg-white border border-blue-400 rounded-lg p-2.5 font-bold text-slate-900 shadow-sm flex items-center justify-between gap-2"
+            >
+              <span>Staff ({selectedEmps.length === 0 ? 'All' : selectedEmps.length})</span>
+              <span className="text-[10px]">▼</span>
+            </button>
+            {showEmpDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowEmpDropdown(false)} />
+                <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-300 rounded-lg shadow-xl z-50 p-2 max-h-60 overflow-y-auto flex flex-col gap-1">
+                  <label className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer border-b border-slate-200 mb-1 transition-colors">
+                    <input type="checkbox" checked={selectedEmps.length === 0} onChange={() => setSelectedEmps([])} className="w-4 h-4 rounded text-blue-600" />
+                    <span className="font-black text-sm text-slate-900">All Staff</span>
+                  </label>
+                  <label className="flex items-center gap-2 p-1.5 hover:bg-green-50 rounded cursor-pointer border-b border-slate-100 transition-colors">
+                    <input type="checkbox" checked={selectedEmps.includes(-1)} onChange={() => toggleEmpFilter(-1)} className="w-4 h-4 rounded text-green-600" />
+                    <span className="font-black text-sm text-green-700">Open Shifts</span>
+                  </label>
+                  {users.map(u => (
+                    <label key={u.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer transition-colors">
+                      <input type="checkbox" checked={selectedEmps.includes(u.id)} onChange={() => toggleEmpFilter(u.id)} className="w-4 h-4 rounded text-blue-600" />
+                      <span className="font-bold text-sm text-slate-700">{u.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {showSetup && (
+            <button onClick={handleGenerateSchedule} className="w-full sm:w-auto bg-green-800 hover:bg-green-900 text-white font-bold py-2.5 px-4 rounded-lg shadow-md whitespace-nowrap transition ml-0 sm:ml-2">
+              + Generate
+            </button>
           )}
         </div>
-
-        {showSetup && (
-          <button onClick={handleGenerateSchedule} className="w-full xl:w-auto bg-green-800 hover:bg-green-900 text-white font-bold py-2.5 px-4 rounded-lg shadow-md whitespace-nowrap transition">
-            + Generate Schedule
-          </button>
-        )}
       </div>
       
-      <div className="overflow-x-auto pb-4">
-        <div style={{ minWidth: '800px' }}>
-          <div className="grid grid-cols-7 gap-2 mb-2">
-            {DAYS_OF_WEEK.map(dayName => (
-              <div key={dayName} className={`font-black text-center py-2 rounded-t-lg border shadow-sm ${activeCalColor.bg} ${activeCalColor.text} ${activeCalColor.border}`}>
-                {dayName}
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-2 border-l border-t border-gray-300 bg-gray-200 rounded-b-lg overflow-hidden shadow-inner">
-            {calendarCells.map((dayNum, index) => {
-              const dayShifts = dayNum ? shifts.filter(shift => {
-                const shiftLocId = shift.locationId;
-
-                if (!isAdmin && !isManager) {
-                  if (!allowedLocationIds.includes(shiftLocId)) return false;
-                }
-
-                const sd = new Date(shift.startTime);
-                const isSameDay = sd.getFullYear() === currentYear && sd.getMonth() === currentMonth && sd.getDate() === dayNum;
-                
-                let locMatch = true;
-                if (calLocFilter !== '') locMatch = shiftLocId === parseInt(calLocFilter, 10);
-                
-                let empMatch = true;
-                if (calEmpFilter === 'OPEN') empMatch = shift.status === 'OPEN';
-                else if (calEmpFilter !== '') empMatch = shift.userId === parseInt(calEmpFilter, 10);
-                
-                return isSameDay && locMatch && empMatch;
-              }) :[];
-
-              const rightNow = new Date();
-              const isToday = dayNum && dayNum === rightNow.getDate() && currentMonth === rightNow.getMonth() && currentYear === rightNow.getFullYear();
-
-              return (
-                <div 
-                  key={index} 
-                  className={`bg-white min-h-32 border-r border-b border-gray-300 p-2 flex flex-col relative transition-colors ${isToday ? 'ring-4 ring-inset ring-yellow-400 bg-yellow-50 z-10' : ''} ${(isAdmin || isManager) && dayNum ? 'hover:bg-slate-50' : ''}`}
-                  onDragOver={(e) => { if (dayNum && (isAdmin || isManager)) e.preventDefault(); }}
-                  onDrop={(e) => { if (dayNum && (isAdmin || isManager)) handleDrop(e, dayNum); }}
-                >
-                  {dayNum && (
-                    <>
-                      <div className={`text-right font-black mb-2 flex justify-between items-center ${isToday ? 'text-slate-900 text-base' : 'text-gray-400 text-sm'}`}>
-                        {isToday ? <span style={{ fontSize: '10px' }} className="bg-yellow-400 text-slate-900 px-1.5 py-0.5 rounded shadow-sm tracking-widest uppercase">Today</span> : <span></span>}
-                        <span>{dayNum}</span>
-                      </div>
-                      <div className="space-y-2 overflow-y-auto flex-grow">
-                        {dayShifts.map(shift => {
-                          const isMyShift = shift.userId === parseInt(selectedUserId);
-                          const shiftColor = getLocationColor(shift.locationId);
-
-                          let finalBg = 'bg-white';
-                          let finalBorder = shiftColor.border;
-                          if (shift.status === 'OPEN') {
-                            finalBg = 'bg-green-50';
-                            finalBorder = 'border-green-300';
-                          } else if (shift.status === 'COVERAGE_REQUESTED') {
-                            finalBg = 'bg-red-50 ring-2 ring-red-500 ring-inset shadow-md shadow-red-500/30';
-                            finalBorder = 'border-red-500';
-                          }
-
-                          return (
-                            <div 
-                              key={shift.id} 
-                              draggable={isAdmin || isManager}
-                              onDragStart={(e) => {
-                                if (isAdmin || isManager) {
-                                  e.dataTransfer.setData('shiftId', shift.id.toString());
-                                }
-                              }}
-                              className={`p-2 rounded text-xs border-l-4 shadow-md mb-2 transition-transform ${isAdmin || isManager ? 'cursor-grab active:cursor-grabbing hover:-translate-y-0.5' : ''} ${finalBg} ${finalBorder}`}
-                            >
-                              <div className="font-bold text-slate-900 whitespace-nowrap overflow-hidden text-ellipsis mb-1 pointer-events-none">
-                                {formatTimeSafe(shift.startTime)} - {formatTimeSafe(shift.endTime)}
-                              </div>
-                              <div className={`text-xs font-bold mb-1 truncate pointer-events-none ${shiftColor.text}`}>
-                                {shift.location?.name}
-                              </div>
-                              
-                              {/* COVERAGE REQUEST ALERT */}
-                              {shift.status === 'COVERAGE_REQUESTED' && (
-                                <div className="mt-1 mb-1 font-black text-center truncate px-1 py-1.5 rounded shadow-sm border bg-red-600 text-white text-[10px] uppercase tracking-widest animate-pulse pointer-events-none">
-                                  🚨 Needs Cover
-                                </div>
-                              )}
-
-                              <div className="mt-1 flex flex-col gap-1">
-                                
-                                {/* 🔥 INLINE REASSIGNMENT DROPDOWN 🔥 */}
-                                {isAdmin || isManager ? (
-                                  <select
-                                    value={shift.userId || ""}
-                                    onChange={(e) => {
-                                      const newUserId = e.target.value ? parseInt(e.target.value) : null;
-                                      handleUpdateShiftTime(shift.id, shift.startTime, shift.endTime, newUserId);
-                                    }}
-                                    onClick={(e) => e.stopPropagation()} 
-                                    onMouseDown={(e) => e.stopPropagation()} 
-                                    className={`w-full font-bold text-center truncate px-1 py-1.5 rounded shadow-sm border outline-none cursor-pointer text-xs transition-colors ${
-                                      shift.userId === null ? 'bg-green-100 text-green-900 border-green-500 hover:bg-green-200' : `${shiftColor.badge} hover:brightness-95`
-                                    }`}
-                                  >
-                                    <option value="">-- Open Shift --</option>
-                                    {users.map(u => (
-                                      <option key={u.id} value={u.id}>{u.name}</option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  /* Standard Employee View */
-                                  shift.status === 'OPEN' ? (
-                                    <div className="text-center font-bold text-slate-500 mt-1 text-[10px] uppercase tracking-widest border border-dashed border-slate-300 rounded py-1 bg-slate-50">
-                                      Unassigned
-                                    </div>
-                                  ) : (
-                                    <div className={`font-bold text-center truncate px-1 py-1 rounded shadow-sm border pointer-events-none ${isMyShift ? 'bg-green-100 text-green-900 border-green-500' : shiftColor.badge}`}>
-                                      {isMyShift ? 'Your Shift' : (shift.assignedTo?.name || 'Assigned')}
-                                    </div>
-                                  )
-                                )}
-
-                                {/* Employee Actions */}
-                                {isMyShift && shift.status !== 'COVERAGE_REQUESTED' && (
-                                  <button onClick={() => handleRequestCover(shift.id)} className="w-full text-xs bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-300 font-bold py-1 rounded shadow-sm transition">
-                                    Need Coverage
-                                  </button>
-                                )}
-                                
-                                {isMyShift && shift.status === 'COVERAGE_REQUESTED' && (
-                                  <button onClick={() => handleCancelCover(shift.id)} className="w-full text-[10px] uppercase tracking-widest bg-gray-200 hover:bg-gray-300 text-gray-800 font-black py-1.5 rounded shadow-sm transition border border-gray-400">
-                                    Cancel Request
-                                  </button>
-                                )}
-
-                                {/* Allow other employees to pick up Open or Coverage Requested shifts */}
-                                {!isMyShift && shift.status === 'COVERAGE_REQUESTED' && (
-                                  <button 
-                                    onClick={() => { if(confirm("Are you sure you want to PICK UP this shift? It will be assigned to you immediately.")) handleClaimShift(shift.id); }} 
-                                    className="w-full text-[10px] uppercase tracking-widest bg-green-600 hover:bg-green-700 text-white font-black py-1.5 rounded shadow-sm transition border border-green-700 mt-1"
-                                  >
-                                    Pick Up Shift
-                                  </button>
-                                )}
-
-                                {!isMyShift && shift.status === 'OPEN' && (!isAdmin && !isManager) && (
-                                  <button 
-                                    onClick={() => { if(confirm("Are you sure you want to CLAIM this open shift?")) handleClaimShift(shift.id); }} 
-                                    className="w-full text-[10px] uppercase tracking-widest bg-blue-600 hover:bg-blue-700 text-white font-black py-1.5 rounded shadow-sm transition border border-blue-700 mt-1"
-                                  >
-                                    Claim Shift
-                                  </button>
-                                )}
-
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
+      {/* ========================================= */}
+      {/* 1. MONTH VIEW (Classic Block Grid)        */}
+      {/* ========================================= */}
+      {viewMode === 'month' && (
+        <div className="overflow-x-auto pb-4">
+          <div style={{ minWidth: '800px' }}>
+            <div className="grid grid-cols-7 gap-2 mb-2">
+              {DAYS_OF_WEEK.map(dayName => (
+                <div key={dayName} className={`font-black text-center py-2 rounded-t-lg border shadow-sm ${activeCalColor.bg} ${activeCalColor.text} ${activeCalColor.border}`}>
+                  {dayName}
                 </div>
-              );
-            })}
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-2 border-l border-t border-gray-300 bg-gray-200 rounded-b-lg overflow-hidden shadow-inner">
+              {calendarCells.map((dayNum, index) => {
+                const dateObj = dayNum ? new Date(baseDate.getFullYear(), baseDate.getMonth(), dayNum) : null;
+                const dayShifts = dateObj ? getFilteredShifts(dateObj) :[];
+                dayShifts.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+                
+                const rightNow = new Date();
+                const isToday = dateObj && dateObj.getDate() === rightNow.getDate() && dateObj.getMonth() === rightNow.getMonth() && dateObj.getFullYear() === rightNow.getFullYear();
+
+                return (
+                  <div 
+                    key={index} 
+                    className={`bg-white min-h-32 border-r border-b border-gray-300 p-2 flex flex-col relative transition-colors ${isToday ? 'ring-4 ring-inset ring-yellow-400 bg-yellow-50/50 z-10' : ''} ${(isAdmin || isManager) && dateObj ? 'hover:bg-slate-50' : ''}`}
+                    onDragOver={(e) => { if (dateObj && (isAdmin || isManager)) e.preventDefault(); }}
+                    onDrop={(e) => { if (dateObj && (isAdmin || isManager)) handleDrop(e, dateObj); }}
+                  >
+                    {dateObj && (
+                      <>
+                        <div className={`text-right font-black mb-2 flex justify-between items-center ${isToday ? 'text-slate-900 text-base' : 'text-gray-400 text-sm'}`}>
+                          {isToday ? <span style={{ fontSize: '10px' }} className="bg-yellow-400 text-slate-900 px-1.5 py-0.5 rounded shadow-sm tracking-widest uppercase">Today</span> : <span></span>}
+                          <span>{dateObj.getDate()}</span>
+                        </div>
+                        <div className="space-y-2 overflow-y-auto flex-grow">
+                          {dayShifts.map(shift => {
+                            const isMyShift = shift.userId === parseInt(selectedUserId);
+                            const shiftColor = getLocationColor(shift.locationId);
+
+                            let finalBg = 'bg-white';
+                            let finalBorder = shiftColor.border;
+                            if (shift.status === 'OPEN') {
+                              finalBg = 'bg-green-50';
+                              finalBorder = 'border-green-300';
+                            } else if (shift.status === 'COVERAGE_REQUESTED') {
+                              finalBg = 'bg-red-50 ring-2 ring-red-500 ring-inset shadow-md shadow-red-500/30';
+                              finalBorder = 'border-red-500';
+                            }
+
+                            return (
+                              <div 
+                                key={shift.id} 
+                                draggable={isAdmin || isManager}
+                                onDragStart={(e) => { if (isAdmin || isManager) e.dataTransfer.setData('shiftId', shift.id.toString()); }}
+                                className={`p-2 rounded text-xs border-l-4 shadow-md mb-2 transition-transform ${isAdmin || isManager ? 'cursor-grab active:cursor-grabbing hover:-translate-y-0.5' : ''} ${finalBg} ${finalBorder}`}
+                              >
+                                <div className="font-bold text-slate-900 whitespace-nowrap overflow-hidden text-ellipsis mb-1 pointer-events-none">
+                                  {formatTimeSafe(shift.startTime)} - {formatTimeSafe(shift.endTime)}
+                                </div>
+                                <div className={`text-[10px] font-black uppercase tracking-wider mb-1 truncate pointer-events-none ${shiftColor.text}`}>
+                                  {shift.location?.name}
+                                </div>
+                                
+                                {shift.status === 'COVERAGE_REQUESTED' && (
+                                  <div className="mt-1 mb-1 font-black text-center truncate px-1 py-1.5 rounded shadow-sm border bg-red-600 text-white text-[10px] uppercase tracking-widest animate-pulse pointer-events-none">
+                                    🚨 Needs Cover
+                                  </div>
+                                )}
+
+                                <div className="mt-1 flex flex-col gap-1">
+                                  {isAdmin || isManager ? (
+                                    <select
+                                      value={shift.userId || ""}
+                                      onChange={(e) => {
+                                        const newUserId = e.target.value ? parseInt(e.target.value) : null;
+                                        handleUpdateShiftTime(shift.id, shift.startTime, shift.endTime, newUserId);
+                                      }}
+                                      onClick={(e) => e.stopPropagation()} 
+                                      onMouseDown={(e) => e.stopPropagation()} 
+                                      className={`w-full font-bold text-center truncate px-1 py-1.5 rounded shadow-sm border outline-none cursor-pointer text-xs transition-colors ${
+                                        shift.userId === null ? 'bg-green-100 text-green-900 border-green-500 hover:bg-green-200' : `${shiftColor.badge} hover:brightness-95`
+                                      }`}
+                                    >
+                                      <option value="">-- Open Shift --</option>
+                                      {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                    </select>
+                                  ) : (
+                                    shift.status === 'OPEN' ? (
+                                      <div className="text-center font-bold text-slate-500 mt-1 text-[10px] uppercase tracking-widest border border-dashed border-slate-300 rounded py-1 bg-slate-50">
+                                        Unassigned
+                                      </div>
+                                    ) : (
+                                      <div className={`font-bold text-center truncate px-1 py-1 rounded shadow-sm border pointer-events-none ${isMyShift ? 'bg-green-100 text-green-900 border-green-500' : shiftColor.badge}`}>
+                                        {isMyShift ? 'Your Shift' : (shift.assignedTo?.name || 'Assigned')}
+                                      </div>
+                                    )
+                                  )}
+
+                                  {/* Employee Actions */}
+                                  {isMyShift && shift.status !== 'COVERAGE_REQUESTED' && (
+                                    <button onClick={() => handleRequestCover(shift.id)} className="w-full text-xs bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-300 font-bold py-1 rounded shadow-sm transition">
+                                      Need Coverage
+                                    </button>
+                                  )}
+                                  {isMyShift && shift.status === 'COVERAGE_REQUESTED' && (
+                                    <button onClick={() => handleCancelCover(shift.id)} className="w-full text-[10px] uppercase tracking-widest bg-gray-200 hover:bg-gray-300 text-gray-800 font-black py-1.5 rounded shadow-sm transition border border-gray-400">
+                                      Cancel Request
+                                    </button>
+                                  )}
+                                  {!isMyShift && shift.status === 'COVERAGE_REQUESTED' && (
+                                    <button onClick={() => { if(confirm("PICK UP this shift?")) handleClaimShift(shift.id); }} className="w-full text-[10px] uppercase tracking-widest bg-green-600 hover:bg-green-700 text-white font-black py-1.5 rounded shadow-sm transition border border-green-700 mt-1">
+                                      Pick Up Shift
+                                    </button>
+                                  )}
+                                  {!isMyShift && shift.status === 'OPEN' && (!isAdmin && !isManager) && (
+                                    <button onClick={() => { if(confirm("CLAIM this open shift?")) handleClaimShift(shift.id); }} className="w-full text-[10px] uppercase tracking-widest bg-blue-600 hover:bg-blue-700 text-white font-black py-1.5 rounded shadow-sm transition border border-blue-700 mt-1">
+                                      Claim Shift
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* ========================================= */}
+      {/* 2. TIMELINE VIEW (Week & Day Vertical)    */}
+      {/* ========================================= */}
+      {(viewMode === 'week' || viewMode === 'day') && (
+        <div className="flex flex-col border border-slate-300 rounded-xl overflow-hidden shadow-sm bg-white">
+          
+          <div className="overflow-x-auto">
+            {/* The wrapper strictly forces the header and body to scroll together and stay aligned */}
+            <div style={{ minWidth: `${Math.max(800, timelineColumns.length * 150)}px` }}>
+              
+              {/* --- Header Area --- */}
+              <div className="flex bg-slate-100 border-b border-slate-300 z-20 shadow-sm relative">
+                {/* Y-Axis Spacer */}
+                <div className="w-16 md:w-20 flex-shrink-0 border-r border-slate-200 bg-slate-100" />
+                
+                <div className="flex-1 flex flex-col">
+                  {/* Top Row: Days */}
+                  <div className="grid divide-x divide-slate-200 border-b border-slate-200" style={{ gridTemplateColumns: `repeat(${dayArray.length}, minmax(0, 1fr))` }}>
+                    {dayArray.map((d, i) => {
+                      const isToday = d.getDate() === new Date().getDate() && d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear();
+                      return (
+                        <div key={i} className={`py-2 text-center font-black uppercase text-xs transition-colors ${isToday ? 'bg-yellow-200 text-yellow-900' : 'bg-slate-100 text-slate-700'}`}>
+                          {DAYS_OF_WEEK[d.getDay()]} {d.getDate()}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Bottom Row: Locations */}
+                  <div className="grid divide-x divide-slate-200 bg-white" style={{ gridTemplateColumns: `repeat(${timelineColumns.length}, minmax(0, 1fr))` }}>
+                    {timelineColumns.map((col, i) => {
+                      const locColor = col.location ? getLocationColor(col.location.id) : activeCalColor;
+                      return (
+                        <div key={i} className={`py-1.5 text-center text-xs font-black uppercase tracking-widest truncate px-1 border-b-4 text-slate-900 ${locColor.border}`}>
+                          {col.location ? col.location.name : 'All Locations'}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* --- Scrollable Timeline Body --- */}
+              <div className="flex overflow-y-auto max-h-[65vh] bg-slate-50 relative">
+                
+                {/* Y-Axis Time Labels */}
+                <div className="w-16 md:w-20 flex-shrink-0 border-r border-slate-200 bg-white relative z-20 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
+                  {TIME_LABELS.map(hour => {
+                    const displayHour = hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
+                    return (
+                      <div
+                        key={hour}
+                        className="absolute w-full text-right pr-2 md:pr-3 text-[10px] md:text-xs font-bold text-slate-400"
+                        style={{ top: `${(hour - TIMELINE_START_HOUR) * HOUR_HEIGHT}px`, transform: 'translateY(-50%)' }}
+                      >
+                        {displayHour}
+                      </div>
+                    );
+                  })}
+                  {/* Spacer block to push container height */}
+                  <div style={{ height: `${(TIMELINE_END_HOUR - TIMELINE_START_HOUR) * HOUR_HEIGHT}px` }} />
+                </div>
+
+                {/* Grid Data Columns */}
+                <div className="flex-1 relative">
+                  
+                  {/* Horizontal Grid Lines */}
+                  <div className="absolute inset-0 pointer-events-none z-0">
+                    {TIME_LABELS.map(hour => (
+                      <div
+                        key={hour}
+                        className="absolute w-full border-t border-slate-200"
+                        style={{ top: `${(hour - TIMELINE_START_HOUR) * HOUR_HEIGHT}px` }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Vertical Day/Location Columns */}
+                  <div className="absolute inset-0 z-10 grid divide-x divide-slate-200" style={{ gridTemplateColumns: `repeat(${timelineColumns.length}, minmax(0, 1fr))` }}>
+                    {timelineColumns.map((col, colIndex) => {
+                      
+                      // Fetch and sort shifts
+                      const colShifts = getFilteredShifts(col.date, col.location?.id);
+                      colShifts.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+                      // --- OVERLAP ALGORITHM ---
+                      const overlapCols: Shift[][] =[];
+                      colShifts.forEach(shift => {
+                        let placed = false;
+                        const startMs = new Date(shift.startTime).getTime();
+                        for (let c = 0; c < overlapCols.length; c++) {
+                          const lastShift = overlapCols[c][overlapCols[c].length - 1];
+                          const lastEndMs = new Date(lastShift.endTime).getTime();
+                          if (lastEndMs <= startMs) {
+                            overlapCols[c].push(shift);
+                            placed = true;
+                            break;
+                          }
+                        }
+                        if (!placed) overlapCols.push([shift]);
+                      });
+
+                      return (
+                        <div
+                          key={colIndex}
+                          className="relative w-full h-full hover:bg-slate-100/30 transition-colors"
+                          onDragOver={(e) => { if (isAdmin || isManager) e.preventDefault(); }}
+                          onDrop={(e) => { if (isAdmin || isManager) handleDrop(e, col.date); }}
+                        >
+                          {overlapCols.map((shiftList, overlapIndex) => 
+                            shiftList.map(shift => {
+                              // Positioning Math
+                              const s = new Date(shift.startTime);
+                              const e = new Date(shift.endTime);
+
+                              const startHourRaw = s.getHours() + s.getMinutes() / 60;
+                              let endHourRaw = e.getHours() + e.getMinutes() / 60;
+
+                              if (e.getHours() === 0 && e.getMinutes() === 0 && e.getDate() !== s.getDate()) endHourRaw = 24;
+                              else if (e.getTime() < s.getTime()) endHourRaw = 24;
+
+                              const topPos = Math.max(0, (startHourRaw - TIMELINE_START_HOUR) * HOUR_HEIGHT);
+                              let heightPos = (endHourRaw - startHourRaw) * HOUR_HEIGHT;
+
+                              const maxBottom = (TIMELINE_END_HOUR - TIMELINE_START_HOUR) * HOUR_HEIGHT;
+                              if (topPos + heightPos > maxBottom) heightPos = maxBottom - topPos;
+
+                              const widthPct = 100 / overlapCols.length;
+                              const leftPct = overlapIndex * widthPct;
+
+                              // UI Colors
+                              const isMyShift = shift.userId === parseInt(selectedUserId);
+                              const shiftColor = getLocationColor(shift.locationId);
+
+                              let finalBg = shiftColor.bg;
+                              let finalBorder = shiftColor.border;
+                              let finalHeaderBg = shiftColor.badge;
+
+                              if (shift.status === 'OPEN') {
+                                finalBg = 'bg-green-50';
+                                finalBorder = 'border-green-400';
+                                finalHeaderBg = 'bg-green-100 text-green-900 border-green-300';
+                              } else if (shift.status === 'COVERAGE_REQUESTED') {
+                                finalBg = 'bg-red-50';
+                                finalBorder = 'border-red-500';
+                                finalHeaderBg = 'bg-red-600 text-white animate-pulse shadow-md';
+                              }
+
+                              const isCompact = heightPos < 45;
+
+                              return (
+                                <div
+                                  key={shift.id}
+                                  draggable={isAdmin || isManager}
+                                  onDragStart={(e) => { if (isAdmin || isManager) e.dataTransfer.setData('shiftId', shift.id.toString()); }}
+                                  className="absolute p-[1px] transition-transform hover:z-20 hover:scale-[1.01]"
+                                  style={{ top: `${topPos}px`, height: `${heightPos}px`, left: `${leftPct}%`, width: `${widthPct}%` }}
+                                >
+                                  <div className={`w-full h-full rounded shadow-sm border overflow-hidden flex flex-col ${finalBg} ${finalBorder} ${isAdmin || isManager ? 'cursor-grab active:cursor-grabbing' : ''}`}>
+                                    
+                                    {/* Shift Header Bar */}
+                                    <div className={`px-1.5 py-0.5 text-[9px] md:text-[10px] font-black uppercase tracking-widest truncate border-b flex-shrink-0 ${finalHeaderBg}`}>
+                                      {shift.status === 'OPEN' ? 'OPEN' : shift.status === 'COVERAGE_REQUESTED' ? '🚨 COVER' : shift.location?.name}
+                                    </div>
+
+                                    {/* Shift Content */}
+                                    <div className={`p-1.5 flex-1 flex flex-col overflow-hidden leading-tight ${isCompact ? 'flex-row items-center gap-2' : ''}`}>
+                                      <div className={`font-bold text-slate-900 truncate ${isCompact ? 'text-[10px]' : 'text-xs md:text-sm'}`}>
+                                        {formatTimeSafe(shift.startTime)} - {formatTimeSafe(shift.endTime)}
+                                      </div>
+                                      
+                                      {!isCompact && (
+                                        <div className={`text-[10px] mt-0.5 font-bold truncate opacity-80 ${shiftColor.text}`}>
+                                          {shift.status === 'OPEN' ? 'Unassigned' : (isMyShift ? 'Your Shift' : (shift.assignedTo?.name || 'Assigned'))}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Hover Dropdown (Managers Only) */}
+                                    {(isAdmin || isManager) && !isCompact && (
+                                      <div className="px-1 pb-1 mt-auto">
+                                        <select
+                                          value={shift.userId || ""}
+                                          onChange={(e) => {
+                                            const newUserId = e.target.value ? parseInt(e.target.value) : null;
+                                            handleUpdateShiftTime(shift.id, shift.startTime, shift.endTime, newUserId);
+                                          }}
+                                          onClick={(e) => e.stopPropagation()} 
+                                          onMouseDown={(e) => e.stopPropagation()} 
+                                          className="w-full bg-white/50 border border-black/10 rounded outline-none text-[9px] font-bold p-0.5 cursor-pointer text-slate-800"
+                                        >
+                                          <option value="">- Open -</option>
+                                          {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                        </select>
+                                      </div>
+                                    )}
+
+                                    {/* Employee Pick Up Buttons */}
+                                    {!isMyShift && shift.status === 'COVERAGE_REQUESTED' && !isCompact && (
+                                      <button onClick={() => { if(confirm("Pick up shift?")) handleClaimShift(shift.id); }} className="mx-1 mb-1 text-[8px] bg-green-600 text-white font-black py-1 rounded">
+                                        CLAIM
+                                      </button>
+                                    )}
+                                    {!isMyShift && shift.status === 'OPEN' && (!isAdmin && !isManager) && !isCompact && (
+                                      <button onClick={() => { if(confirm("Claim open shift?")) handleClaimShift(shift.id); }} className="mx-1 mb-1 text-[8px] bg-blue-600 text-white font-black py-1 rounded">
+                                        CLAIM
+                                      </button>
+                                    )}
+                                    
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      )}
+
     </div>
   );
 }

@@ -19,6 +19,7 @@ model Location {
   address     String?
   email       String?
   phoneNumber String?
+  isActive    Boolean         @default(true)
   
   users       User[]     
   shifts      Shift[]    
@@ -162,7 +163,7 @@ model PassUsage {
   amount     Int
   initials   String?
   memberId   Int
-  member     Member   @relation(fields: [ memberId ], references:[ id ])
+  member     Member   @relation(fields:[ memberId ], references:[ id ])
 }
 
 model GiftCard {
@@ -180,7 +181,7 @@ model GiftCard {
 model ShiftTemplate {
   id             Int      @id @default(autoincrement())
   locationId     Int
-  location       Location @relation(fields: [locationId], references:[id])
+  location       Location @relation(fields:[locationId], references:[id])
   dayOfWeek      Int      
   startTime      String   
   endTime        String   

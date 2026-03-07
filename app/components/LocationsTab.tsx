@@ -1,4 +1,3 @@
-// filepath: app/components/LocationsTab.tsx
 "use client";
 import React, { useState } from 'react';
 import { AppState, Location } from '../lib/types';
@@ -10,7 +9,7 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
   const [editingLocId, setEditingLocId] = useState<number | null>(null);
 
   const[newLoc, setNewLoc] = useState({ name: '', address: '', email: '', phoneNumber: '' });
-  const [editLoc, setEditLoc] = useState({ name: '', address: '', email: '', phoneNumber: '' });
+  const [editLoc, setEditLoc] = useState({ name: '', address: '', email: '', phoneNumber: '', isActive: true });
 
   if (!isAdmin && !isManager) {
     return (
@@ -25,7 +24,7 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
     e.preventDefault();
     if (!newLoc.name.trim()) return;
     
-    await handleCreateLocation(newLoc);
+    await handleCreateLocation({ ...newLoc, isActive: true });
     setIsAddModalOpen(false);
     setNewLoc({ name: '', address: '', email: '', phoneNumber: '' });
   };
@@ -36,6 +35,14 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
 
     await handleUpdateLocation(editingLocId, editLoc);
     setEditingLocId(null);
+  };
+
+  const toggleActiveStatus = async (loc: Location) => {
+    const newStatus = loc.isActive === false ? true : false;
+    if (!newStatus) {
+      if(!confirm(`Are you sure you want to archive ${loc.name}? It will be hidden from new schedules and Kiosks, but historical data will be preserved.`)) return;
+    }
+    await handleUpdateLocation(loc.id, { isActive: newStatus });
   };
 
   return (
@@ -59,80 +66,89 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
             <thead className="bg-slate-100 text-slate-500 text-[10px] uppercase tracking-widest font-black sticky top-0 z-10 shadow-sm border-b border-slate-200">
               <tr>
                 <th className="px-6 py-3 w-1/4">Location Name</th>
+                <th className="px-6 py-3 w-1/4">Status</th>
                 <th className="px-6 py-3 w-1/4">Address</th>
                 <th className="px-6 py-3 w-1/4">Phone Number</th>
-                <th className="px-6 py-3 w-1/4">Email</th>
                 <th className="px-6 py-3 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {locations.map((loc: Location) => (
-                <tr key={loc.id} className="hover:bg-slate-50 transition-colors group">
-                  {editingLocId === loc.id ? (
-                    <td colSpan={5} className="p-0">
-                      <form onSubmit={handleEditSubmit} className="flex flex-wrap md:flex-nowrap items-center w-full bg-blue-50/50 p-2 gap-2">
-                        <input 
-                          autoFocus
-                          required
-                          value={editLoc.name}
-                          onChange={(e) => setEditLoc({...editLoc, name: e.target.value})}
-                          placeholder="Location Name"
-                          className="flex-1 bg-white border border-blue-300 rounded px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-[150px]"
-                        />
-                        <input 
-                          value={editLoc.address}
-                          onChange={(e) => setEditLoc({...editLoc, address: e.target.value})}
-                          placeholder="Address"
-                          className="flex-1 bg-white border border-blue-300 rounded px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-[150px]"
-                        />
-                        <input 
-                          value={editLoc.phoneNumber}
-                          onChange={(e) => setEditLoc({...editLoc, phoneNumber: e.target.value})}
-                          placeholder="Phone"
-                          className="flex-1 bg-white border border-blue-300 rounded px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-[120px]"
-                        />
-                        <input 
-                          type="email"
-                          value={editLoc.email}
-                          onChange={(e) => setEditLoc({...editLoc, email: e.target.value})}
-                          placeholder="Email"
-                          className="flex-1 bg-white border border-blue-300 rounded px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-[150px]"
-                        />
-                        <div className="flex gap-2 px-4">
-                          <button type="submit" className="text-green-700 hover:text-green-900 font-black text-[10px] uppercase tracking-wider transition-colors">Save</button>
-                          <button type="button" onClick={() => setEditingLocId(null)} className="text-slate-500 hover:text-slate-700 font-black text-[10px] uppercase tracking-wider transition-colors">Cancel</button>
-                        </div>
-                      </form>
-                    </td>
-                  ) : (
-                    <>
-                      <td className="px-6 py-4 font-black text-slate-900 flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-blue-500" />
-                        {loc.name}
+              {locations.map((loc: Location) => {
+                const isInactive = loc.isActive === false;
+                return (
+                  <tr key={loc.id} className={`hover:bg-slate-50 transition-colors group ${isInactive ? 'opacity-75 bg-slate-50' : ''}`}>
+                    {editingLocId === loc.id ? (
+                      <td colSpan={5} className="p-0">
+                        <form onSubmit={handleEditSubmit} className="flex flex-wrap md:flex-nowrap items-center w-full bg-blue-50/50 p-2 gap-2">
+                          <input 
+                            autoFocus
+                            required
+                            value={editLoc.name}
+                            onChange={(e) => setEditLoc({...editLoc, name: e.target.value})}
+                            placeholder="Location Name"
+                            className="flex-1 bg-white border border-blue-300 rounded px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-[150px]"
+                          />
+                          <input 
+                            value={editLoc.address}
+                            onChange={(e) => setEditLoc({...editLoc, address: e.target.value})}
+                            placeholder="Address"
+                            className="flex-1 bg-white border border-blue-300 rounded px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-[150px]"
+                          />
+                          <input 
+                            value={editLoc.phoneNumber}
+                            onChange={(e) => setEditLoc({...editLoc, phoneNumber: e.target.value})}
+                            placeholder="Phone"
+                            className="flex-1 bg-white border border-blue-300 rounded px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-[120px]"
+                          />
+                          <div className="flex gap-2 px-4">
+                            <button type="submit" className="text-green-700 hover:text-green-900 font-black text-[10px] uppercase tracking-wider transition-colors">Save</button>
+                            <button type="button" onClick={() => setEditingLocId(null)} className="text-slate-500 hover:text-slate-700 font-black text-[10px] uppercase tracking-wider transition-colors">Cancel</button>
+                          </div>
+                        </form>
                       </td>
-                      <td className="px-6 py-4 font-medium text-slate-600">{loc.address || <span className="text-slate-300 italic">None</span>}</td>
-                      <td className="px-6 py-4 font-medium text-slate-600">{loc.phoneNumber || <span className="text-slate-300 italic">None</span>}</td>
-                      <td className="px-6 py-4 font-medium text-slate-600">{loc.email || <span className="text-slate-300 italic">None</span>}</td>
-                      <td className="px-6 py-4 text-center">
-                        <button 
-                          onClick={() => {
-                            setEditingLocId(loc.id);
-                            setEditLoc({ 
-                              name: loc.name, 
-                              address: loc.address || '', 
-                              email: loc.email || '', 
-                              phoneNumber: loc.phoneNumber || '' 
-                            });
-                          }}
-                          className="text-blue-600 hover:text-blue-800 font-black text-[10px] uppercase tracking-wider transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                          Edit
-                        </button>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
+                    ) : (
+                      <>
+                        <td className="px-6 py-4 font-black text-slate-900 flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${isInactive ? 'bg-red-500' : 'bg-blue-500'}`} />
+                          <span className={isInactive ? 'line-through text-slate-500' : ''}>{loc.name}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {isInactive ? (
+                            <span className="bg-red-100 text-red-800 text-[10px] font-black px-2 py-0.5 rounded border border-red-200 uppercase tracking-widest">Archived</span>
+                          ) : (
+                            <span className="bg-green-100 text-green-800 text-[10px] font-black px-2 py-0.5 rounded border border-green-200 uppercase tracking-widest">Active</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 font-medium text-slate-600">{loc.address || <span className="text-slate-300 italic">None</span>}</td>
+                        <td className="px-6 py-4 font-medium text-slate-600">{loc.phoneNumber || <span className="text-slate-300 italic">None</span>}</td>
+                        <td className="px-6 py-4 text-center space-x-3">
+                          <button 
+                            onClick={() => {
+                              setEditingLocId(loc.id);
+                              setEditLoc({ 
+                                name: loc.name, 
+                                address: loc.address || '', 
+                                email: loc.email || '', 
+                                phoneNumber: loc.phoneNumber || '',
+                                isActive: loc.isActive !== false
+                              });
+                            }}
+                            className="text-blue-600 hover:text-blue-800 font-black text-[10px] uppercase tracking-wider transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            onClick={() => toggleActiveStatus(loc)}
+                            className={`${isInactive ? 'text-green-600 hover:text-green-800' : 'text-red-600 hover:text-red-800'} font-black text-[10px] uppercase tracking-wider transition-colors opacity-0 group-hover:opacity-100`}
+                          >
+                            {isInactive ? 'Restore' : 'Archive'}
+                          </button>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                );
+              })}
               {locations.length === 0 && (
                 <tr>
                   <td colSpan={5} className="p-10 text-center text-slate-500 font-bold italic bg-slate-50">
