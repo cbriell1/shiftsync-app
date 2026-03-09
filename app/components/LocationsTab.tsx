@@ -5,8 +5,8 @@ import { AppState, Location } from '../lib/types';
 export default function LocationsTab({ appState }: { appState: AppState }) {
   const { locations, handleCreateLocation, handleUpdateLocation, isManager, isAdmin } = appState;
 
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingLocId, setEditingLocId] = useState<number | null>(null);
+  const[isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const[editingLocId, setEditingLocId] = useState<number | null>(null);
 
   const[newLoc, setNewLoc] = useState({ name: '', address: '', email: '', phoneNumber: '' });
   const [editLoc, setEditLoc] = useState({ name: '', address: '', email: '', phoneNumber: '', isActive: true });
@@ -24,7 +24,8 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
     e.preventDefault();
     if (!newLoc.name.trim()) return;
     
-    await handleCreateLocation({ ...newLoc, isActive: true });
+    // New locations default to Hidden (Setup Mode) so they don't accidentally go live early
+    await handleCreateLocation({ ...newLoc, isActive: false });
     setIsAddModalOpen(false);
     setNewLoc({ name: '', address: '', email: '', phoneNumber: '' });
   };
@@ -40,9 +41,15 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
   const toggleActiveStatus = async (loc: Location) => {
     const newStatus = loc.isActive === false ? true : false;
     if (!newStatus) {
-      if(!confirm(`Are you sure you want to archive ${loc.name}? It will be hidden from new schedules and Kiosks, but historical data will be preserved.`)) return;
+      if(!confirm(`Are you sure you want to hide ${loc.name}? It will be hidden from the Kiosk and standard staff. This is perfect for closed locations or upcoming locations in Setup Mode.`)) return;
     }
-    await handleUpdateLocation(loc.id, { isActive: newStatus });
+    
+    // Safely pass both the name and the new status
+    const result = await handleUpdateLocation(loc.id, { name: loc.name, isActive: newStatus });
+    
+    if (!result.success) {
+      alert("Error: Failed to save the location status to the database.");
+    }
   };
 
   return (
@@ -66,7 +73,7 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
             <thead className="bg-slate-100 text-slate-500 text-[10px] uppercase tracking-widest font-black sticky top-0 z-10 shadow-sm border-b border-slate-200">
               <tr>
                 <th className="px-6 py-3 w-1/4">Location Name</th>
-                <th className="px-6 py-3 w-1/4">Status</th>
+                <th className="px-6 py-3 w-1/4">Visibility</th>
                 <th className="px-6 py-3 w-1/4">Address</th>
                 <th className="px-6 py-3 w-1/4">Phone Number</th>
                 <th className="px-6 py-3 text-center">Actions</th>
@@ -109,14 +116,14 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
                     ) : (
                       <>
                         <td className="px-6 py-4 font-black text-slate-900 flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${isInactive ? 'bg-red-500' : 'bg-blue-500'}`} />
-                          <span className={isInactive ? 'line-through text-slate-500' : ''}>{loc.name}</span>
+                          <div className={`w-2 h-2 rounded-full ${isInactive ? 'bg-orange-500' : 'bg-blue-500'}`} />
+                          <span className={isInactive ? 'text-slate-600' : ''}>{loc.name}</span>
                         </td>
                         <td className="px-6 py-4">
                           {isInactive ? (
-                            <span className="bg-red-100 text-red-800 text-[10px] font-black px-2 py-0.5 rounded border border-red-200 uppercase tracking-widest">Archived</span>
+                            <span className="bg-orange-100 text-orange-800 text-[10px] font-black px-2 py-0.5 rounded border border-orange-200 uppercase tracking-widest" title="Not visible on Kiosk or to Staff">Hidden / Setup</span>
                           ) : (
-                            <span className="bg-green-100 text-green-800 text-[10px] font-black px-2 py-0.5 rounded border border-green-200 uppercase tracking-widest">Active</span>
+                            <span className="bg-green-100 text-green-800 text-[10px] font-black px-2 py-0.5 rounded border border-green-200 uppercase tracking-widest" title="Live and visible to everyone">Active</span>
                           )}
                         </td>
                         <td className="px-6 py-4 font-medium text-slate-600">{loc.address || <span className="text-slate-300 italic">None</span>}</td>
@@ -139,9 +146,9 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
                           </button>
                           <button 
                             onClick={() => toggleActiveStatus(loc)}
-                            className={`${isInactive ? 'text-green-600 hover:text-green-800' : 'text-red-600 hover:text-red-800'} font-black text-[10px] uppercase tracking-wider transition-colors opacity-0 group-hover:opacity-100`}
+                            className={`${isInactive ? 'text-green-600 hover:text-green-800' : 'text-orange-600 hover:text-orange-800'} font-black text-[10px] uppercase tracking-wider transition-colors opacity-0 group-hover:opacity-100`}
                           >
-                            {isInactive ? 'Restore' : 'Archive'}
+                            {isInactive ? 'Set Active' : 'Hide'}
                           </button>
                         </td>
                       </>
@@ -171,6 +178,10 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
             </div>
             
             <form onSubmit={handleCreateSubmit} className="p-5 space-y-4">
+              <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg text-xs font-bold text-orange-800 mb-2">
+                💡 New locations are created as "Hidden" by default. You can build schedules for it, and set it to Active when you are ready to launch!
+              </div>
+
               <div>
                 <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1">Facility Name *</label>
                 <input 

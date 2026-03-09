@@ -10,7 +10,7 @@ export default function SetupTab({ appState }: { appState: AppState }) {
 
   // Editing State for Master Tasks
   const[editingTaskId, setEditingTaskId] = useState<number | null>(null);
-  const [editTaskStr, setEditTaskStr] = useState('');
+  const[editTaskStr, setEditTaskStr] = useState('');
 
   const locFilterRef = useRef<HTMLTableHeaderCellElement>(null);
   const dayFilterRef = useRef<HTMLTableHeaderCellElement>(null);
@@ -26,8 +26,8 @@ export default function SetupTab({ appState }: { appState: AppState }) {
     handleAddMasterTask, handleEditMasterTask, handleDeleteMasterTask
   } = appState;
 
-  // Filter for ACTIVE locations only in the template creator
-  const activeLocations = locations.filter(l => l.isActive !== false);
+  // We allow Managers to see ALL locations in Setup, so they can build templates for "Hidden/Upcoming" locations
+  const managerLocations = locations;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -131,9 +131,9 @@ export default function SetupTab({ appState }: { appState: AppState }) {
               </div>
 
               <div>
-                <label className="block text-sm font-black text-slate-900 mb-1.5">2. Locations (Active Only)</label>
+                <label className="block text-sm font-black text-slate-900 mb-1.5">2. Locations</label>
                 <div className="max-h-32 overflow-y-auto bg-white p-2 border-2 border-slate-300 rounded-lg shadow-sm space-y-1">
-                  {activeLocations?.map((loc: Location) => (
+                  {managerLocations?.map((loc: Location) => (
                     <label key={loc.id} className="flex items-center space-x-2 cursor-pointer text-sm hover:bg-slate-50 p-1.5 rounded">
                       <input 
                         type="checkbox" 
@@ -141,12 +141,11 @@ export default function SetupTab({ appState }: { appState: AppState }) {
                         onChange={() => toggleTplLoc(loc.id)} 
                         className="w-4 h-4 text-blue-600 rounded border-slate-400"
                       />
-                      <span className="text-slate-900 font-bold">{loc.name}</span>
+                      <span className="text-slate-900 font-bold">
+                        {loc.name} {loc.isActive === false && <span className="text-[10px] text-orange-600 ml-1">[HIDDEN]</span>}
+                      </span>
                     </label>
                   ))}
-                  {activeLocations.length === 0 && (
-                    <div className="text-xs font-bold text-red-500 p-2">No active locations found! Check the Locations tab.</div>
-                  )}
                 </div>
               </div>
 
@@ -312,7 +311,7 @@ export default function SetupTab({ appState }: { appState: AppState }) {
                         {showLocFilter && (
                           <div className="absolute top-full left-0 mt-1 w-56 bg-white border-2 border-slate-300 rounded-lg shadow-2xl p-2 font-normal normal-case text-sm text-slate-900 flex flex-col z-[100]">
                             <div className="max-h-48 overflow-y-auto space-y-1 mb-2">
-                              {locations?.map((loc: Location) => (
+                              {managerLocations?.map((loc: Location) => (
                                 <label key={loc.id} className="flex items-center space-x-2 p-1.5 hover:bg-slate-100 rounded cursor-pointer transition-colors">
                                   <input 
                                     type="checkbox" 
@@ -320,7 +319,7 @@ export default function SetupTab({ appState }: { appState: AppState }) {
                                     onChange={() => toggleTplViewLoc(loc.id)} 
                                     className="w-4 h-4 text-blue-600 rounded border-slate-400"
                                   />
-                                  <span className="truncate font-bold">{loc.name} {loc.isActive === false && '(Archived)'}</span>
+                                  <span className="truncate font-bold">{loc.name} {loc.isActive === false && '(Hidden)'}</span>
                                 </label>
                               ))}
                             </div>
@@ -419,8 +418,8 @@ export default function SetupTab({ appState }: { appState: AppState }) {
                         const hasDates = tpl.startDate || tpl.endDate;
                         return (
                           <tr key={tpl.id} className="border-b border-slate-200 hover:bg-slate-100 transition-colors">
-                            <td className={`p-3 font-bold max-w-[120px] truncate ${tpl.location?.isActive === false ? 'text-slate-400 line-through' : ''}`} title={tpl.location?.name}>
-                              {tpl.location?.name || 'Unknown Location'}
+                            <td className={`p-3 font-bold max-w-[120px] truncate ${tpl.location?.isActive === false ? 'text-orange-700' : ''}`} title={tpl.location?.name}>
+                              {tpl.location?.name || 'Unknown Location'} {tpl.location?.isActive === false && <span className="text-[9px] uppercase tracking-widest ml-1 block">Hidden</span>}
                             </td>
                             <td className="p-3 font-bold">
                               {DAYS_OF_WEEK[tpl.dayOfWeek]?.substring(0, 3) || 'N/A'}

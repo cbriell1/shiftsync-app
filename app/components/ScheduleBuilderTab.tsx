@@ -1,7 +1,16 @@
-// filepath: app/components/ScheduleBuilderTab.tsx
 "use client";
 import React, { useState } from 'react';
-import { AppState, Shift, User } from '../lib/types';
+import { AppState, Shift } from '../lib/types';
+
+// Constants for the Timeline View
+const TIMELINE_START_HOUR = 6; // 6:00 AM
+const TIMELINE_END_HOUR = 24;  // 12:00 AM (Midnight)
+const HOUR_HEIGHT = 70;        // pixels per hour
+
+const TIME_LABELS = Array.from(
+  { length: TIMELINE_END_HOUR - TIMELINE_START_HOUR }, 
+  (_, i) => i + TIMELINE_START_HOUR
+);
 
 // Native HTML5 Drag-and-Drop Resizable Shift Card
 const ShiftCard = ({ shift, appState }: { shift: Shift, appState: AppState }) => {
@@ -61,28 +70,26 @@ const ShiftCard = ({ shift, appState }: { shift: Shift, appState: AppState }) =>
     <div 
       draggable 
       onDragStart={handleDragStart}
-      className={`relative rounded-lg shadow-sm mb-2 border-l-4 overflow-hidden flex flex-col transition-shadow hover:shadow-md cursor-grab active:cursor-grabbing ${shiftColor.bg} ${shiftColor.border}`}
+      className={`relative w-full h-full rounded shadow-sm border overflow-hidden flex flex-col transition-shadow hover:shadow-md cursor-grab active:cursor-grabbing hover:z-20 ${shiftColor.bg} ${shiftColor.border}`}
     >
-      <div className="p-2 pb-5">
-        <div className="flex justify-between items-start mb-1">
-          <span className={`text-[10px] font-black uppercase tracking-widest ${shiftColor.text}`}>
-            {shift.location?.name}
-          </span>
-          <span className="text-[10px] font-black text-slate-700 bg-white/50 px-1.5 py-0.5 rounded">
-            {hours.toFixed(1)}h
-          </span>
-        </div>
-        <div className="font-bold text-slate-900 text-xs truncate">
+      <div className={`px-1.5 py-0.5 text-[9px] md:text-[10px] font-black uppercase tracking-widest truncate border-b flex-shrink-0 ${shiftColor.badge}`}>
+        {shift.location?.name}
+      </div>
+      <div className="p-1.5 flex-1 flex flex-col overflow-hidden leading-tight">
+        <div className="font-bold text-slate-900 text-[10px] md:text-xs truncate">
           {startD.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - {tempEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+        </div>
+        <div className="text-[10px] font-bold text-slate-600 mt-0.5">
+          {hours.toFixed(1)}h
         </div>
       </div>
       
       {/* Bottom Resize Handle */}
       <div 
         onMouseDown={handleMouseDown}
-        className="absolute bottom-0 left-0 right-0 h-4 bg-black/5 hover:bg-black/10 cursor-ns-resize flex items-center justify-center transition-colors"
+        className="absolute bottom-0 left-0 right-0 h-3 bg-black/5 hover:bg-black/10 cursor-ns-resize flex items-center justify-center transition-colors z-10"
       >
-        <div className="w-8 h-1 bg-black/20 rounded-full"></div>
+        <div className="w-6 h-0.5 bg-black/20 rounded-full"></div>
       </div>
     </div>
   );
@@ -192,7 +199,7 @@ export default function ScheduleBuilderTab({ appState }: { appState: AppState })
             className="border-2 border-blue-200 rounded-xl p-2.5 font-black text-slate-900 bg-blue-50 focus:border-blue-500 outline-none cursor-pointer"
           >
             <option value="">All Locations</option>
-            {locations.map(loc => (
+            {locations.filter(l => l.isActive !== false).map(loc => (
               <option key={loc.id} value={loc.id}>{loc.name}</option>
             ))}
           </select>
@@ -207,100 +214,122 @@ export default function ScheduleBuilderTab({ appState }: { appState: AppState })
         </div>
       </div>
 
-      {/* Main Grid Wrapper */}
-      <div className="flex-grow overflow-auto border-2 border-slate-200 rounded-xl relative shadow-inner bg-slate-50">
-        <table className="w-full text-left text-sm border-collapse min-w-[1000px]">
+      {/* Main Timeline Wrapper */}
+      <div className="flex-grow overflow-auto border border-slate-300 rounded-xl shadow-inner bg-slate-50 flex flex-col relative">
+        
+        {/* --- TIMELINE HEADER --- */}
+        <div className="flex bg-slate-200 border-b-2 border-slate-300 sticky top-0 z-40 shadow-sm">
+          {/* Left Y-Axis Header Spacer */}
+          <div className="w-24 md:w-32 flex-shrink-0 border-r-2 border-slate-300 bg-slate-200 p-3 flex flex-col justify-end">
+             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Employee</span>
+          </div>
           
-          {/* Grid Header (Sticky) */}
-          <thead className="bg-slate-200 sticky top-0 z-20 shadow-sm border-b-2 border-slate-300">
-            <tr>
-              <th className="p-4 font-black text-slate-900 uppercase tracking-widest sticky left-0 bg-slate-200 z-30 border-r-2 border-slate-300 w-48">
-                Employee
-              </th>
-              {weekDays.map((day, i) => (
-                <th key={i} className="p-4 border-r border-slate-300 text-center w-40">
-                  <div className="font-black text-slate-900 uppercase tracking-widest text-xs">
-                    {day.toLocaleDateString('en-US', { weekday: 'short' })}
-                  </div>
-                  <div className="font-bold text-slate-600">
-                    {day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-
-          <tbody>
-            {/* ROW 0: OPEN SHIFTS (Always pinned at top) */}
-            <tr className="bg-green-50/50 border-b-4 border-slate-300">
-              <td className="p-4 sticky left-0 bg-green-50/90 z-10 border-r-2 border-slate-300 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
-                <div className="font-black text-green-900 uppercase tracking-widest flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                  Open Shifts
+          {/* Day Columns Header */}
+          <div className="flex-1 grid grid-cols-7 divide-x divide-slate-300 min-w-[800px]">
+            {weekDays.map((day, i) => (
+              <div key={i} className="p-3 text-center">
+                <div className="font-black text-slate-900 uppercase tracking-widest text-xs">
+                  {day.toLocaleDateString('en-US', { weekday: 'short' })}
                 </div>
-                <div className="text-[10px] font-bold text-green-700 mt-1">Drag from here</div>
-              </td>
-              {weekDays.map((day, i) => (
-                <td 
-                  key={i} 
-                  className="p-2 border-r border-slate-300 bg-green-50/30 min-h-[120px] align-top transition-colors hover:bg-green-100/50"
+                <div className="font-bold text-slate-600 text-sm">
+                  {day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* --- TIMELINE BODY --- */}
+        <div className="flex flex-1 relative min-w-[800px]">
+          
+          {/* Y-Axis / Employee List */}
+          <div className="w-24 md:w-32 flex-shrink-0 border-r-2 border-slate-300 bg-white sticky left-0 z-30 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+            
+            {/* "Open Shifts" Row Header */}
+            <div className="border-b-4 border-slate-300 bg-green-50 p-3 relative h-[250px]">
+              <div className="font-black text-green-900 text-[10px] md:text-xs uppercase tracking-widest leading-tight">
+                Open Shifts
+              </div>
+              <div className="text-[9px] font-bold text-green-700 mt-1 leading-tight hidden md:block">
+                Drag from here to assign
+              </div>
+            </div>
+
+            {/* Employee Row Headers */}
+            {filteredUsers.sort((a,b) => a.name.localeCompare(b.name)).map(user => (
+              <div key={user.id} className="border-b border-slate-200 p-3 bg-white h-[200px] relative">
+                <div className="font-black text-slate-900 text-xs md:text-sm leading-tight truncate" title={user.name}>
+                  {user.name}
+                </div>
+                <div className={`text-[10px] font-bold mt-1 inline-block px-1.5 py-0.5 rounded border ${
+                  employeeTotals[user.id] >= 40 
+                    ? 'bg-red-100 text-red-800 border-red-300' 
+                    : 'bg-slate-100 text-slate-600 border-slate-300'
+                }`}>
+                  {employeeTotals[user.id]?.toFixed(1) || '0'} hrs
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Grid Background Lines (Absolute positioned behind shifts) */}
+          <div className="absolute inset-0 left-24 md:left-32 pointer-events-none z-0">
+            {/* Draw horizontal lines for time increments if desired, though here we align by employee rows */}
+          </div>
+
+          {/* Data Columns */}
+          <div className="flex-1 grid grid-cols-7 divide-x divide-slate-200 relative z-10">
+            
+            {/* Render 7 day columns */}
+            {weekDays.map((day, dayIndex) => (
+              <div key={dayIndex} className="flex flex-col relative min-w-[120px]">
+                
+                {/* OPEN SHIFTS CELL */}
+                <div 
+                  className="relative border-b-4 border-slate-300 bg-green-50/30 p-1 hover:bg-green-100/50 transition-colors h-[250px]"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => handleDrop(e, null, day)}
                 >
-                  {weeklyShifts
-                    .filter(s => isSameDay(s.startTime, day) && s.userId === null)
-                    .map(shift => (
-                      <ShiftCard key={shift.id} shift={shift} appState={appState} />
-                    ))
-                  }
-                </td>
-              ))}
-            </tr>
+                  <div className="absolute inset-1 overflow-y-auto space-y-1">
+                    {weeklyShifts
+                      .filter(s => isSameDay(s.startTime, day) && s.userId === null)
+                      .sort((a,b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+                      .map(shift => (
+                        <div key={shift.id} className="h-16">
+                          <ShiftCard shift={shift} appState={appState} />
+                        </div>
+                      ))
+                    }
+                  </div>
+                </div>
 
-            {/* ROWS 1...N: Employees (Filtered by Location) */}
-            {filteredUsers.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="p-8 text-center text-slate-500 font-bold italic bg-white">
-                  No staff members are currently assigned to this location. You can assign them in the "Staff" tab.
-                </td>
-              </tr>
-            ) : (
-              [...filteredUsers].sort((a,b) => a.name.localeCompare(b.name)).map(user => (
-                <tr key={user.id} className="border-b border-slate-200 bg-white hover:bg-slate-50 transition-colors">
-                  
-                  <td className="p-4 sticky left-0 bg-white z-10 border-r-2 border-slate-300 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
-                    <div className="font-black text-slate-900 truncate">{user.name}</div>
-                    <div className={`text-xs font-bold mt-1 inline-block px-2 py-0.5 rounded shadow-sm border ${
-                      employeeTotals[user.id] >= 40 
-                        ? 'bg-red-100 text-red-800 border-red-300' 
-                        : 'bg-slate-100 text-slate-600 border-slate-300'
-                    }`}>
-                      {employeeTotals[user.id]?.toFixed(2) || '0.00'} hrs total
-                    </div>
-                  </td>
-
-                  {weekDays.map((day, i) => (
-                    <td 
-                      key={i} 
-                      className="p-2 border-r border-slate-200 min-h-[100px] align-top transition-colors hover:bg-blue-50/50"
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => handleDrop(e, user.id, day)}
-                    >
+                {/* EMPLOYEE CELLS */}
+                {filteredUsers.map(user => (
+                  <div 
+                    key={user.id}
+                    className="relative border-b border-slate-200 p-1 hover:bg-blue-50/50 transition-colors h-[200px]"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => handleDrop(e, user.id, day)}
+                  >
+                    <div className="absolute inset-1 overflow-y-auto space-y-1">
                       {weeklyShifts
                         .filter(s => isSameDay(s.startTime, day) && s.userId === user.id)
+                        .sort((a,b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
                         .map(shift => (
-                          <ShiftCard key={shift.id} shift={shift} appState={appState} />
+                          <div key={shift.id} className="h-16">
+                            <ShiftCard shift={shift} appState={appState} />
+                          </div>
                         ))
                       }
-                    </td>
-                  ))}
+                    </div>
+                  </div>
+                ))}
 
-                </tr>
-              ))
-            )}
-          </tbody>
+              </div>
+            ))}
+          </div>
 
-        </table>
+        </div>
       </div>
     </div>
   );
