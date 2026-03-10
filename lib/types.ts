@@ -23,6 +23,7 @@ export interface User {
   email?: string | null;
   emailVerified?: Date | string | null;
   image?: string | null;
+  isActive?: boolean;
 }
 
 export interface Shift {
@@ -154,6 +155,7 @@ export interface AppState {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   users: User[];
+  activeUsers: User[];
   locations: Location[];
   visibleLocations: Location[];
   timeCards: TimeCard[];
@@ -258,6 +260,7 @@ export interface AppState {
   handleAddUser: (userData: any) => Promise<void>;
   handleRoleToggle: (userId: number, role: string) => Promise<void>;
   handleUpdateUser: (userId: number, updates: any) => Promise<void>;
+  handleMergeUsers: (oldId: number, newId: number) => Promise<void>;
   handleSeedEmployees: () => Promise<void>;
   handleImportHistory: () => Promise<void>;
   handleImportTimecards: () => Promise<void>;
@@ -347,9 +350,4 @@ export interface AppState {
   announcements: Announcement[];
   setAnnouncements: (a: Announcement[]) => void;
   fetchAnnouncements: () => void;
-  handleCreateAnnouncement: (title: string, content: string, isGlobal: boolean, targetLocationIds: number[]) => Promise<{ success: boolean }>;
-  handleDeleteAnnouncement: (id: number) => Promise<{ success: boolean }>;
-  
-  unreadMessagesCount: number;
-  fetchChecklists: () => void;
-}
+  handleCreateAnnouncement: (title: string, content: string, isGlobal: boolean, targetLocationIds: number

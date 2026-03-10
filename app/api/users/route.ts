@@ -1,4 +1,3 @@
-// filepath: app/api/users/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -19,6 +18,12 @@ const userUpdateSchema = z.object({
   courtReserveId: z.string().nullable().optional(),
   phoneNumber: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
+  isActive: z.boolean().optional(),
+});
+
+const userMergeSchema = z.object({
+  oldId: z.coerce.number(),
+  newId: z.coerce.number(),
 });
 
 export async function GET() {
@@ -46,7 +51,8 @@ export async function POST(request: Request) {
         email: data.email || null,
         role: 'EMPLOYEE',
         systemRoles: ['Front Desk'],
-        locationIds:[] 
+        locationIds:[],
+        isActive: true
       }
     });
 
@@ -60,6 +66,31 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
+    
+    // Check if this is a MERGE request instead of a standard update
+    if (body.action === 'MERGE') {
+      const { oldId, newId } = userMergeSchema.parse(body);
+
+      // 1. Move all historical data to the "New" (or primary) account
+      await prisma.timeCard.updateMany({ where: { userId: oldId }, data: { userId: newId } });
+      await prisma.shift.updateMany({ where: { userId: oldId }, data: { userId: newId } });
+      await prisma.checklist.updateMany({ where: { userId: oldId }, data: { userId: newId } });
+      await prisma.feedback.updateMany({ where: { userId: oldId }, data: { userId: newId } });
+      await prisma.message.updateMany({ where: { senderId: oldId }, data: { senderId: newId } });
+      await prisma.announcement.updateMany({ where: { authorId: oldId }, data: { authorId: newId } });
+      
+      // Move any passkeys / login methods
+      await prisma.account.updateMany({ where: { userId: oldId }, data: { userId: newId } });
+      await prisma.session.updateMany({ where: { userId: oldId }, data: { userId: newId } });
+      await prisma.authenticator.updateMany({ where: { userId: oldId }, data: { userId: newId } });
+
+      // 2. Delete the old ghost account
+      await prisma.user.delete({ where: { id: oldId } });
+      
+      return NextResponse.json({ success: true });
+    }
+
+    // Otherwise, perform standard update
     const data = userUpdateSchema.parse(body);
 
     const updatedUser = await prisma.user.update({
@@ -71,6 +102,7 @@ export async function PUT(request: Request) {
         ...(data.courtReserveId !== undefined && { courtReserveId: data.courtReserveId }),
         ...(data.phoneNumber !== undefined && { phoneNumber: data.phoneNumber }),
         ...(data.email !== undefined && { email: data.email }),
+        ...(data.isActive !== undefined && { isActive: data.isActive }),
       }
     });
 

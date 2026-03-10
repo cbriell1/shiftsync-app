@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import { AppState, User, Location } from '../lib/types';
+import { AppState, User } from '../lib/types';
 
 export default function StaffTab({ appState }: { appState: AppState }) {
   const { 
@@ -9,6 +9,7 @@ export default function StaffTab({ appState }: { appState: AppState }) {
     handleUpdateUser, 
     handleRoleToggle, 
     handleAddUser,
+    handleMergeUsers,
     AVAILABLE_ROLES, 
     isAdmin,
     isManager 
@@ -24,15 +25,21 @@ export default function StaffTab({ appState }: { appState: AppState }) {
     email: ''
   });
 
-  // Filter & Grouping State
-  const[searchQuery, setSearchQuery] = useState('');
-  const [filterLocation, setFilterLocation] = useState<string>('ALL');
-  const [filterRole, setFilterRole] = useState<string>('ALL');
-  const[groupBy, setGroupBy] = useState<'NONE' | 'LOCATION' | 'ROLE'>('NONE');
+  // Merge Tool State
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [mergeSourceId, setMergeSourceId] = useState('');
+  const [mergeTargetId, setMergeTargetId] = useState('');
+  const [isMerging, setIsMerging] = useState(false);
 
-  // Function to handle toggling a location array for a user
+  // Filter & Grouping State
+  const [searchQuery, setSearchQuery] = useState('');
+  const[filterLocation, setFilterLocation] = useState<string>('ALL');
+  const [filterRole, setFilterRole] = useState<string>('ALL');
+  const [showArchived, setShowArchived] = useState(false);
+  const [groupBy, setGroupBy] = useState<'NONE' | 'LOCATION' | 'ROLE'>('NONE');
+
   const toggleLocation = async (user: User, locationId: number) => {
-    const currentLocs = user.locationIds ?[...user.locationIds] :[];
+    const currentLocs = user.locationIds ? [...user.locationIds] : [];
     let newLocs: number[];
 
     if (currentLocs.includes(locationId)) {
@@ -40,7 +47,6 @@ export default function StaffTab({ appState }: { appState: AppState }) {
     } else {
       newLocs = [...currentLocs, locationId];
     }
-
     await handleUpdateUser(user.id, { locationIds: newLocs });
   };
 
@@ -51,7 +57,26 @@ export default function StaffTab({ appState }: { appState: AppState }) {
     setNewStaff({ name: '', pinCode: '', courtReserveId: '', phoneNumber: '', email: '' });
   };
 
-  // Block completely if not Manager or Admin
+  const handleMergeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mergeSourceId || !mergeTargetId || mergeSourceId === mergeTargetId) {
+      alert("Please select two different users to merge.");
+      return;
+    }
+    
+    const sourceUser = users.find(u => u.id.toString() === mergeSourceId);
+    const targetUser = users.find(u => u.id.toString() === mergeTargetId);
+    
+    if(!confirm(`WARNING: You are about to move all of ${sourceUser?.name}'s shifts, timecards, and passkeys into ${targetUser?.name}'s account.\n\nThe ${sourceUser?.name} account will be PERMANENTLY DELETED.\n\nAre you absolutely sure?`)) return;
+    
+    setIsMerging(true);
+    await handleMergeUsers(parseInt(mergeSourceId), parseInt(mergeTargetId));
+    setIsMerging(false);
+    setMergeModalOpen(false);
+    setMergeSourceId('');
+    setMergeTargetId('');
+  };
+
   if (!isAdmin && !isManager) {
     return (
       <div className="p-8 text-center bg-white rounded-2xl border border-gray-200">
@@ -68,24 +93,29 @@ export default function StaffTab({ appState }: { appState: AppState }) {
     
     const matchesLoc = filterLocation === 'ALL' || u.locationIds?.includes(parseInt(filterLocation));
     const matchesRole = filterRole === 'ALL' || u.systemRoles?.includes(filterRole);
+    const matchesActive = showArchived ? true : u.isActive !== false;
     
-    return matchesSearch && matchesLoc && matchesRole;
+    return matchesSearch && matchesLoc && matchesRole && matchesActive;
   }).sort((a, b) => a.name.localeCompare(b.name));
 
   // --- RENDER HELPERS ---
   const renderUserRow = (user: User) => {
     const userLocs = user.locationIds ||[];
+    const isInactive = user.isActive === false;
 
     return (
-      <div key={user.id} className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col xl:flex-row gap-3 items-start xl:items-center shadow-sm hover:shadow transition-all group">
+      <div key={user.id} className={`bg-white border border-slate-200 rounded-xl p-3 flex flex-col xl:flex-row gap-3 items-start xl:items-center shadow-sm hover:shadow transition-all group relative ${isInactive ? 'opacity-60 bg-slate-50 grayscale' : ''}`}>
         
         {/* Profile & PIN (Compact) */}
         <div className="flex w-full xl:w-[20%] items-center gap-3">
-          <div className="w-10 h-10 bg-slate-900 rounded-lg flex-shrink-0 flex items-center justify-center text-white font-black text-lg shadow-inner">
+          <div className={`w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center text-white font-black text-lg shadow-inner ${isInactive ? 'bg-slate-400' : 'bg-slate-900'}`}>
             {user.name.charAt(0)}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-black text-slate-900 leading-tight truncate" title={user.name}>{user.name}</h3>
+            <h3 className="text-sm font-black text-slate-900 leading-tight truncate flex items-center gap-2" title={user.name}>
+              <span className={isInactive ? 'line-through text-slate-500' : ''}>{user.name}</span>
+              {isInactive && <span className="text-[8px] bg-red-600 text-white px-1.5 py-0.5 rounded">ARCHIVED</span>}
+            </h3>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase tracking-widest">
                 ID:{user.id}
@@ -95,9 +125,9 @@ export default function StaffTab({ appState }: { appState: AppState }) {
                 maxLength={4}
                 defaultValue={user.pinCode || ''} 
                 onBlur={(e) => handleUpdateUser(user.id, { pinCode: e.target.value })}
-                className="w-12 bg-slate-50 border border-slate-200 rounded text-[10px] font-black text-slate-900 text-center focus:bg-white focus:border-blue-500 outline-none transition-colors placeholder:font-normal placeholder:text-slate-300"
+                disabled={isInactive}
+                className="w-12 bg-slate-50 border border-slate-200 rounded text-[10px] font-black text-slate-900 text-center focus:bg-white focus:border-blue-500 outline-none transition-colors placeholder:font-normal placeholder:text-slate-300 disabled:opacity-50"
                 placeholder="PIN"
-                title="Kiosk PIN"
               />
             </div>
           </div>
@@ -109,7 +139,8 @@ export default function StaffTab({ appState }: { appState: AppState }) {
             type="email" 
             defaultValue={user.email || ''} 
             onBlur={(e) => handleUpdateUser(user.id, { email: e.target.value })}
-            className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-[10px] font-bold text-slate-900 focus:bg-white focus:border-blue-500 outline-none transition-colors"
+            disabled={isInactive}
+            className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-[10px] font-bold text-slate-900 focus:bg-white focus:border-blue-500 outline-none transition-colors disabled:opacity-50"
             placeholder="Email Address"
           />
           <div className="flex gap-1.5">
@@ -117,14 +148,16 @@ export default function StaffTab({ appState }: { appState: AppState }) {
               type="tel" 
               defaultValue={user.phoneNumber || ''} 
               onBlur={(e) => handleUpdateUser(user.id, { phoneNumber: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-[10px] font-bold text-slate-900 focus:bg-white focus:border-blue-500 outline-none transition-colors"
+              disabled={isInactive}
+              className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-[10px] font-bold text-slate-900 focus:bg-white focus:border-blue-500 outline-none transition-colors disabled:opacity-50"
               placeholder="Phone"
             />
             <input 
               type="text" 
               defaultValue={user.courtReserveId || ''} 
               onBlur={(e) => handleUpdateUser(user.id, { courtReserveId: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-[10px] font-bold text-slate-900 focus:bg-white focus:border-blue-500 outline-none transition-colors"
+              disabled={isInactive}
+              className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-[10px] font-bold text-slate-900 focus:bg-white focus:border-blue-500 outline-none transition-colors disabled:opacity-50"
               placeholder="CR ID"
             />
           </div>
@@ -136,7 +169,7 @@ export default function StaffTab({ appState }: { appState: AppState }) {
           <div className="flex flex-wrap gap-1">
             {AVAILABLE_ROLES.map(role => {
               const hasRole = user.systemRoles?.includes(role);
-              const isRoleDisabled = !isAdmin && role === 'Administrator';
+              const isRoleDisabled = (!isAdmin && role === 'Administrator') || isInactive;
               return (
                 <button
                   key={role}
@@ -159,23 +192,22 @@ export default function StaffTab({ appState }: { appState: AppState }) {
         <div className="w-full xl:w-[30%] border-t xl:border-t-0 xl:border-l border-slate-100 pt-2 xl:pt-0 xl:pl-4">
           <div className="text-[8px] font-black text-slate-400 mb-1.5 uppercase tracking-widest flex justify-between">
             <span>Workable Locations</span>
-            {userLocs.length === 0 && <span className="text-red-500">Unassigned!</span>}
+            {userLocs.length === 0 && !isInactive && <span className="text-red-500">Unassigned!</span>}
           </div>
           <div className="flex flex-wrap gap-1">
             {locations.map(loc => {
               const isAssigned = userLocs.includes(loc.id);
-              // Hide unassigned inactive locations to clean up the UI
               if (!isAssigned && loc.isActive === false) return null;
-              
               return (
                 <button
                   key={loc.id}
-                  onClick={() => toggleLocation(user, loc.id)}
+                  onClick={() => !isInactive && toggleLocation(user, loc.id)}
+                  disabled={isInactive}
                   className={`flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black transition-all border ${
                     isAssigned 
                       ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' 
                       : 'bg-white border-slate-200 text-slate-500 hover:border-slate-400 hover:text-slate-800'
-                  } ${loc.isActive === false ? 'opacity-60' : ''}`}
+                  } ${loc.isActive === false ? 'opacity-60' : ''} ${isInactive ? 'cursor-not-allowed' : ''}`}
                   title={loc.isActive === false ? 'This location is archived' : ''}
                 >
                   <div className={`w-1.5 h-1.5 rounded-full ${isAssigned ? 'bg-blue-600' : 'bg-slate-300'}`} />
@@ -185,23 +217,32 @@ export default function StaffTab({ appState }: { appState: AppState }) {
             })}
           </div>
         </div>
+        
+        {/* Archive/Restore Action Hover Button */}
+        <button 
+          onClick={() => {
+            const newStatus = isInactive ? true : false;
+            if (!newStatus) {
+              if(!confirm(`Are you sure you want to archive ${user.name}? They will be hidden from the Kiosk and schedule dropdowns, but historical records will remain.`)) return;
+            }
+            handleUpdateUser(user.id, { isActive: newStatus });
+          }}
+          className={`absolute top-2 right-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-sm border transition-opacity ${
+            isInactive 
+              ? 'opacity-100 bg-green-100 text-green-800 border-green-300 hover:bg-green-200' 
+              : 'opacity-0 group-hover:opacity-100 bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+          }`}
+        >
+          {isInactive ? 'Restore Account' : 'Archive Staff'}
+        </button>
 
       </div>
     );
   };
 
   const renderGroupedList = () => {
-    if (processedUsers.length === 0) {
-      return (
-        <div className="py-12 text-center bg-white border border-dashed border-slate-300 rounded-2xl">
-          <p className="text-slate-500 font-bold italic">No staff members match your filters.</p>
-        </div>
-      );
-    }
-
-    if (groupBy === 'NONE') {
-      return <div className="flex flex-col gap-2">{processedUsers.map(renderUserRow)}</div>;
-    }
+    if (processedUsers.length === 0) return <div className="py-12 text-center bg-white border border-dashed border-slate-300 rounded-2xl"><p className="text-slate-500 font-bold italic">No staff members match your filters.</p></div>;
+    if (groupBy === 'NONE') return <div className="flex flex-col gap-2">{processedUsers.map(renderUserRow)}</div>;
 
     if (groupBy === 'LOCATION') {
       return (
@@ -220,16 +261,13 @@ export default function StaffTab({ appState }: { appState: AppState }) {
               </div>
             );
           })}
-          {/* Unassigned Users */}
           {(() => {
             const unassigned = processedUsers.filter(u => !u.locationIds || u.locationIds.length === 0);
             if (unassigned.length === 0) return null;
             return (
               <div className="space-y-2 pt-4">
                 <h3 className="text-sm font-black text-red-800 uppercase tracking-widest border-b border-red-200 pb-1 flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 block"></span>
-                  No Location Assigned
-                  <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full ml-2">{unassigned.length}</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 block"></span> No Location Assigned <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full ml-2">{unassigned.length}</span>
                 </h3>
                 {unassigned.map(renderUserRow)}
               </div>
@@ -248,24 +286,19 @@ export default function StaffTab({ appState }: { appState: AppState }) {
             return (
               <div key={role} className="space-y-2">
                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b border-slate-200 pb-1 flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-800 block"></span>
-                  {role}
-                  <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full ml-2">{groupUsers.length}</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-800 block"></span>{role} <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full ml-2">{groupUsers.length}</span>
                 </h3>
                 {groupUsers.map(renderUserRow)}
               </div>
             );
           })}
-          {/* Unassigned Roles */}
           {(() => {
             const unassigned = processedUsers.filter(u => !u.systemRoles || u.systemRoles.length === 0);
             if (unassigned.length === 0) return null;
             return (
               <div className="space-y-2 pt-4">
                 <h3 className="text-sm font-black text-orange-800 uppercase tracking-widest border-b border-orange-200 pb-1 flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500 block"></span>
-                  No Role Assigned
-                  <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full ml-2">{unassigned.length}</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500 block"></span> No Role Assigned <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full ml-2">{unassigned.length}</span>
                 </h3>
                 {unassigned.map(renderUserRow)}
               </div>
@@ -285,12 +318,22 @@ export default function StaffTab({ appState }: { appState: AppState }) {
           <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic">Staff Management</h2>
           <p className="text-slate-600 font-bold text-xs uppercase tracking-widest mt-0.5">Directory & Permissions Setup</p>
         </div>
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center justify-center gap-2 bg-slate-900 hover:bg-black text-white px-5 py-2.5 rounded-xl font-black transition-all shadow-md text-sm"
-        >
-          <span>➕</span> Add New Staff
-        </button>
+        <div className="flex gap-2">
+          {isAdmin && (
+            <button
+              onClick={() => setMergeModalOpen(true)}
+              className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-xl font-black transition-all shadow-md text-sm"
+            >
+              <span>🔗</span> Merge Duplicates
+            </button>
+          )}
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center justify-center gap-2 bg-slate-900 hover:bg-black text-white px-5 py-2.5 rounded-xl font-black transition-all shadow-md text-sm"
+          >
+            <span>➕</span> Add New Staff
+          </button>
+        </div>
       </div>
 
       {/* Toolbar: Filters & Grouping */}
@@ -340,6 +383,11 @@ export default function StaffTab({ appState }: { appState: AppState }) {
           <option value="LOCATION">Group by Location</option>
           <option value="ROLE">Group by Role</option>
         </select>
+
+        <label className="flex items-center gap-2 ml-2 cursor-pointer bg-slate-100 px-3 py-2 rounded-lg border border-slate-200">
+          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="w-4 h-4 text-red-600 rounded" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Show Archived</span>
+        </label>
 
       </div>
 
@@ -422,6 +470,58 @@ export default function StaffTab({ appState }: { appState: AppState }) {
                   Create Staff Member
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MERGE ACCOUNTS MODAL --- */}
+      {mergeModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in duration-200 border border-slate-300">
+            <div className="p-5 border-b border-orange-200 bg-orange-50 flex justify-between items-center">
+              <h3 className="font-black text-xl text-orange-900 flex items-center gap-2"><span>🔗</span> Merge Duplicate Users</h3>
+              <button onClick={() => setMergeModalOpen(false)} className="text-orange-400 hover:text-red-600 text-2xl font-black leading-none transition-colors">&times;</button>
+            </div>
+            
+            <form onSubmit={handleMergeSubmit} className="p-6 space-y-6">
+              
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <label className="block text-xs font-black text-red-600 uppercase tracking-widest mb-2">1. Ghost Account (Will be DELETED)</label>
+                <p className="text-[10px] text-slate-500 mb-2 font-medium">Select the temporary or duplicate account. All of their data will be moved OUT of this account, and then this account will be erased.</p>
+                <select 
+                  required 
+                  value={mergeSourceId} 
+                  onChange={(e) => setMergeSourceId(e.target.value)}
+                  className="w-full border-2 border-red-300 rounded-lg p-2.5 text-sm font-bold text-slate-900 focus:border-red-500 outline-none bg-white"
+                >
+                  <option value="">-- Select Ghost Account --</option>
+                  {users.map(u => <option key={u.id} value={u.id}>{u.name} (ID: {u.id})</option>)}
+                </select>
+              </div>
+
+              <div className="flex justify-center -my-2 z-10 relative">
+                <div className="bg-slate-200 text-slate-600 font-black text-xs px-3 py-1 rounded-full border-4 border-white">MOVES INTO</div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <label className="block text-xs font-black text-blue-700 uppercase tracking-widest mb-2">2. Primary Account (Will KEEP everything)</label>
+                <p className="text-[10px] text-slate-500 mb-2 font-medium">Select the correct, permanent account. All shifts, timecards, and login passkeys from the ghost account will be safely attached to this user.</p>
+                <select 
+                  required 
+                  value={mergeTargetId} 
+                  onChange={(e) => setMergeTargetId(e.target.value)}
+                  className="w-full border-2 border-blue-300 rounded-lg p-2.5 text-sm font-bold text-slate-900 focus:border-blue-500 outline-none bg-white"
+                >
+                  <option value="">-- Select Primary Account --</option>
+                  {users.map(u => <option key={u.id} value={u.id}>{u.name} (ID: {u.id})</option>)}
+                </select>
+              </div>
+
+              <button type="submit" disabled={isMerging} className="w-full bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-black py-4 rounded-xl shadow-md transition-colors text-sm uppercase tracking-wider">
+                {isMerging ? 'Merging Data...' : 'Confirm & Merge Users'}
+              </button>
+
             </form>
           </div>
         </div>

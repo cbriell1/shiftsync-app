@@ -7,21 +7,21 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
     managerData, formDate, setFormDate, formStartTime, setFormStartTime, 
     formEndTime, setFormEndTime, selectedLocation, setSelectedLocation, 
     handleManualSubmit, editingCardId, setEditingCardId, 
-    formUserId, setFormUserId,
+    formUserId, setFormUserId, activeUsers,
     setActiveTab, handleEditClick, handleDeleteClick, 
-    formatDateSafe, formatTimeSafe, handleUpdateCardStatus, checklists,
-    users, locations, manLocs
+    formatDateSafe, formatTimeSafe, checklists,
+    locations, manLocs
   } = appState;
 
-  const[expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-  const[expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
   
   const toggleGroup = (key: string) => {
-    setExpandedGroups(prev => ({ ...prev,[key]: !prev[key] }));
+    setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const toggleReport = (id: number) => {
-    setExpandedReports(prev => ({ ...prev, [id]: !prev[id] }));
+    setExpandedReports(prev => ({ ...prev,[id]: !prev[id] }));
   };
 
   const handleManagerEditClick = (card: TimeCard) => {
@@ -38,25 +38,19 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
     const empName = card.user?.name || 'Unknown Employee';
 
     if (!acc[locName]) acc[locName] = {};
-    if (!acc[locName][empName]) acc[locName][empName] =[];
+    if (!acc[locName][empName]) acc[locName][empName] = [];
 
     acc[locName][empName].push(card);
     return acc;
   }, {});
 
-  const renderStatusBadge = (status: string | undefined) => {
-    if (status === 'APPROVED') return <span className="text-green-700 bg-green-100 px-2 py-1 rounded text-[10px] uppercase tracking-widest font-black border border-green-300">Approved</span>;
-    if (status === 'FLAGGED') return <span className="text-red-700 bg-red-100 px-2 py-1 rounded text-[10px] uppercase tracking-widest font-black border border-red-300">Flagged</span>;
-    return <span className="text-yellow-700 bg-yellow-100 px-2 py-1 rounded text-[10px] uppercase tracking-widest font-black border border-yellow-300">Pending</span>;
-  };
-
   return (
-    <div className="bg-white p-4 md:p-6 rounded-2xl border border-gray-300 shadow-md">
+    <div className="bg-white p-4 md:p-6 rounded-2xl border border-gray-300 shadow-md animate-in fade-in duration-300">
       
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-gray-200 pb-4 gap-4">
         <div>
           <h2 className="text-lg md:text-2xl font-black text-slate-900 text-center md:text-left">Timesheets & Auditing</h2>
-          <p className="text-sm font-bold text-slate-500 mt-1">Review hours, approve timecards, and read shift reports inline.</p>
+          <p className="text-sm font-bold text-slate-500 mt-1">Review hours, manually edit timecards, and read shift reports inline.</p>
         </div>
       </div>
 
@@ -75,7 +69,8 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
             <label className="block text-sm font-bold text-slate-700 mb-1">Employee</label>
             <select value={formUserId} onChange={(e) => setFormUserId(e.target.value)} required className="w-full border border-gray-400 rounded-lg p-2.5 text-slate-900 font-black focus:ring-2 focus:ring-blue-500 outline-none shadow-sm">
               <option value="">-- Select --</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {/* Only show active users in the dropdown, unless we are editing a card belonging to an archived user */}
+              {activeUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
 
@@ -155,10 +150,17 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
                       const cards = empGroups[empName];
                       const empTotal = cards.reduce((sum, c) => sum + (c.totalHours || 0), 0);
 
+                      // Determine if employee is archived
+                      const sampleCard = cards[0];
+                      const isArchivedEmp = sampleCard && sampleCard.user?.isActive === false;
+
                       return (
                         <div key={empName} className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
                           <button onClick={() => toggleGroup(empKey)} className="w-full bg-blue-50 text-blue-900 p-3 md:p-4 flex justify-between items-center border-b border-blue-100">
-                            <span className="font-black text-sm md:text-base uppercase tracking-widest">{empName}</span>
+                            <span className="font-black text-sm md:text-base uppercase tracking-widest flex items-center gap-2">
+                              {empName}
+                              {isArchivedEmp && <span className="text-[9px] bg-red-100 text-red-700 px-2 py-0.5 rounded border border-red-300">ARCHIVED STAFF</span>}
+                            </span>
                             <div className="flex items-center gap-4">
                               <span className="text-xs md:text-sm font-black bg-blue-200 text-blue-800 px-3 py-1 rounded shadow-sm">{empTotal.toFixed(2)} hrs</span>
                               <svg className={`h-5 w-5 transition-transform ${expandedGroups[empKey] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -178,7 +180,6 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
                                       
                                       <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 w-full md:w-auto">
                                         <div className="flex items-center gap-3">
-                                          {renderStatusBadge(card.status)}
                                           <span className="font-black text-slate-800">{formatDateSafe(card.clockIn)}</span>
                                         </div>
                                         <div className="flex items-center gap-2 text-sm font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg">
@@ -186,25 +187,13 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
                                           <span>→</span>
                                           <span className={isActive ? 'text-red-600 animate-pulse' : 'text-slate-800'}>{isActive ? 'Active' : formatTimeSafe(card.clockOut!)}</span>
                                         </div>
-                                        <span className={`text-sm font-black ${isSuspicious ? 'text-red-600 bg-red-100 px-2 py-0.5 rounded shadow-sm' : 'text-blue-700'}`}>
+                                        <span className={`text-sm font-black ${isSuspicious ? 'text-red-600 bg-red-100 px-2 py-0.5 rounded shadow-sm border border-red-200' : 'text-blue-700'}`}>
                                           {card.totalHours != null ? `${card.totalHours.toFixed(2)}h` : (card.clockOut ? '0.00h' : '')}
+                                          {isSuspicious && <span className="text-[10px] ml-2 uppercase tracking-widest text-red-500">Review</span>}
                                         </span>
                                       </div>
                                       
                                       <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                                        {(!card.status || card.status === 'PENDING' || card.status === 'FLAGGED') && (
-                                          <button onClick={() => handleUpdateCardStatus([card.id], 'APPROVED')} className="px-4 py-1.5 text-xs bg-green-100 text-green-800 hover:bg-green-200 border border-green-300 font-bold rounded-lg transition-colors">
-                                            Approve
-                                          </button>
-                                        )}
-                                        {card.status !== 'FLAGGED' && (
-                                          <button onClick={() => handleUpdateCardStatus([card.id], 'FLAGGED')} className="px-4 py-1.5 text-xs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 font-bold rounded-lg transition-colors">
-                                            Flag
-                                          </button>
-                                        )}
-                                        
-                                        <div className="h-6 w-px bg-slate-300 hidden md:block mx-1"></div>
-
                                         <button onClick={() => handleManagerEditClick(card)} className="px-4 py-1.5 text-xs bg-orange-50 text-orange-900 border border-orange-200 font-bold rounded-lg hover:bg-orange-100 transition-colors">Edit</button>
                                         <button onClick={() => handleDeleteClick(card.id)} className="px-4 py-1.5 text-xs bg-slate-100 text-slate-700 border border-slate-300 font-bold rounded-lg hover:bg-slate-200 transition-colors">Delete</button>
                                       </div>

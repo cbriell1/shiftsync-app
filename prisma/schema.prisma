@@ -34,6 +34,7 @@ model User {
   pinCode        String?    
   role           Role       @default(EMPLOYEE)
   systemRoles    String[]   @default(["Front Desk"]) 
+  isActive       Boolean    @default(true)
   
   locationIds    Int[]      @default([])
 
@@ -78,7 +79,7 @@ model Account {
   id_token          String? 
   session_state     String?
  
-  user User @relation(fields:[userId], references: [id], onDelete: Cascade)
+  user User @relation(fields:[userId], references:[id], onDelete: Cascade)
   @@unique([provider, providerAccountId])
 }
  
@@ -87,7 +88,7 @@ model Session {
   sessionToken String   @unique
   userId       Int
   expires      DateTime
-  user         User     @relation(fields:[userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields:[userId], references:[id], onDelete: Cascade)
 }
  
 model Authenticator {
@@ -163,7 +164,7 @@ model PassUsage {
   amount     Int
   initials   String?
   memberId   Int
-  member     Member   @relation(fields:[ memberId ], references:[ id ])
+  member     Member   @relation(fields: [ memberId ], references:[ id ])
 }
 
 model GiftCard {
@@ -181,7 +182,7 @@ model GiftCard {
 model ShiftTemplate {
   id             Int      @id @default(autoincrement())
   locationId     Int
-  location       Location @relation(fields:[locationId], references:[id])
+  location       Location @relation(fields: [locationId], references:[id])
   dayOfWeek      Int      
   startTime      String   
   endTime        String   
@@ -204,6 +205,7 @@ model Checklist {
   notes          String?
   completedTasks String[]  @default([])
   missedTasks    String[]  @default([])
+  photoUrls      String[]  @default([])
 }
 
 model GlobalTask {
@@ -239,7 +241,7 @@ model Announcement {
   title             String
   content           String
   authorId          Int
-  author            User     @relation(fields:[authorId], references: [id], onDelete: Cascade)
+  author            User     @relation(fields:[authorId], references:[id], onDelete: Cascade)
   isGlobal          Boolean  @default(true)
   targetLocationIds Int[]    @default([])
   createdAt         DateTime @default(now())
