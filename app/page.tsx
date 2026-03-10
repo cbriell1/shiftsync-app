@@ -5,7 +5,7 @@ import { signIn as signInPasskey } from "next-auth/webauthn";
 import { 
   User, Location, TimeCard, Shift, Member, ShiftTemplate, 
   Checklist, GlobalTask, GiftCard, Feedback, Message, Announcement, AppState 
-} from '../lib/types';
+} from './lib/types';
 
 import CalendarTab from './components/CalendarTab';
 import ScheduleBuilderTab from './components/ScheduleBuilderTab';
@@ -24,10 +24,10 @@ import MessagesTab from './components/MessagesTab';
 // 1. LOGIN SCREEN COMPONENT
 // ==================================================================
 function LoginScreen({ sessionData }: { sessionData: any }) {
-  const [email, setEmail] = useState("");
-  const[password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const[usePassword, setUsePassword] = useState(false);
+  const[email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const[loading, setLoading] = useState(false);
+  const [usePassword, setUsePassword] = useState(false);
 
   const handlePasskeyLogin = async (action: "authenticate" | "register") => {
     setLoading(true);
@@ -155,8 +155,8 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
 // ==================================================================
 function MainDashboard({ session }: { session: any }) {
   // --- UI & Global App State ---
-  const[isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState('setup'); 
+  const [isMounted, setIsMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState('calendar'); // Default safe tab
   
   // --- Data States ---
   const [users, setUsers] = useState<User[]>([]);
@@ -226,18 +226,18 @@ function MainDashboard({ session }: { session: any }) {
   const[newTotalVal, setNewTotalVal] = useState<number | string>(12);
   const[newBonusNotes, setNewBonusNotes] = useState('');
 
-  // --- Form States (Templates) ---
+  // --- Form States (Templates & Tasks) ---
   const[editingTplId, setEditingTplId] = useState<number | null>(null); 
-  const [tplLocs, setTplLocs] = useState<number[]>([]);
-  const [tplDays, setTplDays] = useState<(string | number)[]>([]);
-  const [tplStart, setTplStart] = useState('');
-  const[tplEnd, setTplEnd] = useState('');
-  const [tplStartDate, setTplStartDate] = useState(''); 
-  const[tplEndDate, setTplEndDate] = useState('');     
+  const[tplLocs, setTplLocs] = useState<number[]>([]);
+  const[tplDays, setTplDays] = useState<(string | number)[]>([]);
+  const[tplStart, setTplStart] = useState('');
+  const [tplEnd, setTplEnd] = useState('');
+  const[tplStartDate, setTplStartDate] = useState(''); 
+  const [tplEndDate, setTplEndDate] = useState('');     
   const [tplTasks, setTplTasks] = useState<string[]>([]); 
   const [newTaskStr, setNewTaskStr] = useState(''); 
-  const [tplUserId, setTplUserId] = useState(''); 
-  const[tplViewLocs, setTplViewLocs] = useState<number[]>([]);
+  const[tplUserId, setTplUserId] = useState(''); 
+  const [tplViewLocs, setTplViewLocs] = useState<number[]>([]);
   const [tplViewDays, setTplViewDays] = useState<number[]>([]);
 
   // --- Constants & Generators ---
@@ -259,7 +259,7 @@ function MainDashboard({ session }: { session: any }) {
   };
 
   const [periods] = useState(generatePeriods());
-  const [manPeriods, setManPeriods] = useState<number[]>([0]); 
+  const[manPeriods, setManPeriods] = useState<number[]>([0]); 
   const[manLocs, setManLocs] = useState<number[]>([]);
   const [manEmps, setManEmps] = useState<number[]>([]);
   const [managerData, setManagerData] = useState<TimeCard[]>([]);
@@ -305,27 +305,29 @@ function MainDashboard({ session }: { session: any }) {
     }
   },[session?.user?.id]);
 
-  const fetchUsers = () => fetch('/api/users?t=' + new Date().getTime()).then(res => res.json()).then(data => setUsers(Array.isArray(data) ? data :[]));
-  const fetchMembers = () => fetch('/api/members?t=' + new Date().getTime()).then(res => res.json()).then(data => setMembers(Array.isArray(data) ? data :[]));
-  const fetchShifts = () => fetch('/api/shifts?t=' + new Date().getTime()).then(res => res.json()).then(data => setShifts(Array.isArray(data) ? data :[]));
-  const fetchTemplates = () => fetch('/api/templates?t=' + new Date().getTime()).then(res => res.json()).then(data => setTemplates(Array.isArray(data) ? data :[]));
-  const fetchChecklists = () => fetch('/api/checklists?t=' + new Date().getTime()).then(res => res.json()).then(data => setChecklists(Array.isArray(data) ? data :[]));
-  const fetchGlobalTasks = () => fetch('/api/tasks?t=' + new Date().getTime()).then(res => res.json()).then(data => setGlobalTasks(Array.isArray(data) ? data :[]));
+  // Added .catch(() => {}) to all fetch calls so they fail silently if the server shuts down locally
+  const fetchUsers = () => fetch('/api/users?t=' + new Date().getTime()).then(res => res.json()).then(data => setUsers(Array.isArray(data) ? data :[])).catch(() => {});
+  const fetchMembers = () => fetch('/api/members?t=' + new Date().getTime()).then(res => res.json()).then(data => setMembers(Array.isArray(data) ? data :[])).catch(() => {});
+  const fetchShifts = () => fetch('/api/shifts?t=' + new Date().getTime()).then(res => res.json()).then(data => setShifts(Array.isArray(data) ? data :[])).catch(() => {});
+  const fetchTemplates = () => fetch('/api/templates?t=' + new Date().getTime()).then(res => res.json()).then(data => setTemplates(Array.isArray(data) ? data :[])).catch(() => {});
+  const fetchChecklists = () => fetch('/api/checklists?t=' + new Date().getTime()).then(res => res.json()).then(data => setChecklists(Array.isArray(data) ? data :[])).catch(() => {});
+  const fetchGlobalTasks = () => fetch('/api/tasks?t=' + new Date().getTime()).then(res => res.json()).then(data => setGlobalTasks(Array.isArray(data) ? data :[])).catch(() => {});
   const fetchGiftCards = () => fetch('/api/giftcards?t=' + new Date().getTime()).then(res => res.json()).then(data => { setGiftCards(Array.isArray(data) ? data :[]); setIsGiftCardsLoading(false); }).catch(() => setIsGiftCardsLoading(false));
   const fetchFeedbacks = () => fetch('/api/feedback?t=' + new Date().getTime()).then(res => res.json()).then(data => { setFeedbacks(Array.isArray(data) ? data :[]); setIsFeedbacksLoading(false); }).catch(() => setIsFeedbacksLoading(false));
-  const fetchTimeCards = () => fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[]));
+  const fetchTimeCards = () => fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[])).catch(() => {});
 
   const fetchLocations = () => fetch('/api/locations?t=' + new Date().getTime()).then(res => res.json()).then(data => { 
     setLocations(Array.isArray(data) ? data :[]); 
     if(Array.isArray(data) && data.length > 0 && !selectedLocation) setSelectedLocation(data[0].id.toString()); 
-  });
+  }).catch(() => {});
   
   const fetchMessages = () => {
     const id = selectedUserId || session?.user?.id?.toString();
     if (!id) return;
     fetch(`/api/messages?userId=${id}&t=${new Date().getTime()}`)
       .then(res => res.json())
-      .then(data => setMessages(Array.isArray(data) ? data :[]));
+      .then(data => setMessages(Array.isArray(data) ? data :[]))
+      .catch(() => {});
   };
   
   const fetchAnnouncements = () => {
@@ -333,7 +335,8 @@ function MainDashboard({ session }: { session: any }) {
     if (!id) return;
     fetch(`/api/announcements?userId=${id}&t=${new Date().getTime()}`)
       .then(res => res.json())
-      .then(data => setAnnouncements(Array.isArray(data) ? data :[]));
+      .then(data => setAnnouncements(Array.isArray(data) ? data :[]))
+      .catch(() => {});
   };
 
   // --- BACKGROUND POLLING & WINDOW FOCUS SYNC ---
@@ -341,6 +344,7 @@ function MainDashboard({ session }: { session: any }) {
     setIsMounted(true);
     if (!session) return;
 
+    // Fetch everything on first mount
     fetchUsers();
     fetchMembers();
     fetchTemplates();
@@ -354,6 +358,7 @@ function MainDashboard({ session }: { session: any }) {
     fetchTimeCards();
     fetchShifts();
 
+    // Define the lightweight sync function
     const syncOperationalData = () => {
       if (!selectedUserId) return;
       fetchChecklists();
@@ -363,9 +368,11 @@ function MainDashboard({ session }: { session: any }) {
       fetchAnnouncements();
     };
 
+    // Sync whenever the computer window gets focused
     const onFocus = () => syncOperationalData();
     window.addEventListener('focus', onFocus);
 
+    // Sync automatically every 30 seconds
     const intervalId = setInterval(syncOperationalData, 30000);
 
     return () => {
@@ -374,7 +381,7 @@ function MainDashboard({ session }: { session: any }) {
     };
   }, [session, selectedUserId]); 
 
-  // --- Auth & Security ---
+  // --- Auth & Access Control Logic ---
   const safeUsers = Array.isArray(users) ? users :[];
   const authenticatedUserId = session?.user?.id?.toString();
   const authenticatedUserObj = safeUsers.find(u => u.id.toString() === authenticatedUserId);
@@ -403,20 +410,29 @@ function MainDashboard({ session }: { session: any }) {
   const showGiftCards = isFrontDesk; 
 
   // --- COMPUTE VISIBLE LOCATIONS ---
-  // This physically stops staff from seeing or interacting with locations they aren't assigned to
   const allowedLocationIds = activeUserObj?.locationIds?.map(id => typeof id === 'string' ? parseInt(id, 10) : id) ||[];
   const visibleLocations = isAdmin 
     ? locations 
     : locations.filter(loc => allowedLocationIds.includes(loc.id));
 
+  // --- STICKY TAB LOGIC (LOCAL STORAGE) ---
   useEffect(() => {
-    if (session && (activeTab === 'dashboard' || activeTab === 'timesheets')) {
-      fetchManagerData();
+    if (isMounted && authenticatedUserId) {
+      const savedTab = localStorage.getItem('lastActiveTab_' + authenticatedUserId);
+      if (savedTab) setActiveTab(savedTab);
     }
-  },[activeTab, manPeriods, manLocs, manEmps, selectedUserId, isManager, session]);
+  }, [isMounted, authenticatedUserId]);
 
   useEffect(() => {
-    if (!isMounted || !session) return;
+    if (isMounted && authenticatedUserId && users.length > 0) {
+      localStorage.setItem('lastActiveTab_' + authenticatedUserId, activeTab);
+    }
+  },[activeTab, authenticatedUserId, isMounted, users.length]);
+
+  // --- Tab Redirection Safety ---
+  useEffect(() => {
+    if (!isMounted || !session || users.length === 0) return; 
+
     if (activeTab === 'dashboard' && !showDashboard) setActiveTab('calendar');
     if (activeTab === 'timesheets' && !showTimesheets) setActiveTab('calendar');
     if (activeTab === 'builder' && !showBuilder) setActiveTab('calendar');
@@ -481,10 +497,18 @@ function MainDashboard({ session }: { session: any }) {
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' }, 
       body: JSON.stringify({ periods: selectedPeriods, userIds: targetEmployees }) 
-    });
-    const data = await res.json();
-    setManagerData(Array.isArray(data) ? data :[]);
+    }).catch(() => null);
+    if(res) {
+      const data = await res.json();
+      setManagerData(Array.isArray(data) ? data :[]);
+    }
   };
+
+  useEffect(() => {
+    if (session && (activeTab === 'dashboard' || activeTab === 'timesheets')) {
+      fetchManagerData();
+    }
+  },[activeTab, manPeriods, manLocs, manEmps, selectedUserId, isManager, session]);
 
   const handleCreateLocation = async (payload: any) => {
     const res = await fetch('/api/locations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -508,12 +532,20 @@ function MainDashboard({ session }: { session: any }) {
     fetchTimeCards();
   };
 
-  // Toggles
+  const toggleTplLoc = (id: number) => { 
+    if (editingTplId) { setTplLocs([id]); return; }
+    setTplLocs(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleTplDay = (idx: string | number) => { 
+    const dayNum = parseInt(String(idx), 10);
+    if (editingTplId) { setTplDays([dayNum]); return; }
+    setTplDays(prev => prev.includes(dayNum) ? prev.filter(x => x !== dayNum) : [...prev, dayNum]);
+  };
+
   const toggleManPeriod = (idx: number) => manPeriods.includes(idx) ? setManPeriods(manPeriods.filter(x => x !== idx)) : setManPeriods([...manPeriods, idx]);
   const toggleManLoc = (id: number) => manLocs.includes(id) ? setManLocs(manLocs.filter(x => x !== id)) : setManLocs([...manLocs, id]);
   const toggleManEmp = (id: number) => manEmps.includes(id) ? setManEmps(manEmps.filter(x => x !== id)) : setManEmps([...manEmps, id]);
-  const toggleTplLoc = (id: number) => { if (editingTplId) return setTplLocs([id]); tplLocs.includes(id) ? setTplLocs(tplLocs.filter(x => x !== id)) : setTplLocs([...tplLocs, id]); };
-  const toggleTplDay = (idx: string | number) => { if (editingTplId) return setTplDays([idx]); tplDays.includes(idx) ? setTplDays(tplDays.filter(x => x !== idx)) : setTplDays([...tplDays, idx]); };
   const toggleTplViewLoc = (id: number) => tplViewLocs.includes(id) ? setTplViewLocs(tplViewLocs.filter(x => x !== id)) : setTplViewLocs([...tplViewLocs, id]);
   const toggleTplViewDay = (idx: number) => tplViewDays.includes(idx) ? setTplViewDays(tplViewDays.filter(x => x !== idx)) : setTplViewDays([...tplViewDays, idx]);
   const toggleTplTask = (taskName: string) => { if (tplTasks.includes(taskName)) setTplTasks(tplTasks.filter(t => t !== taskName)); else setTplTasks([...tplTasks, taskName]); };
@@ -668,8 +700,35 @@ function MainDashboard({ session }: { session: any }) {
 
   const handleSaveTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const body = { id: editingTplId, locationIds: tplLocs, daysOfWeek: tplDays, startTime: tplStart, endTime: tplEnd, startDate: tplStartDate || null, endDate: tplEndDate || null, checklistTasks: tplTasks, userId: tplUserId || null };
-    await fetch('/api/templates', { method: editingTplId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (tplLocs.length === 0 || tplDays.length === 0) {
+      alert("Please select at least one Location and one Day of Week.");
+      return;
+    }
+
+    const body = { 
+      id: editingTplId, 
+      locationIds: tplLocs, 
+      daysOfWeek: tplDays, 
+      startTime: tplStart, 
+      endTime: tplEnd, 
+      startDate: tplStartDate || null, 
+      endDate: tplEndDate || null, 
+      checklistTasks: tplTasks, 
+      userId: tplUserId || null 
+    };
+
+    const res = await fetch('/api/templates', { 
+      method: editingTplId ? 'PUT' : 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify(body) 
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      alert("Failed to save template: " + (err.error || JSON.stringify(err)));
+      return;
+    }
+
     setEditingTplId(null); setTplLocs([]); setTplDays([]); setTplStart(''); setTplEnd(''); setTplStartDate(''); setTplEndDate(''); setTplTasks([]); setTplUserId('');
     fetchTemplates();
   };
@@ -739,19 +798,13 @@ function MainDashboard({ session }: { session: any }) {
   };
 
   const TAB_LABELS: Record<string, string> = {
-    calendar: 'Calendar',
-    builder: 'Builder', 
-    manual: 'My Time', 
-    messages: 'Team Chat',
-    timesheets: 'Timesheets',
-    dashboard: 'Payroll',
-    privileges: 'Passes',
-    giftcards: 'Gift Cards',
-    feedback: '💬 Feedback',
-    setup: 'Shift Setup',
-    staff: 'Staff',
-    locations: 'Locations'
+    calendar: 'Calendar', builder: 'Builder', manual: 'My Time', messages: 'Team Chat',
+    timesheets: 'Timesheets', dashboard: 'Payroll', privileges: 'Passes',
+    giftcards: 'Gift Cards', feedback: '💬 Feedback', setup: 'Shift Setup', staff: 'Staff', locations: 'Locations'
   };
+
+  const generalTabs =['calendar', 'manual', 'messages', 'privileges', 'giftcards', 'feedback'];
+  const adminTabs =['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
 
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInM = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -762,7 +815,6 @@ function MainDashboard({ session }: { session: any }) {
   const activeManPeriods = manPeriods.map(idx => periods[idx]);
 
   (Array.isArray(managerData) ? managerData :[]).forEach(card => {
-    // Hide locations entirely from the Payroll Matrix if the user is not assigned to them
     if (!visibleLocations.some(l => l.id === card.locationId)) return;
 
     if (manLocs.length > 0 && !manLocs.includes(card.locationId)) {
@@ -783,33 +835,27 @@ function MainDashboard({ session }: { session: any }) {
   const pendingCards = isManager ? (Array.isArray(managerData) ? managerData :[]).filter(c => (!c.status || c.status === 'PENDING') && c.clockOut) :[];
   const unapprovedCount = pendingCards.length;
 
-  // --- Build Master AppState Prop ---
   const appState: AppState = {
-    isMounted, activeTab, setActiveTab, users: safeUsers, locations, visibleLocations, timeCards, shifts, setShifts, members, templates, checklists,
+    isMounted, activeTab, setActiveTab, users: safeUsers, locations, visibleLocations, timeCards, shifts, setShifts, members, setMembers, templates, checklists,
     selectedUserId, setSelectedUserId, currentMonth, setCurrentMonth, currentYear, setCurrentYear,
     messages, setMessages, fetchMessages, handleSendMessage,
     announcements, setAnnouncements, fetchAnnouncements, handleCreateAnnouncement, handleDeleteAnnouncement,
     calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter, editingCardId, setEditingCardId,
-    formUserId, setFormUserId,
-    formDate, setFormDate, formStartTime, setFormStartTime, formEndTime, setFormEndTime,
+    formUserId, setFormUserId, formDate, setFormDate, formStartTime, setFormStartTime, formEndTime, setFormEndTime,
     selectedLocation, setSelectedLocation, passSearch, setPassSearch, expandedMember, setExpandedMember,
     pDate, setPDate, pAmt, setPAmt, pInitials, setPInitials, editingTplId, setEditingTplId,
     tplLocs, setTplLocs, tplDays, setTplDays, tplStart, setTplStart, tplEnd, setTplEnd,
     tplStartDate, setTplStartDate, tplEndDate, setTplEndDate, tplTasks, setTplTasks, tplUserId, setTplUserId,
-    tplViewLocs, setTplViewLocs, tplViewDays, setTplViewDays,
-    manPeriods, setManPeriods, manLocs, setManLocs, 
-    manEmps, setManEmps, managerData, DAYS_OF_WEEK, MONTHS, YEARS, AVAILABLE_ROLES, formatTimeSafe, 
+    tplViewLocs, setTplViewLocs, tplViewDays, setTplViewDays, newTaskStr, setNewTaskStr,
+    manPeriods, setManPeriods, manLocs, setManLocs, manEmps, setManEmps, managerData, DAYS_OF_WEEK, MONTHS, YEARS, AVAILABLE_ROLES, formatTimeSafe, 
     formatDateSafe, getLocationColor, showDashboard, showTimesheets, showSetup, showStaff, 
     showLocations: showLocationsTab, showPasses, showBuilder, isManager, isAdmin, toggleManPeriod, toggleManLoc, toggleManEmp, 
     toggleTplLoc, toggleTplDay, toggleTplViewLoc, toggleTplViewDay, toggleTplTask, 
-    handleAddUser, handleRoleToggle, 
-    handleUpdateUser, handleSeedEmployees, handleImportHistory, handleImportTimecards, handleImportPasses, handleClaimShift, 
+    handleAddUser, handleRoleToggle, handleUpdateUser, handleSeedEmployees, handleImportHistory, handleImportTimecards, handleImportPasses, handleClaimShift, 
     handleUnclaimShift, handleGenerateSchedule, handleManualSubmit, handleOpenReport, toggleChecklistTask, 
     submitShiftReport, handleAddMasterTask, handleEditMasterTask, handleDeleteMasterTask, handleEditTemplate, handleSaveTemplate, handleDeleteTemplate, handleRedeemBeverage, 
     handleLogPass, handleEditClick, handleDeleteClick, handleExportCSV, handleUpdateCardStatus, handleUpdateShiftTime,
-    handleCreateLocation, handleUpdateLocation, periods, 
-    showChecklistModal, 
-    setShowChecklistModal, reportTargetCard, setReportTargetCard, editingChecklistId, setEditingChecklistId,
+    handleCreateLocation, handleUpdateLocation, periods, showChecklistModal, setShowChecklistModal, reportTargetCard, setReportTargetCard, editingChecklistId, setEditingChecklistId,
     clDynamicTasks, setClDynamicTasks, clCompletedTasks, setClCompletedTasks, clNotes, setClNotes,
     globalTasks, setGlobalTasks, fetchGlobalTasks, editingRenewalId, setEditingRenewalId, newRenewalDate, setNewRenewalDate,
     editingTotalId, setEditingTotalId, newTotalVal, setNewTotalVal, newBonusNotes, setNewBonusNotes,
@@ -818,18 +864,13 @@ function MainDashboard({ session }: { session: any }) {
     isFeedbacksLoading, highlightBaseline, calendarCells, 
     activeCalColor: calLocFilter ? getLocationColor(calLocFilter) : { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-800' },
     activeManPeriods, matrixRows: Array.from(matrixMap.values()), hiddenWarnings: Array.from(hiddenWarningsMap.entries()).map(([k, v]) => `${k} (${Array.from(v).join(', ')})`),
-    missingPunches:[],
-    activeUserTimeCards: (Array.isArray(timeCards) ? timeCards :[]).filter(c => c.userId === parseInt(selectedUserId)),
+    missingPunches:[], activeUserTimeCards: (Array.isArray(timeCards) ? timeCards :[]).filter(c => c.userId === parseInt(selectedUserId)),
     filteredMembers: (Array.isArray(members) ? members :[]).filter(m => m.lastName.toLowerCase().includes(passSearch.toLowerCase())),
     filteredTemplates: Array.isArray(templates) ? templates :[],
-    unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart, unreadFeedbackCount, unreadMessagesCount,
-    fetchChecklists
+    unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart, unreadFeedbackCount, unreadMessagesCount, fetchChecklists
   };
 
   if (!isMounted) return <div className="p-10 text-center font-bold">Loading Workspace...</div>;
-
-  const generalTabs =['calendar', 'manual', 'messages', 'privileges', 'giftcards', 'feedback'];
-  const adminTabs =['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
 
   return (
     <div className="min-h-screen bg-gray-100 p-2 md:p-4 font-sans relative">
@@ -855,142 +896,52 @@ function MainDashboard({ session }: { session: any }) {
       )}
       
       <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden border border-gray-300">
-        
-        {/* --- OPTIMIZED HEADER --- */}
         <div className="bg-slate-900 px-4 py-3 text-white flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          
-          {/* Left Column: Logo & Profile Stacked */}
           <div className="flex flex-col items-start gap-2">
-            <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="Logo" className="h-10 md:h-12 w-auto" />
-              <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-widest leading-none">
-                <span className="text-yellow-400">Pickles</span> & Play
-              </h1>
-            </div>
-            
+            <div className="flex items-center gap-3"><img src="/logo.png" alt="Logo" className="h-10 md:h-12 w-auto" /><h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-widest leading-none"><span className="text-yellow-400">Pickles</span> & Play</h1></div>
             <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 shadow-inner w-fit ml-1">
               <span className="text-[10px] md:text-xs font-bold text-slate-300 uppercase tracking-widest">Logged in as:</span>
-              
-              {/* 🔥 THE MAGIC DROPDOWN 🔥 */}
-              {isRealManager ? (
-                <select 
-                  value={selectedUserId} 
-                  onChange={(e) => setSelectedUserId(e.target.value)}
-                  className="bg-yellow-400 text-slate-900 rounded px-1.5 py-0.5 text-xs font-black outline-none cursor-pointer max-w-[140px] truncate"
-                >
-                  {safeUsers.map(u => (
-                    <option key={u.id} value={u.id}>
-                      {u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}
-                    </option>
-                  ))}
+              {isRealAdmin ? (
+                <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="bg-yellow-400 text-slate-900 rounded px-1.5 py-0.5 text-xs font-black outline-none cursor-pointer max-w-[140px] truncate">
+                  {safeUsers.map(u => <option key={u.id} value={u.id}>{u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}</option>)}
                 </select>
-              ) : (
-                <span className="text-yellow-400 font-black px-1 text-xs truncate max-w-[140px]">{activeUserObj?.name || session?.user?.email}</span>
-              )}
-
+              ) : ( <span className="text-yellow-400 font-black px-1 text-xs truncate max-w-[140px]">{activeUserObj?.name || session?.user?.email}</span> )}
               {isRealManager && (
-                <button 
-                  onClick={async () => {
-                    try {
-                      const res = await signInPasskey("passkey", { 
-                        action: "register", 
-                        email: session?.user?.email || "cbriell1@yahoo.com",
-                        redirect: false
-                      });
-                      if (res?.error) {
-                        alert("Failed to link device: " + res.error);
-                      } else if (res?.ok) {
-                        alert("Device linked successfully!");
-                      }
-                    } catch (err) {
-                      alert("Network error linking device.");
-                      console.error(err);
-                    }
-                  }}
-                  className="ml-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-800 bg-yellow-400 hover:bg-yellow-500 px-2 py-1 rounded transition shadow-sm"
-                  title="Register this device's Passkey for this domain"
-                >
-                  📱 Link Device
-                </button>
+                <button onClick={async () => {
+                  const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
+                  if (res?.error) alert("Failed: " + res.error); else if (res?.ok) alert("Success!");
+                }} className="ml-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-800 bg-yellow-400 px-2 py-1 rounded transition">📱 Link Device</button>
               )}
-
-              <button 
-                onClick={() => signOut()} 
-                className="ml-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white bg-red-600 hover:bg-red-700 px-2 py-1 rounded transition shadow-sm"
-              >
-                Logout
-              </button>
+              <button onClick={() => signOut()} className="ml-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white bg-red-600 px-2 py-1 rounded transition">Logout</button>
             </div>
           </div>
 
-          {/* Right Column: Navigation Tabs */}
           <div className="flex flex-col items-start lg:items-end gap-2 w-full lg:w-auto mt-2 lg:mt-0">
-            
             <div className="flex flex-wrap gap-1.5 justify-start lg:justify-end items-center bg-slate-800/50 p-1.5 rounded-xl w-full lg:w-auto">
               {isManager && <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest hidden md:block px-2">Staff Space</span>}
               {generalTabs.map(tab => {
-                const visible = (tab === 'calendar' || tab === 'manual' || tab === 'feedback' || tab === 'messages') || 
-                                (tab === 'privileges' && showPasses) || 
-                                (tab === 'giftcards' && showGiftCards);
+                const visible = (tab === 'calendar' || tab === 'manual' || tab === 'feedback' || tab === 'messages') || (tab === 'privileges' && showPasses) || (tab === 'giftcards' && showGiftCards);
                 if (!visible) return null;
-                
                 return (
-                  <button 
-                    key={tab} 
-                    onClick={() => setActiveTab(tab)} 
-                    className={`relative px-3 py-1.5 rounded-lg font-black uppercase text-[10px] md:text-xs transition shadow-sm ${
-                      activeTab === tab ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'
-                    }`}
-                  >
+                  <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black uppercase text-[10px] md:text-xs transition shadow-sm ${activeTab === tab ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>
                     {TAB_LABELS[tab]}
-                    {tab === 'feedback' && unreadFeedbackCount > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 bg-purple-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">
-                        {unreadFeedbackCount}
-                      </span>
-                    )}
-                    {tab === 'messages' && unreadMessagesCount > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">
-                        {unreadMessagesCount}
-                      </span>
-                    )}
+                    {tab === 'feedback' && unreadFeedbackCount > 0 && <span className="absolute -top-1.5 -right-1.5 bg-purple-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">{unreadFeedbackCount}</span>}
+                    {tab === 'messages' && unreadMessagesCount > 0 && <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">{unreadMessagesCount}</span>}
                   </button>
                 );
               })}
             </div>
-
             {isManager && (
               <div className="flex flex-wrap gap-1.5 justify-start lg:justify-end items-center bg-slate-800/80 p-1.5 rounded-xl border border-slate-700 shadow-inner w-full lg:w-auto">
                 <span className="text-[9px] font-black text-yellow-500 uppercase tracking-widest hidden md:block px-2">Manager Space</span>
                 {adminTabs.map(tab => {
-                  const visible = (tab === 'builder' && showDashboard) || 
-                                  (tab === 'dashboard' && showDashboard) || 
-                                  (tab === 'timesheets' && showTimesheets) || 
-                                  (tab === 'setup' && showSetup) || 
-                                  (tab === 'locations' && showLocationsTab) ||
-                                  (tab === 'staff' && showStaff);
+                  const visible = (tab === 'builder' && showDashboard) || (tab === 'dashboard' && showDashboard) || (tab === 'timesheets' && showTimesheets) || (tab === 'setup' && showSetup) || (tab === 'locations' && showLocationsTab) || (tab === 'staff' && showStaff);
                   if (!visible) return null;
-                  
-                  return (
-                    <button 
-                      key={tab} 
-                      onClick={() => setActiveTab(tab)} 
-                      className={`relative px-3 py-1.5 rounded-lg font-black uppercase text-[10px] md:text-xs transition shadow-sm ${
-                        activeTab === tab ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'
-                      }`}
-                    >
-                      {TAB_LABELS[tab]}
-                      {tab === 'timesheets' && unapprovedCount > 0 && isManager && (
-                        <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black">
-                          {unapprovedCount}
-                        </span>
-                      )}
-                    </button>
-                  );
+                  return <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black uppercase text-[10px] md:text-xs transition shadow-sm ${activeTab === tab ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>{TAB_LABELS[tab]} {tab === 'timesheets' && unapprovedCount > 0 && isManager && <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black">{unapprovedCount}</span>}</button>
                 })}
               </div>
             )}
           </div>
-
         </div>
 
         <div className="p-3 md:p-6 bg-gray-50">
@@ -1012,23 +963,9 @@ function MainDashboard({ session }: { session: any }) {
   );
 }
 
-// ------------------------------------------------------------------
-// 3. SECURITY GUARD LAYER
-// ------------------------------------------------------------------
 export default function SchedulingAppRoot() {
   const { data: session, status } = useSession();
-
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="text-white font-bold text-xl animate-pulse">Checking credentials...</div>
-      </div>
-    );
-  }
-
-  if (status === "unauthenticated" || !session) {
-    return <LoginScreen sessionData={session} />;
-  }
-
+  if (status === "loading") return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="text-white font-bold text-xl animate-pulse">Checking credentials...</div></div>;
+  if (status === "unauthenticated" || !session) return <LoginScreen sessionData={session} />;
   return <MainDashboard session={session} />;
 }

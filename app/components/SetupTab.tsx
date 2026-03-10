@@ -3,13 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AppState, Location, GlobalTask } from '../lib/types';
 
 export default function SetupTab({ appState }: { appState: AppState }) {
-  const[activeTab, setActiveTab] = useState('templates');
+  const [activeTab, setActiveTab] = useState('templates');
   const[showLocFilter, setShowLocFilter] = useState(false);
   const [showDayFilter, setShowDayFilter] = useState(false);
-  const[sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'}>({ key: 'location', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'}>({ key: 'location', direction: 'asc' });
 
   // Editing State for Master Tasks
-  const[editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const[editTaskStr, setEditTaskStr] = useState('');
 
   const locFilterRef = useRef<HTMLTableHeaderCellElement>(null);
@@ -62,7 +62,14 @@ export default function SetupTab({ appState }: { appState: AppState }) {
     setSortConfig({ key, direction });
   };
 
-  const sortedTemplates = [...(filteredTemplates || [])].sort((a, b) => {
+  // --- APPLY FILTERS BEFORE SORTING ---
+  const displayedTemplates = (filteredTemplates ||[]).filter(tpl => {
+    const matchLoc = tplViewLocs.length === 0 || tplViewLocs.includes(tpl.locationId);
+    const matchDay = tplViewDays.length === 0 || tplViewDays.includes(tpl.dayOfWeek);
+    return matchLoc && matchDay;
+  });
+
+  const sortedTemplates = [...displayedTemplates].sort((a, b) => {
     const dir = sortConfig.direction === 'asc' ? 1 : -1;
     const locA = a.location?.name || '';
     const locB = b.location?.name || '';

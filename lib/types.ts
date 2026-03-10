@@ -60,6 +60,7 @@ export interface Checklist {
   notes?: string | null;
   completedTasks: string[];
   missedTasks: string[];
+  photoUrls?: string[];
 }
 
 export interface Member {
@@ -159,6 +160,7 @@ export interface AppState {
   shifts: Shift[];
   setShifts: React.Dispatch<React.SetStateAction<Shift[]>>;
   members: Member[];
+  setMembers: (m: Member[]) => void;
   templates: ShiftTemplate[];
   checklists: Checklist[];
   selectedUserId: string;
@@ -217,6 +219,8 @@ export interface AppState {
   setTplViewLocs: (ids: number[]) => void;
   tplViewDays: number[];
   setTplViewDays: (days: number[]) => void;
+  newTaskStr: string;
+  setNewTaskStr: (s: string) => void;
 
   manPeriods: number[];
   setManPeriods: (ids: number[]) => void;
