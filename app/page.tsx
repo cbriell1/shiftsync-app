@@ -722,9 +722,23 @@ function MainDashboard({ session }: { session: any }) {
   );
 }
 
+// ... (rest of your page.tsx file stays exactly the same) ...
+
 export default function SchedulingAppRoot() {
   const { data: session, status } = useSession();
+  
+  // NEW: Catch Admin revocations. If the session object comes back empty,
+  // we forcefully clear the user's browser cookie and return them to the login screen.
+  useEffect(() => {
+    if (status === "authenticated" && session && !session.user) {
+      signOut({ redirect: false });
+    }
+  },[session, status]);
+
   if (status === "loading") return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="text-white font-bold text-xl animate-pulse">Checking credentials...</div></div>;
-  if (status === "unauthenticated" || !session) return <LoginScreen sessionData={session} />;
+  
+  // Notice we added "!session.user" here to ensure we block revoked sessions
+  if (status === "unauthenticated" || !session || !session.user) return <LoginScreen sessionData={session} />;
+  
   return <MainDashboard session={session} />;
 }

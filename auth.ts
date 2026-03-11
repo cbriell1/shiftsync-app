@@ -115,14 +115,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Emergency Password", type: "password" }
       },
       async authorize(credentials) {
-        // Defensive parsing to strip accidental spaces and lowercase the email
         const inputEmail = String(credentials?.email || "").toLowerCase().trim();
         const inputPassword = String(credentials?.password || "").trim();
         const serverSecret = process.env.AUTH_SECRET;
 
-        // Debugging for Vercel Logs
         if (!serverSecret) {
-          console.error("🚨 CRITICAL: AUTH_SECRET is completely missing in Vercel Environment Variables for this deployment!");
+          console.error("🚨 AUTH_SECRET is missing in Environment Variables!");
           return null;
         }
 
@@ -142,21 +140,69 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
              });
            }
            return { ...user, id: user.id.toString() };
-        } else {
-           console.error(`🚨 LOGIN REJECTED: Email Match: ${inputEmail === "cbriell1@yahoo.com"}, Password Match: ${inputPassword === serverSecret}`);
-           return null;
         }
+        return null;
       }
     })
   ],
-  session: { strategy: "database" }, 
+  session: { strategy: "jwt" }, // <-- Reverted to JWT to fix Credentials
   experimental: { enableWebAuthn: true },
   callbacks: {
-    async session({ session, user }) {
+    async jwt({ token, user }) {
+      // 1. Initial Sign In: Generate a tracking session in the database
+      if (user) {
+        token.id = user.id.toString();
+        
+        const sessionToken = crypto.randomUUID();
+        const expires = new Date();
+        expires.setDate(expires.getDate() + 30);
+        
+        await prisma.session.create({
+          data: {
+            sessionToken,
+            userId: Number(user.id),
+            expires
+          }
+        });
+        
+        token.sessionId = sessionToken;
+      }
+
+      // 2. On every request, check if the session was killed by an Admin
+      if (token.id && token.sessionId) {
+        const activeSession = await prisma.session.findUnique({
+          where: { sessionToken: token.sessionId as string }
+        });
+
+        if (!activeSession) {
+          // Admin deleted the session! Flag it for destruction.
+          token.isRevoked = true;
+        } else {
+          token.isRevoked = false;
+          // Keep roles updated live
+          const dbUser = await prisma.user.findUnique({
+            where: { id: Number(token.id) },
+            select: { role: true, systemRoles: true }
+          });
+          if (dbUser) {
+            token.role = dbUser.role;
+            token.systemRoles = dbUser.systemRoles;
+          }
+        }
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      // If the Admin deleted the session, we return a blank object. 
+      // This tells the frontend to kick the user out immediately.
+      if (token.isRevoked) {
+        return {} as any; 
+      }
+
       if (session.user) {
-        session.user.id = user.id.toString();
-        (session.user as any).role = (user as any).role;
-        (session.user as any).systemRoles = (user as any).systemRoles;
+        session.user.id = token.id as string;
+        (session.user as any).role = token.role;
+        (session.user as any).systemRoles = token.systemRoles;
       }
       return session;
     }
