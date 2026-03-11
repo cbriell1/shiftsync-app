@@ -257,14 +257,7 @@ function MainDashboard({ session }: { session: any }) {
 
     const syncOperationalData = () => {
       if (!selectedUserId) return;
-      // UPDATED: Now fetches Templates and Global Tasks in the background as well
-      fetchTemplates();
-      fetchGlobalTasks();
-      fetchChecklists(); 
-      fetchTimeCards(); 
-      fetchShifts(); 
-      fetchMessages(); 
-      fetchAnnouncements();
+      fetchTemplates(); fetchGlobalTasks(); fetchChecklists(); fetchTimeCards(); fetchShifts(); fetchMessages(); fetchAnnouncements();
     };
     const onFocus = () => syncOperationalData();
     window.addEventListener('focus', onFocus);
@@ -517,14 +510,15 @@ function MainDashboard({ session }: { session: any }) {
   };
 
   const TAB_LABELS: Record<string, string> = {
-    clock: '🕐 Time Clock',
-    calendar: 'Calendar', builder: 'Builder', manual: 'My Time', messages: 'Team Chat',
-    timesheets: 'Timesheets', dashboard: 'Payroll', privileges: 'Passes',
-    giftcards: 'Gift Cards', feedback: '💬 Feedback', setup: 'Shift Setup', staff: 'Staff', locations: 'Locations'
+    clock: '🕐 TIME CLOCK',
+    calendar: 'CALENDAR', builder: 'BUILDER', manual: 'MY TIME', messages: 'TEAM CHAT',
+    timesheets: 'TIMESHEETS', dashboard: 'PAYROLL', privileges: 'PASSES',
+    giftcards: 'GIFT CARDS', feedback: '💬 FEEDBACK', setup: 'SHIFT SETUP', staff: 'STAFF', locations: 'LOCATIONS'
   };
 
-  const generalTabs =['clock', 'calendar', 'manual', 'messages', 'privileges', 'giftcards', 'feedback'];
-  const adminTabs =['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
+  const leftStaffTabs = ['clock', 'calendar', 'manual', 'privileges', 'giftcards'];
+  const communicationTabs = ['messages', 'feedback'];
+  const managerTabsList = ['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
 
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInM = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -622,50 +616,66 @@ function MainDashboard({ session }: { session: any }) {
       )}
       
       <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden border border-gray-300">
-        <div className="bg-slate-900 px-4 py-3 text-white flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div className="flex flex-col items-start gap-2">
-            <div className="flex items-center gap-3"><img src="/logo.png" alt="Logo" className="h-10 md:h-12 w-auto" /><h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-widest leading-none"><span className="text-yellow-400">Pickles</span> & Play</h1></div>
-            <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 shadow-inner w-fit ml-1">
-              <span className="text-[10px] md:text-xs font-bold text-slate-300 uppercase tracking-widest">Logged in as:</span>
-              <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="bg-yellow-400 text-slate-900 rounded px-1.5 py-0.5 text-xs font-black outline-none cursor-pointer max-w-[140px] truncate">
+        <div className="bg-slate-900 px-4 py-2 text-white space-y-2">
+          {/* COMPACT TOP BAR */}
+          <div className="flex flex-col md:flex-row justify-between items-center gap-2 border-b border-slate-800 pb-2">
+            <div className="flex items-center gap-2">
+              <img src="/logo.png" alt="Logo" className="h-8 md:h-10 w-auto" />
+              <h1 className="text-xl md:text-2xl font-black italic uppercase tracking-widest leading-none">
+                <span className="text-yellow-400">Pickles</span> & Play
+              </h1>
+            </div>
+            <div className="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700 shadow-inner">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">User:</span>
+              <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="bg-yellow-400 text-slate-900 rounded-md px-2 py-0.5 text-[10px] font-black outline-none cursor-pointer">
                 {safeUsers.map(u => <option key={u.id} value={u.id}>{u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}</option>)}
               </select>
-              {isRealManager && (
-                <button onClick={async () => {
-                  const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
-                  if (res?.error) notify.error("Failed: " + res.error); else if (res?.ok) notify.success("Device Linked!");
-                }} className="ml-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-800 bg-yellow-400 px-2 py-1 rounded transition">📱 Link Device</button>
-              )}
-              <button onClick={() => signOut()} className="ml-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white bg-red-600 px-2 py-1 rounded transition">Logout</button>
+              <button onClick={() => signOut()} className="ml-1 text-[9px] font-black uppercase text-white bg-red-600 hover:bg-red-700 px-2 py-1 rounded-md transition-colors">Logout</button>
             </div>
           </div>
 
-          <div className="flex flex-col items-start lg:items-end gap-2 w-full lg:w-auto mt-2 lg:mt-0">
-            <div className="flex flex-wrap gap-1.5 justify-start lg:justify-end items-center bg-slate-800/50 p-1.5 rounded-xl w-full lg:w-auto">
-              {isManager && <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest hidden md:block px-2">Staff Space</span>}
-              {generalTabs.map(tab => {
-                const visible = (tab === 'clock' || tab === 'calendar' || tab === 'manual' || tab === 'feedback' || tab === 'messages') || (tab === 'privileges' && showPasses) || (tab === 'giftcards' && showGiftCards);
+          {/* COMPACT ROW 1: STAFF & COMMS */}
+          <div className="flex flex-col lg:flex-row justify-between items-center gap-2">
+            <div className="flex flex-wrap gap-1 items-center">
+              <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest mr-2">Staff Space</span>
+              {leftStaffTabs.map(tab => {
+                const visible = (tab === 'clock' || tab === 'calendar' || tab === 'manual') || (tab === 'privileges' && showPasses) || (tab === 'giftcards' && showGiftCards);
                 if (!visible) return null;
                 return (
-                  <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black uppercase text-[10px] md:text-xs transition shadow-sm ${activeTab === tab ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>
+                  <button key={tab} onClick={() => setActiveTab(tab)} className={`px-3 py-1.5 rounded-lg font-black text-[9px] transition-all ${activeTab === tab ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-slate-700 text-slate-400'}`}>
                     {TAB_LABELS[tab]}
-                    {tab === 'feedback' && unreadFeedbackCount > 0 && <span className="absolute -top-1.5 -right-1.5 bg-purple-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">{unreadFeedbackCount}</span>}
-                    {tab === 'messages' && unreadMessagesCount > 0 && <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">{unreadMessagesCount}</span>}
                   </button>
                 );
               })}
             </div>
-            {isManager && (
-              <div className="flex flex-wrap gap-1.5 justify-start lg:justify-end items-center bg-slate-800/80 p-1.5 rounded-xl border border-slate-700 shadow-inner w-full lg:w-auto">
-                <span className="text-[9px] font-black text-yellow-500 uppercase tracking-widest hidden md:block px-2">Manager Space</span>
-                {adminTabs.map(tab => {
-                  const visible = (tab === 'builder' && showDashboard) || (tab === 'dashboard' && showDashboard) || (tab === 'timesheets' && showTimesheets) || (tab === 'setup' && showSetup) || (tab === 'locations' && showLocationsTab) || (tab === 'staff' && showStaff);
-                  if (!visible) return null;
-                  return <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black uppercase text-[10px] md:text-xs transition shadow-sm ${activeTab === tab ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>{TAB_LABELS[tab]} {tab === 'timesheets' && unapprovedCount > 0 && isManager && <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black">{unapprovedCount}</span>}</button>
-                })}
-              </div>
-            )}
+
+            <div className="flex gap-1 items-center bg-slate-950/40 p-1 rounded-xl border border-slate-800">
+              {communicationTabs.map(tab => (
+                <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black text-[9px] transition-all ${activeTab === tab ? 'bg-white text-slate-900' : 'bg-transparent hover:bg-slate-800 text-slate-500'}`}>
+                  {TAB_LABELS[tab]}
+                  {tab === 'feedback' && unreadFeedbackCount > 0 && <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-[7px] px-1.5 py-0.5 rounded-full font-black animate-pulse">{unreadFeedbackCount}</span>}
+                  {tab === 'messages' && unreadMessagesCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[7px] px-1.5 py-0.5 rounded-full font-black animate-pulse">{unreadMessagesCount}</span>}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* COMPACT ROW 2: MANAGER */}
+          {isManager && (
+            <div className="flex flex-wrap gap-1 items-center bg-slate-800/30 p-1 rounded-xl border border-slate-700/50">
+              <span className="text-[9px] font-black text-yellow-600 uppercase tracking-widest px-2">Manager Space</span>
+              {managerTabsList.map(tab => {
+                const visible = (tab === 'builder' && showDashboard) || (tab === 'dashboard' && showDashboard) || (tab === 'timesheets' && showTimesheets) || (tab === 'setup' && showSetup) || (tab === 'locations' && showLocationsTab) || (tab === 'staff' && showStaff);
+                if (!visible) return null;
+                return (
+                  <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black text-[9px] transition-all ${activeTab === tab ? 'bg-yellow-500 text-slate-900' : 'bg-slate-900/40 hover:bg-slate-800 text-slate-500'}`}>
+                    {TAB_LABELS[tab]}
+                    {tab === 'timesheets' && unapprovedCount > 0 && <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[7px] px-1.5 py-0.5 rounded-full font-black">{unapprovedCount}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="p-3 md:p-6 bg-gray-50">
