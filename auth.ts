@@ -5,23 +5,30 @@ import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 
-// 1. Generate the standard adapter
 const baseAdapter = PrismaAdapter(prisma);
 
-// 2. The Translation Layer: Converts Prisma 'Int' to NextAuth 'String'
 const customAdapter = {
   ...baseAdapter,
   
   createUser: async (data: any) => {
     const { id, ...validData } = data; 
     
-    // Auto-Merge for your Admin account
+    // AUTO-LINKING LOGIC:
+    // If this is Chris logging in for the first time with an email, 
+    // find the existing "Chris Briell" account and attach the email to it.
     if (validData.email === "cbriell1@yahoo.com") {
-      const existingChris = await prisma.user.findFirst({ where: { name: { equals: "Chris Briell" } } });
+      const existingChris = await prisma.user.findFirst({ 
+        where: { name: { contains: "Chris Briell", mode: 'insensitive' } } 
+      });
+      
       if (existingChris) {
         const updated = await prisma.user.update({
           where: { id: existingChris.id },
-          data: { email: "cbriell1@yahoo.com", role: "ADMIN", systemRoles:["Administrator", "Manager", "Front Desk"] }
+          data: { 
+            email: "cbriell1@yahoo.com", 
+            role: "ADMIN", 
+            systemRoles: ["Administrator", "Manager", "Front Desk"] 
+          }
         });
         return { ...updated, id: updated.id.toString() };
       }
@@ -42,15 +49,6 @@ const customAdapter = {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return null;
     return { ...user, id: user.id.toString() };
-  },
-
-  getUserByAccount: async (providerAccountId: any) => {
-    const account = await prisma.account.findUnique({
-      where: { provider_providerAccountId: providerAccountId },
-      select: { user: true },
-    });
-    if (!account?.user) return null;
-    return { ...account.user, id: account.user.id.toString() };
   },
 
   updateUser: async (user: any) => {
@@ -80,45 +78,13 @@ const customAdapter = {
       session: { ...session, userId: session.userId.toString() },
       user: { ...user, id: user.id.toString() },
     };
-  },
-
-  updateSession: async (session: any) => {
-    const { userId, ...data } = session;
-    const updated = await prisma.session.update({ where: { sessionToken: session.sessionToken }, data });
-    return { ...updated, userId: updated.userId.toString() };
-  },
-
-  deleteSession: async (sessionToken: string) => {
-    await prisma.session.delete({ where: { sessionToken } });
-  },
-
-  createAuthenticator: async (authenticator: any) => {
-    const created = await prisma.authenticator.create({ data: { ...authenticator, userId: Number(authenticator.userId) } });
-    return { ...created, userId: created.userId.toString() };
-  },
-
-  getAuthenticator: async (credentialID: string) => {
-    const authenticator = await prisma.authenticator.findUnique({ where: { credentialID } });
-    if (!authenticator) return null;
-    return { ...authenticator, userId: authenticator.userId.toString() };
-  },
-
-  listAuthenticatorsByUserId: async (userId: string) => {
-    const authenticators = await prisma.authenticator.findMany({ where: { userId: Number(userId) } });
-    return authenticators.map(a => ({ ...a, userId: a.userId.toString() }));
-  },
-
-  updateAuthenticatorCounter: async (credentialID: string, counter: number) => {
-    const updated = await prisma.authenticator.update({ where: { credentialID }, data: { counter } });
-    return { ...updated, userId: updated.userId.toString() };
   }
 };
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: customAdapter,
-  providers:[
+  providers: [
     Passkey(),
-    // EMERGENCY BACKDOOR FOR DOMAIN MIGRATIONS
     Credentials({
       name: "Emergency Fallback",
       credentials: {
@@ -137,11 +103,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: { strategy: "jwt" },
   experimental: { enableWebAuthn: true },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
+      // On initial sign in
       if (user) {
         token.id = user.id.toString();
-        token.role = (user as any).role;
-        token.systemRoles = (user as any).systemRoles;
+      }
+
+      // RE-VALIDATION: Every time the token is accessed, fetch latest roles from DB
+      // This prevents "Access Denied" if roles were updated while you were logged in
+      if (token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: Number(token.id) },
+          select: { role: true, systemRoles: true }
+        });
+        if (dbUser) {
+          token.role = dbUser.role;
+          token.systemRoles = dbUser.systemRoles;
+        }
       }
       return token;
     },

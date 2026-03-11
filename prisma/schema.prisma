@@ -15,27 +15,29 @@ enum Role {
 }
 
 model Location {
-  id          Int             @id @default(autoincrement())
-  name        String          @unique 
-  address     String?
-  email       String?
-  phoneNumber String?
-  isActive    Boolean         @default(true)
+  id               Int             @id @default(autoincrement())
+  name             String          @unique 
+  address          String?
+  email            String?
+  phoneNumber      String?
+  isActive         Boolean         @default(true)
+  sendReportEmails Boolean         @default(true) 
   
-  users       User[]     
-  shifts      Shift[]    
-  timeCards   TimeCard[] 
-  templates   ShiftTemplate[] 
-  checklists  Checklist[]     
+  users            User[]     
+  shifts           Shift[]    
+  timeCards        TimeCard[] 
+  templates        ShiftTemplate[] 
+  checklists       Checklist[]     
 }
 
 model User {
-  id             Int        @id @default(autoincrement())
-  name           String     
-  pinCode        String?    
-  role           Role       @default(EMPLOYEE)
-  systemRoles    String[]   @default(["Front Desk"]) 
-  isActive       Boolean    @default(true)
+  id                  Int        @id @default(autoincrement())
+  name                String     
+  pinCode             String?    
+  role                Role       @default(EMPLOYEE)
+  systemRoles         String[]   @default(["Front Desk"]) 
+  isActive            Boolean    @default(true)
+  receiveReportEmails Boolean    @default(true) 
   
   locationIds    Int[]      @default([])
 
@@ -81,7 +83,7 @@ model Account {
  
   user User @relation(fields:[userId], references:[id], onDelete: Cascade)
   @@unique([provider, providerAccountId])
-  @@index([userId]) // Optimization
+  @@index([userId]) 
 }
  
 model Session {
@@ -91,7 +93,7 @@ model Session {
   expires      DateTime
   user         User     @relation(fields:[userId], references:[id], onDelete: Cascade)
   
-  @@index([userId]) // Optimization
+  @@index([userId]) 
 }
  
 model Authenticator {
@@ -129,7 +131,6 @@ model Shift {
   userId      Int?
   assignedTo  User?      @relation(fields: [ userId ], references:[ id ])
 
-  // Performance Indexes for Calendar and Schedule queries
   @@index([startTime, endTime])
   @@index([locationId])
   @@index([userId])
@@ -150,7 +151,6 @@ model TimeCard {
   
   checklists  Checklist[] 
 
-  // Performance Indexes for Dashboard and Payroll Math
   @@index([clockIn])
   @@index([userId])
   @@index([locationId])
@@ -170,7 +170,6 @@ model Member {
   usages           PassUsage[]
   giftCards        GiftCard[]  
 
-  // Performance Index for Search Bar lookups
   @@index([lastName])
 }
 
@@ -217,18 +216,19 @@ model ShiftTemplate {
 }
 
 model Checklist {
-  id             Int       @id @default(autoincrement())
-  date           DateTime  @default(now())
-  userId         Int
-  user           User      @relation(fields: [userId], references:[id])
-  locationId     Int
-  location       Location  @relation(fields:[locationId], references:[id])
-  timeCardId     Int?      
+  id                 Int       @id @default(autoincrement())
+  date               DateTime  @default(now())
+  userId             Int
+  user               User      @relation(fields: [userId], references:[id])
+  locationId         Int
+  location           Location  @relation(fields:[locationId], references:[id])
+  timeCardId         Int?      
   timeCard       TimeCard? @relation(fields:[timeCardId], references:[id]) 
-  notes          String?
-  completedTasks String[]  @default([])
-  missedTasks    String[]  @default([])
-  photoUrls      String[]  @default([])
+  notes              String?
+  previousShiftNotes String?   
+  completedTasks     String[]  @default([])
+  missedTasks        String[]  @default([])
+  photoUrls          String[]  @default([])
 
   @@index([timeCardId])
   @@index([userId])

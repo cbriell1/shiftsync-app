@@ -2,6 +2,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, Location, GlobalTask, ShiftTemplate } from '../lib/types';
+import { notify } from '@/lib/ui-utils';
 
 export default function SetupTab({ appState }: { appState: AppState }) {
   const { locations, DAYS_OF_WEEK, users, globalTasks, templates } = appState;
@@ -14,16 +15,19 @@ export default function SetupTab({ appState }: { appState: AppState }) {
   // --- LOCALIZED FORM STATE ---
   const [editingTplId, setEditingTplId] = useState<number | null>(null);
   const [tplLocs, setTplLocs] = useState<number[]>([]);
-  const[tplDays, setTplDays] = useState<number[]>([]);
-  const[tplStart, setTplStart] = useState('');
+  const [tplDays, setTplDays] = useState<number[]>([]);
+  const [tplStart, setTplStart] = useState('');
   const [tplEnd, setTplEnd] = useState('');
+  
+  // Dates are initialized to empty strings to prevent auto-population
   const [tplStartDate, setTplStartDate] = useState('');
   const [tplEndDate, setTplEndDate] = useState('');
+  
   const [tplTasks, setTplTasks] = useState<string[]>([]);
   const [tplUserId, setTplUserId] = useState('');
   
-  const[tplViewLocs, setTplViewLocs] = useState<number[]>([]);
-  const[tplViewDays, setTplViewDays] = useState<number[]>([]);
+  const [tplViewLocs, setTplViewLocs] = useState<number[]>([]);
+  const [tplViewDays, setTplViewDays] = useState<number[]>([]);
   const [newTaskStr, setNewTaskStr] = useState('');
 
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
@@ -37,6 +41,19 @@ export default function SetupTab({ appState }: { appState: AppState }) {
   // Trigger global background sync in page.tsx after API calls
   const triggerSync = () => window.dispatchEvent(new Event('focus'));
 
+  // Helper to reset the form completely
+  const resetForm = () => {
+    setEditingTplId(null);
+    setTplLocs([]);
+    setTplDays([]);
+    setTplStart('');
+    setTplEnd('');
+    setTplStartDate('');
+    setTplEndDate('');
+    setTplTasks([]);
+    setTplUserId('');
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (locFilterRef.current && !locFilterRef.current.contains(event.target as Node)) setShowLocFilter(false);
@@ -48,7 +65,7 @@ export default function SetupTab({ appState }: { appState: AppState }) {
 
   const toggleTplLoc = (id: number) => { 
     if (editingTplId) { setTplLocs([id]); return; }
-    setTplLocs(prev => prev.includes(id) ? prev.filter(x => x !== id) :[...prev, id]);
+    setTplLocs(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   const toggleTplDay = (idx: number) => { 
@@ -103,10 +120,27 @@ export default function SetupTab({ appState }: { appState: AppState }) {
 
   const handleSaveTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const body = { id: editingTplId, locationIds: tplLocs, daysOfWeek: tplDays, startTime: tplStart, endTime: tplEnd, startDate: tplStartDate || null, endDate: tplEndDate || null, checklistTasks: tplTasks, userId: tplUserId || null };
+    const body = { 
+      id: editingTplId, 
+      locationIds: tplLocs, 
+      daysOfWeek: tplDays, 
+      startTime: tplStart, 
+      endTime: tplEnd, 
+      startDate: tplStartDate || null, 
+      endDate: tplEndDate || null, 
+      checklistTasks: tplTasks, 
+      userId: tplUserId || null 
+    };
+    
     const res = await fetch('/api/templates', { method: editingTplId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!res.ok) { const err = await res.json(); alert("Failed: " + (err.error || "Error")); return; }
-    setEditingTplId(null); setTplLocs([]); setTplDays([]); setTplStart(''); setTplEnd(''); setTplStartDate(''); setTplEndDate(''); setTplTasks([]); setTplUserId('');
+    if (!res.ok) { 
+      const err = await res.json(); 
+      notify.error("Failed to save: " + (err.error || "Error")); 
+      return; 
+    }
+    
+    notify.success(editingTplId ? "Template updated!" : "Templates created!");
+    resetForm(); // Clears everything including dates
     triggerSync();
   };
 
@@ -117,13 +151,23 @@ export default function SetupTab({ appState }: { appState: AppState }) {
   };
 
   const handleEditTemplate = (t: ShiftTemplate) => {
-    setEditingTplId(t.id); setTplLocs([t.locationId]); setTplDays([t.dayOfWeek]); setTplStart(t.startTime); setTplEnd(t.endTime); 
-    setTplStartDate(t.startDate ? t.startDate.split('T')[0] : ''); setTplEndDate(t.endDate ? t.endDate.split('T')[0] : ''); 
-    setTplTasks(t.checklistTasks ||[]); setTplUserId(t.userId?.toString() || ''); window.scrollTo(0, 0);
+    setEditingTplId(t.id); 
+    setTplLocs([t.locationId]); 
+    setTplDays([t.dayOfWeek]); 
+    setTplStart(t.startTime); 
+    setTplEnd(t.endTime); 
+    
+    // Ensure we handle potential nulls from the DB
+    setTplStartDate(t.startDate ? t.startDate.split('T')[0] : ''); 
+    setTplEndDate(t.endDate ? t.endDate.split('T')[0] : ''); 
+    
+    setTplTasks(t.checklistTasks || []); 
+    setTplUserId(t.userId?.toString() || ''); 
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Filter & Sort Logic
-  const displayedTemplates = (templates ||[]).filter(tpl => {
+  const displayedTemplates = (templates || []).filter(tpl => {
     const matchLoc = tplViewLocs.length === 0 || tplViewLocs.includes(tpl.locationId);
     const matchDay = tplViewDays.length === 0 || tplViewDays.includes(tpl.dayOfWeek);
     return matchLoc && matchDay;
@@ -177,7 +221,12 @@ export default function SetupTab({ appState }: { appState: AppState }) {
           
           {/* COLUMN 1: FORM */}
           <div className="lg:col-span-1 bg-slate-50 p-5 rounded-xl border border-slate-300 shadow-inner">
-            <form onSubmit={handleSaveTemplate} className="space-y-5">
+            <div className="flex justify-between items-center mb-4">
+               <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">{editingTplId ? 'Edit Template' : 'New Template'}</h3>
+               <button type="button" onClick={resetForm} className="text-[10px] font-black text-blue-600 uppercase hover:underline">Clear Form</button>
+            </div>
+
+            <form onSubmit={handleSaveTemplate} className="space-y-5" autoCapitalize="off" autoComplete="off">
               
               <div>
                 <label className="block text-sm font-black text-slate-900 mb-1.5">1. Pre-Assign Employee</label>
@@ -260,6 +309,7 @@ export default function SetupTab({ appState }: { appState: AppState }) {
                     type="date" 
                     value={tplStartDate} 
                     onChange={(e) => setTplStartDate(e.target.value)}
+                    autoComplete="off"
                     className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none"
                   />
                 </div>
@@ -272,6 +322,7 @@ export default function SetupTab({ appState }: { appState: AppState }) {
                     type="date" 
                     value={tplEndDate} 
                     onChange={(e) => setTplEndDate(e.target.value)}
+                    autoComplete="off"
                     className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none"
                   />
                 </div>
@@ -312,9 +363,7 @@ export default function SetupTab({ appState }: { appState: AppState }) {
               {editingTplId && (
                 <button 
                   type="button"
-                  onClick={() => {
-                    setEditingTplId(null); setTplLocs([]); setTplDays([]); setTplStart(''); setTplEnd(''); setTplStartDate(''); setTplEndDate(''); setTplTasks([]); setTplUserId('');
-                  }}
+                  onClick={resetForm}
                   className="w-full bg-slate-700 text-white font-black py-2.5 rounded-lg hover:bg-slate-800 transition shadow mt-2"
                 >
                   Cancel Edit

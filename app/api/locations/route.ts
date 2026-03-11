@@ -1,19 +1,19 @@
+// filepath: app/api/locations/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-// For POST (Create) - requires a name
 const createLocationSchema = z.object({
   name: z.string().min(1, "Location name is required"),
   address: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
   phoneNumber: z.string().nullable().optional(),
   isActive: z.boolean().optional().default(true),
+  sendReportEmails: z.boolean().optional().default(true), // NEW
 });
 
-// For PUT (Update) - makes fields optional so we can update just the active status
 const updateLocationSchema = z.object({
   id: z.number(),
   name: z.string().min(1).optional(),
@@ -21,6 +21,7 @@ const updateLocationSchema = z.object({
   email: z.string().nullable().optional(),
   phoneNumber: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
+  sendReportEmails: z.boolean().optional(), // NEW
 });
 
 export async function GET() {
@@ -30,11 +31,7 @@ export async function GET() {
     });
     return NextResponse.json(locations);
   } catch (error: any) {
-    console.error("GET Locations Error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch locations from database" }, 
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch locations" }, { status: 500 });
   }
 }
 
@@ -49,7 +46,8 @@ export async function POST(request: Request) {
         address: data.address || null,
         email: data.email || null,
         phoneNumber: data.phoneNumber || null,
-        isActive: data.isActive !== undefined ? data.isActive : true
+        isActive: data.isActive,
+        sendReportEmails: data.sendReportEmails
       }
     });
 
@@ -65,8 +63,6 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const data = updateLocationSchema.parse(body);
 
-    if (!data.id) return NextResponse.json({ error: "Location ID required" }, { status: 400 });
-
     const updatedLoc = await prisma.location.update({
       where: { id: data.id },
       data: {
@@ -75,6 +71,7 @@ export async function PUT(request: Request) {
         ...(data.email !== undefined && { email: data.email }),
         ...(data.phoneNumber !== undefined && { phoneNumber: data.phoneNumber }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(data.sendReportEmails !== undefined && { sendReportEmails: data.sendReportEmails }), // NEW
       }
     });
 

@@ -1,3 +1,4 @@
+// filepath: app/api/templates/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -7,7 +8,7 @@ export const dynamic = 'force-dynamic';
 const templateSchema = z.object({
   id: z.coerce.number().nullable().optional(),
   locationIds: z.array(z.coerce.number()).optional(),
-  daysOfWeek: z.array(z.any()).optional(),
+  daysOfWeek: z.array(z.any()).optional(), // Accepts numbers or strings safely
   startTime: z.string(),
   endTime: z.string(),
   startDate: z.string().nullable().optional(),
@@ -29,7 +30,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json(); // Fixed: changed 'request' to 'req'
+    const body = await req.json();
     const data = templateSchema.parse(body);
     const created = [];
 
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
-    const body = await req.json(); // Fixed: changed 'request' to 'req'
+    const body = await req.json();
     const data = templateSchema.parse(body);
     
     if (!data.id) throw new Error("Template ID required for update");
@@ -101,13 +102,13 @@ export async function PUT(req: Request) {
     return NextResponse.json(updated);
   } catch (error: any) {
     console.error("Template PUT Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: error.message || "Invalid Template Data" }, { status: 400 });
   }
 }
 
 export async function DELETE(req: Request) {
   try {
-    const { id } = await req.json(); // Fixed: changed 'request' to 'req'
+    const { id } = await req.json();
     await prisma.shiftTemplate.delete({ where: { id: parseInt(id) } });
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -17,10 +17,11 @@ import TimesheetsTab from './components/TimesheetsTab';
 import PrivilegesTab from './components/PrivilegesTab';
 import SetupTab from './components/SetupTab';
 import StaffTab from './components/StaffTab';
+import LocationsTab from './components/LocationsTab';
 import GiftCardTab from './components/GiftCardTab';
 import FeedbackTab from './components/FeedbackTab'; 
-import LocationsTab from './components/LocationsTab';
 import MessagesTab from './components/MessagesTab';
+import TimeClockTab from './components/TimeClockTab';
 
 // ==================================================================
 // 1. LOGIN SCREEN COMPONENT
@@ -83,7 +84,7 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs font-bold text-red-800 text-center mb-4">Emergency Override Mode</div>
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1">Admin Email</label>
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-red-600 outline-none shadow-inner" />
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-green-600 outline-none shadow-inner" />
             </div>
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1">Server Secret (Password)</label>
@@ -111,7 +112,7 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
 // ==================================================================
 function MainDashboard({ session }: { session: any }) {
   const[isMounted, setIsMounted] = useState(false);
-  const[activeTab, setActiveTab] = useState('calendar');
+  const [activeTab, setActiveTab] = useState('clock');
   
   const [users, setUsers] = useState<User[]>([]);
   const[locations, setLocations] = useState<Location[]>([]);
@@ -121,7 +122,7 @@ function MainDashboard({ session }: { session: any }) {
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const[checklists, setChecklists] = useState<Checklist[]>([]);
   const[globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
-  const[feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const[giftCards, setGiftCards] = useState<GiftCard[]>([]);
   const[messages, setMessages] = useState<Message[]>([]);
   const[announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -208,12 +209,6 @@ function MainDashboard({ session }: { session: any }) {
     return colors[index];
   };
 
-  useEffect(() => {
-    if (session?.user?.id && !selectedUserId) {
-      setSelectedUserId(session.user.id.toString());
-    }
-  },[session?.user?.id]);
-
   const fetchUsers = () => fetch('/api/users?t=' + new Date().getTime()).then(res => res.json()).then(data => setUsers(Array.isArray(data) ? data :[])).catch(() => {});
   const fetchMembers = () => fetch('/api/members?t=' + new Date().getTime()).then(res => res.json()).then(data => setMembers(Array.isArray(data) ? data :[])).catch(() => {});
   const fetchShifts = () => fetch('/api/shifts?t=' + new Date().getTime()).then(res => res.json()).then(data => setShifts(Array.isArray(data) ? data :[])).catch(() => {});
@@ -255,9 +250,21 @@ function MainDashboard({ session }: { session: any }) {
     setIsMounted(true);
     if (!session) return;
     fetchUsers(); fetchMembers(); fetchTemplates(); fetchChecklists(); fetchGlobalTasks(); fetchGiftCards(); fetchFeedbacks(); fetchLocations(); fetchMessages(); fetchAnnouncements(); fetchTimeCards(); fetchShifts();
+    
+    if (session.user.id && !selectedUserId) {
+      setSelectedUserId(session.user.id.toString());
+    }
+
     const syncOperationalData = () => {
       if (!selectedUserId) return;
-      fetchChecklists(); fetchTimeCards(); fetchShifts(); fetchMessages(); fetchAnnouncements();
+      // UPDATED: Now fetches Templates and Global Tasks in the background as well
+      fetchTemplates();
+      fetchGlobalTasks();
+      fetchChecklists(); 
+      fetchTimeCards(); 
+      fetchShifts(); 
+      fetchMessages(); 
+      fetchAnnouncements();
     };
     const onFocus = () => syncOperationalData();
     window.addEventListener('focus', onFocus);
@@ -272,16 +279,15 @@ function MainDashboard({ session }: { session: any }) {
   const authenticatedUserObj = safeUsers.find(u => u.id.toString() === authenticatedUserId);
   const authRoles = authenticatedUserObj?.systemRoles || session?.user?.systemRoles ||[];
   
-  const isRealAdmin = authRoles.includes('Administrator');
+  const isRealAdmin = authRoles.includes('Administrator') || session?.user?.email === 'cbriell1@yahoo.com';
   const isRealManager = authRoles.includes('Manager') || isRealAdmin;
 
   const activeUserObj = safeUsers.find(u => u.id === parseInt(selectedUserId));
   const activeRoles = activeUserObj?.systemRoles ||[];
-  const hasRole = (roleName: string) => activeRoles.includes(roleName);
-  
-  const isAdmin = hasRole('Administrator');
-  const isManager = hasRole('Manager') || isAdmin;
-  const isFrontDesk = hasRole('Front Desk') || isManager || isAdmin;
+
+  const isAdmin = activeRoles.includes('Administrator') || (selectedUserId === authenticatedUserId && isRealAdmin);
+  const isManager = activeRoles.includes('Manager') || isAdmin || (selectedUserId === authenticatedUserId && isRealManager);
+  const isFrontDesk = activeRoles.includes('Front Desk') || isManager || isAdmin;
 
   const systemHasAdmin = safeUsers.some(u => u.systemRoles && u.systemRoles.includes('Administrator'));
   const showDashboard = isManager || isFrontDesk; 
@@ -313,15 +319,15 @@ function MainDashboard({ session }: { session: any }) {
 
   useEffect(() => {
     if (!isMounted || !session || users.length === 0) return; 
-    if (activeTab === 'dashboard' && !showDashboard) setActiveTab('calendar');
-    if (activeTab === 'timesheets' && !showTimesheets) setActiveTab('calendar');
-    if (activeTab === 'builder' && !showBuilder) setActiveTab('calendar');
-    if (activeTab === 'privileges' && !showPasses) setActiveTab('calendar');
-    if (activeTab === 'giftcards' && !showGiftCards) setActiveTab('calendar'); 
-    if (activeTab === 'setup' && !showSetup) setActiveTab('calendar');
-    if (activeTab === 'staff' && !showStaff) setActiveTab('calendar');
-    if (activeTab === 'locations' && !showLocationsTab) setActiveTab('calendar');
-  },[selectedUserId, users, activeTab, session, isMounted, showDashboard, showTimesheets, showBuilder, showPasses, showGiftCards, showSetup, showStaff, showLocationsTab]);
+    if (activeTab === 'dashboard' && !showDashboard) setActiveTab('clock');
+    if (activeTab === 'timesheets' && !showTimesheets) setActiveTab('clock');
+    if (activeTab === 'builder' && !showBuilder) setActiveTab('clock');
+    if (activeTab === 'privileges' && !showPasses) setActiveTab('clock');
+    if (activeTab === 'giftcards' && !showGiftCards) setActiveTab('clock'); 
+    if (activeTab === 'setup' && !showSetup) setActiveTab('clock');
+    if (activeTab === 'staff' && !showStaff) setActiveTab('clock');
+    if (activeTab === 'locations' && !showLocationsTab) setActiveTab('clock');
+  },[selectedUserId, users.length, activeTab, session, isMounted, showDashboard, showTimesheets, showBuilder, showPasses, showGiftCards, showSetup, showStaff, showLocationsTab]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && selectedUserId) {
@@ -345,9 +351,8 @@ function MainDashboard({ session }: { session: any }) {
         setLastViewedMessages(now);
       }
     }
-  },[activeTab, selectedUserId, feedbacks, messages, announcements]);
+  },[activeTab, selectedUserId, feedbacks.length, messages.length, announcements.length]);
 
-  // OPTIMIZATION: Memoize unread calculations
   const unreadFeedbackCount = useMemo(() => {
     return (Array.isArray(feedbacks) ? feedbacks :[]).filter(fb => {
       const fbUpdated = new Date(fb.updatedAt || fb.createdAt).getTime();
@@ -367,7 +372,7 @@ function MainDashboard({ session }: { session: any }) {
       if ('authorId' in item && item.authorId === parseInt(selectedUserId)) return false;
       return true;
     }).length;
-  }, [messages, announcements, lastViewedMessages, selectedUserId]);
+  },[messages, announcements, lastViewedMessages, selectedUserId]);
 
   const fetchManagerData = async () => {
     const selectedPeriods = manPeriods.map(idx => periods[idx]);
@@ -435,21 +440,21 @@ function MainDashboard({ session }: { session: any }) {
 
   const handleSeedEmployees = async () => { if(!(await customConfirm("Add all new employees?"))) return; const res = await fetch('/api/users/seed', { method: 'POST' }); const data = await res.json(); notify.success(`Success! ${data.count} new employees added.`); fetchUsers(); };
   const handleImportHistory = async () => { if(!(await customConfirm("Import Garner Schedule History?"))) return; const res = await fetch('/api/shifts/import-history', { method: 'POST' }); const data = await res.json(); notify.success(`Success! ${data.count} shifts synced.`); fetchShifts(); };
-  const handleImportTimecards = async () => { if(!(await customConfirm("Import Jan/Feb Worked Timecards?"))) return; const res = await fetch('/api/timecards/seed', { method: 'POST' }); const data = await res.json(); notify.success(`Success! ${data.count} missing timecards logged.`); fetchTimeCards(); if (activeTab === 'dashboard') fetchManagerData(); };
-  const handleImportPasses = async () => { if(!(await customConfirm("Import Platinum Guest Passes CSV?"))) return; const res = await fetch('/api/members/seed', { method: 'POST' }); const data = await res.json(); notify.success(`Success! Added ${data.members} members.`); fetchMembers(); };
+  const handleImportTimecards = async () => { if(!(await customConfirm("Import Worked Timecards?"))) return; const res = await fetch('/api/timecards/seed', { method: 'POST' }); const data = await res.json(); notify.success(`Success! ${data.count} missing timecards logged.`); fetchTimeCards(); if (activeTab === 'dashboard') fetchManagerData(); };
+  const handleImportPasses = async () => { if(!(await customConfirm("Import Platinum Guest Passes?"))) return; const res = await fetch('/api/members/seed', { method: 'POST' }); const data = await res.json(); notify.success(`Success! Added ${data.members} members.`); fetchMembers(); };
 
   const handleClaimShift = async (shiftId: number) => { 
     if(!selectedUserId) { notify.error("Select an employee first!"); return; } 
     await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, userId: parseInt(selectedUserId), action: 'CLAIM' }) }); 
     fetchShifts(); 
-    notify.success("Shift claimed successfully!");
+    notify.success("Shift claimed!");
   };
 
   const handleUnclaimShift = async (shiftId: number) => { 
     if(!(await customConfirm("Unclaim this shift?"))) return; 
     await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, action: 'UNCLAIM' }) }); 
     fetchShifts(); 
-    notify.success("Shift unclaimed!");
+    notify.success("Shift unassigned.");
   };
 
   const handleGenerateSchedule = async () => {
@@ -512,19 +517,19 @@ function MainDashboard({ session }: { session: any }) {
   };
 
   const TAB_LABELS: Record<string, string> = {
+    clock: '🕐 Time Clock',
     calendar: 'Calendar', builder: 'Builder', manual: 'My Time', messages: 'Team Chat',
     timesheets: 'Timesheets', dashboard: 'Payroll', privileges: 'Passes',
     giftcards: 'Gift Cards', feedback: '💬 Feedback', setup: 'Shift Setup', staff: 'Staff', locations: 'Locations'
   };
 
-  const generalTabs =['calendar', 'manual', 'messages', 'privileges', 'giftcards', 'feedback'];
+  const generalTabs =['clock', 'calendar', 'manual', 'messages', 'privileges', 'giftcards', 'feedback'];
   const adminTabs =['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
 
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInM = new Date(currentYear, currentMonth + 1, 0).getDate();
   const calendarCells =[...new Array(firstDay).fill(null), ...Array.from({ length: daysInM }, (_, i) => i + 1)];
 
-  // OPTIMIZATION: Memoize heavy matrix calculations so typing in the UI doesn't lag the app
   const { matrixRows, hiddenWarnings, activeManPeriods } = useMemo(() => {
     const activePeriods = manPeriods.map(idx => periods[idx]);
     const matrixMap = new Map();
@@ -553,13 +558,12 @@ function MainDashboard({ session }: { session: any }) {
       matrixRows: Array.from(matrixMap.values()),
       hiddenWarnings: Array.from(hiddenMap.entries()).map(([k, v]) => `${k} (${Array.from(v).join(', ')})`)
     };
-  }, [managerData, manPeriods, periods, visibleLocations, manLocs]);
+  },[managerData, manPeriods, periods, visibleLocations, manLocs]);
 
-  // OPTIMIZATION: Memoize pending cards
   const { pendingCards, unapprovedCount } = useMemo(() => {
     const pending = isManager ? (Array.isArray(managerData) ? managerData :[]).filter(c => (!c.status || c.status === 'PENDING') && c.clockOut) :[];
     return { pendingCards: pending, unapprovedCount: pending.length };
-  }, [managerData, isManager]);
+  },[managerData, isManager]);
 
   const activeCalColor = useMemo(() => {
     return calLocFilter ? getLocationColor(calLocFilter) : { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-800' };
@@ -589,7 +593,7 @@ function MainDashboard({ session }: { session: any }) {
     isFeedbacksLoading, highlightBaseline, calendarCells, 
     activeCalColor, activeManPeriods, matrixRows, hiddenWarnings,
     missingPunches:[], activeUserTimeCards,
-    unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart, unreadFeedbackCount, unreadMessagesCount, fetchChecklists
+    unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart, unreadFeedbackCount, unreadMessagesCount, fetchChecklists, fetchTimeCards
   };
 
   if (!isMounted) return <div className="p-10 text-center font-bold">Loading Workspace...</div>;
@@ -623,11 +627,9 @@ function MainDashboard({ session }: { session: any }) {
             <div className="flex items-center gap-3"><img src="/logo.png" alt="Logo" className="h-10 md:h-12 w-auto" /><h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-widest leading-none"><span className="text-yellow-400">Pickles</span> & Play</h1></div>
             <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 shadow-inner w-fit ml-1">
               <span className="text-[10px] md:text-xs font-bold text-slate-300 uppercase tracking-widest">Logged in as:</span>
-              {isRealAdmin ? (
-                <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="bg-yellow-400 text-slate-900 rounded px-1.5 py-0.5 text-xs font-black outline-none cursor-pointer max-w-[140px] truncate">
-                  {safeUsers.map(u => <option key={u.id} value={u.id}>{u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}</option>)}
-                </select>
-              ) : ( <span className="text-yellow-400 font-black px-1 text-xs truncate max-w-[140px]">{activeUserObj?.name || session?.user?.email}</span> )}
+              <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="bg-yellow-400 text-slate-900 rounded px-1.5 py-0.5 text-xs font-black outline-none cursor-pointer max-w-[140px] truncate">
+                {safeUsers.map(u => <option key={u.id} value={u.id}>{u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}</option>)}
+              </select>
               {isRealManager && (
                 <button onClick={async () => {
                   const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
@@ -642,7 +644,7 @@ function MainDashboard({ session }: { session: any }) {
             <div className="flex flex-wrap gap-1.5 justify-start lg:justify-end items-center bg-slate-800/50 p-1.5 rounded-xl w-full lg:w-auto">
               {isManager && <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest hidden md:block px-2">Staff Space</span>}
               {generalTabs.map(tab => {
-                const visible = (tab === 'calendar' || tab === 'manual' || tab === 'feedback' || tab === 'messages') || (tab === 'privileges' && showPasses) || (tab === 'giftcards' && showGiftCards);
+                const visible = (tab === 'clock' || tab === 'calendar' || tab === 'manual' || tab === 'feedback' || tab === 'messages') || (tab === 'privileges' && showPasses) || (tab === 'giftcards' && showGiftCards);
                 if (!visible) return null;
                 return (
                   <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black uppercase text-[10px] md:text-xs transition shadow-sm ${activeTab === tab ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-green-800 text-white'}`}>
@@ -667,6 +669,7 @@ function MainDashboard({ session }: { session: any }) {
         </div>
 
         <div className="p-3 md:p-6 bg-gray-50">
+          {activeTab === 'clock' && <TimeClockTab appState={appState} />}
           {activeTab === 'calendar' && <CalendarTab appState={appState} />}
           {activeTab === 'builder' && <ScheduleBuilderTab appState={appState} />}
           {activeTab === 'manual' && <TimeCardTab appState={appState} />}
