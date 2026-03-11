@@ -96,7 +96,7 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs font-bold text-red-800 text-center mb-4">Emergency Override Mode</div>
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1">Admin Email</label>
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-red-600 outline-none shadow-inner" />
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-green-600 outline-none shadow-inner" />
             </div>
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1">Server Secret (Password)</label>
@@ -124,34 +124,34 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
 // ==================================================================
 function MainDashboard({ session }: { session: any }) {
   const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState('clock');
+  const[activeTab, setActiveTab] = useState('clock');
   
-  const[users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [timeCards, setTimeCards] = useState<TimeCard[]>([]);
-  const[shifts, setShifts] = useState<Shift[]>([]);
+  const[timeCards, setTimeCards] = useState<TimeCard[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
-  const[checklists, setChecklists] = useState<Checklist[]>([]);
+  const[templates, setTemplates] = useState<ShiftTemplate[]>([]);
+  const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-  const[giftCards, setGiftCards] = useState<GiftCard[]>([]);
+  const[feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const[announcements, setAnnouncements] = useState<Announcement[]>([]);
 
-  const[isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
-  const[isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
+  const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
+  const [isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
 
   const [selectedUserId, setSelectedUserId] = useState(session?.user?.id?.toString() || '');
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const[currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
-  const [lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
+  const[lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
   const [highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
-  const[lastViewedMessages, setLastViewedMessages] = useState<string>('1970-01-01T00:00:00.000Z');
+  const [lastViewedMessages, setLastViewedMessages] = useState<string>('1970-01-01T00:00:00.000Z');
 
-  const[calLocFilter, setCalLocFilter] = useState('');
-  const [calEmpFilter, setCalEmpFilter] = useState('');
+  const [calLocFilter, setCalLocFilter] = useState('');
+  const[calEmpFilter, setCalEmpFilter] = useState('');
 
   const getMonday = (d: Date) => { 
     const dt = new Date(d); 
@@ -159,13 +159,13 @@ function MainDashboard({ session }: { session: any }) {
     const diff = dt.getDate() - day + (day === 0 ? -6 : 1); 
     return new Date(dt.setDate(diff)).toISOString().split('T')[0]; 
   };
-  const [builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
+  const[builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
 
-  const [showChecklistModal, setShowChecklistModal] = useState(false);
+  const[showChecklistModal, setShowChecklistModal] = useState(false);
   const[reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
   const[editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
   const[clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
-  const[clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
+  const [clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
   const [clNotes, setClNotes] = useState('');
 
   const generatePeriods = () => {
@@ -182,13 +182,13 @@ function MainDashboard({ session }: { session: any }) {
     return p;
   };
 
-  const [periods] = useState(generatePeriods());
+  const[periods] = useState(generatePeriods());
   const [manPeriods, setManPeriods] = useState<number[]>([0]); 
-  const[manLocs, setManLocs] = useState<number[]>([]);
+  const [manLocs, setManLocs] = useState<number[]>([]);
   const [manEmps, setManEmps] = useState<number[]>([]);
-  const [managerData, setManagerData] = useState<TimeCard[]>([]);
+  const[managerData, setManagerData] = useState<TimeCard[]>([]);
 
-  const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const DAYS_OF_WEEK =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const YEARS =[2025, 2026, 2027];
   const AVAILABLE_ROLES =['Administrator', 'Manager', 'Front Desk', 'Trainer'];
@@ -258,6 +258,21 @@ function MainDashboard({ session }: { session: any }) {
       .catch(() => {});
   };
 
+  const fetchManagerData = async () => {
+    const selectedPeriods = manPeriods.map(idx => periods[idx]);
+    let targetEmployees = manEmps;
+    if (!isManager && selectedUserId) targetEmployees = [parseInt(selectedUserId)];
+    const res = await fetch('/api/manager?t=' + new Date().getTime(), { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ periods: selectedPeriods, userIds: targetEmployees }) 
+    }).catch(() => null);
+    if(res) {
+      const data = await res.json();
+      setManagerData(Array.isArray(data) ? data :[]);
+    }
+  };
+
   useEffect(() => {
     setIsMounted(true);
     if (!session) return;
@@ -276,6 +291,10 @@ function MainDashboard({ session }: { session: any }) {
     const intervalId = setInterval(syncOperationalData, 30000);
     return () => { window.removeEventListener('focus', onFocus); clearInterval(intervalId); };
   }, [session, selectedUserId]); 
+
+  useEffect(() => {
+    if (session && (activeTab === 'dashboard' || activeTab === 'timesheets')) fetchManagerData();
+  },[activeTab, manPeriods, manLocs, manEmps, selectedUserId, session]);
 
   const safeUsers = Array.isArray(users) ? users :[];
   const activeUsers = safeUsers.filter(u => u.isActive !== false);
@@ -320,7 +339,7 @@ function MainDashboard({ session }: { session: any }) {
     if (isMounted && authenticatedUserId && users.length > 0) {
       localStorage.setItem('lastActiveTab_' + authenticatedUserId, activeTab);
     }
-  }, [activeTab, authenticatedUserId, isMounted, users.length]);
+  },[activeTab, authenticatedUserId, isMounted, users.length]);
 
   useEffect(() => {
     if (!isMounted || !session || users.length === 0) return; 
@@ -379,25 +398,6 @@ function MainDashboard({ session }: { session: any }) {
     }).length;
   }, [messages, announcements, lastViewedMessages, selectedUserId]);
 
-  const fetchManagerData = async () => {
-    const selectedPeriods = manPeriods.map(idx => periods[idx]);
-    let targetEmployees = manEmps;
-    if (!isManager && selectedUserId) targetEmployees =[parseInt(selectedUserId)];
-    const res = await fetch('/api/manager?t=' + new Date().getTime(), { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ periods: selectedPeriods, userIds: targetEmployees }) 
-    }).catch(() => null);
-    if(res) {
-      const data = await res.json();
-      setManagerData(Array.isArray(data) ? data :[]);
-    }
-  };
-
-  useEffect(() => {
-    if (session && (activeTab === 'dashboard' || activeTab === 'timesheets')) fetchManagerData();
-  },[activeTab, manPeriods, manLocs, manEmps, selectedUserId, isManager, session]);
-
   const handleCreateLocation = async (payload: any) => { const res = await fetch('/api/locations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); fetchLocations(); return { success: res.ok }; };
   const handleUpdateLocation = async (id: number, payload: any) => { const res = await fetch('/api/locations', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...payload }) }); fetchLocations(); return { success: res.ok }; };
 
@@ -425,7 +425,7 @@ function MainDashboard({ session }: { session: any }) {
   const handleRoleToggle = async (targetUserId: number, roleName: string) => {
     const targetUser = safeUsers.find(u => u.id === targetUserId);
     if (!targetUser) return;
-    let currentRoles = targetUser.systemRoles ? [...targetUser.systemRoles] :[];
+    let currentRoles = targetUser.systemRoles ?[...targetUser.systemRoles] :[];
     if (currentRoles.includes(roleName)) currentRoles = currentRoles.filter(r => r !== roleName);
     else currentRoles.push(roleName);
     setUsers(safeUsers.map(u => u.id === targetUserId ? { ...u, systemRoles: currentRoles } : u));
@@ -528,9 +528,8 @@ function MainDashboard({ session }: { session: any }) {
     giftcards: 'GIFT CARDS', feedback: '💬 FEEDBACK', setup: 'SHIFT SETUP', staff: 'STAFF', locations: 'LOCATIONS'
   };
 
-  // Group tabs into Logical Spaces for navigation
   const leftStaffTabs =['clock', 'calendar', 'manual', 'privileges', 'giftcards'];
-  const communicationTabs =['messages', 'feedback'];
+  const communicationTabs = ['messages', 'feedback'];
   const managerTabsList =['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
 
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
@@ -577,7 +576,7 @@ function MainDashboard({ session }: { session: any }) {
   }, [calLocFilter]);
 
   const activeUserTimeCards = useMemo(() => {
-    return (Array.isArray(timeCards) ? timeCards : []).filter(c => c.userId === parseInt(selectedUserId));
+    return (Array.isArray(timeCards) ? timeCards :[]).filter(c => c.userId === parseInt(selectedUserId));
   }, [timeCards, selectedUserId]);
 
   const appState: AppState = {
@@ -600,13 +599,13 @@ function MainDashboard({ session }: { session: any }) {
     isFeedbacksLoading, highlightBaseline, calendarCells, 
     activeCalColor, activeManPeriods, matrixRows, hiddenWarnings,
     missingPunches:[], activeUserTimeCards,
-    unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart, unreadFeedbackCount, unreadMessagesCount, fetchChecklists, fetchTimeCards
+    unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart, unreadFeedbackCount, unreadMessagesCount, fetchChecklists, fetchManagerData, fetchTimeCards
   };
 
-  if (!isMounted) return <div className="p-10 text-center font-bold">Loading Workspace...</div>;
+  if (!isMounted) return <div className="p-10 text-center font-bold text-slate-500 uppercase tracking-widest">Loading Workspace...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-100 p-2 md:p-4 font-sans relative">
+    <div className="min-h-screen bg-gray-100 font-sans relative flex flex-col">
       {showChecklistModal && (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-75 z-50 flex justify-center items-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full">
@@ -628,81 +627,89 @@ function MainDashboard({ session }: { session: any }) {
         </div>
       )}
       
-      <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden border border-gray-300">
-        <div className="bg-slate-900 px-4 py-2 text-white space-y-2">
-          {/* COMPACT TOP BAR: BRANDING & USER CONTROLS */}
-          <div className="flex flex-col md:flex-row justify-between items-center gap-2 border-b border-slate-800 pb-2">
-            <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="Logo" className="h-8 md:h-10 w-auto" />
-              <h1 className="text-xl md:text-2xl font-black italic uppercase tracking-widest leading-none">
-                <span className="text-yellow-400">Pickles</span> & Play
-              </h1>
+      <div className="flex-1 max-w-[1400px] w-full mx-auto bg-white shadow-2xl border-x border-gray-300">
+        
+        {/* COMPACT TOP HEADER */}
+        <div className="bg-slate-900 px-4 md:px-6 py-3 text-white sticky top-0 z-40 border-b-2 border-yellow-500">
+          
+          <div className="flex flex-col lg:flex-row justify-between items-center gap-3">
+            
+            {/* BRANDING & USER (LEFT) */}
+            <div className="flex items-center justify-between w-full lg:w-auto">
+              <div className="flex items-center gap-2 mr-4">
+                <img src="/logo.png" alt="Logo" className="h-8 w-auto" />
+                <h1 className="text-xl font-black italic uppercase tracking-widest leading-none hidden sm:block">
+                  <span className="text-yellow-400">Pickles</span> & Play
+                </h1>
+              </div>
+              
+              <div className="flex items-center bg-slate-800 px-2 py-1 rounded-full border border-slate-700 shadow-inner">
+                <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="bg-transparent text-yellow-400 hover:bg-slate-700 rounded-full px-2 py-1 text-[11px] font-black outline-none cursor-pointer text-center">
+                  {safeUsers.map(u => <option key={u.id} value={u.id} className="text-slate-900">{u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}</option>)}
+                </select>
+                {isRealManager && (
+                  <button onClick={async () => {
+                    const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
+                    if (res?.error) notify.error("Failed: " + res.error); else if (res?.ok) notify.success("Device Linked!");
+                  }} className="ml-1 text-[10px] font-black uppercase text-slate-300 hover:text-white px-2 py-1 transition-colors" title="Register Device Passkey">
+                    📱
+                  </button>
+                )}
+                <div className="w-px h-4 bg-slate-600 mx-1"></div>
+                <button onClick={() => signOut()} className="text-[9px] font-black uppercase text-red-400 hover:text-red-300 px-2 py-1 transition-colors">Logout</button>
+              </div>
             </div>
-            <div className="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700 shadow-inner">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">User:</span>
-              <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="bg-yellow-400 text-slate-900 rounded-md px-2 py-0.5 text-[10px] font-black outline-none cursor-pointer">
-                {safeUsers.map(u => <option key={u.id} value={u.id}>{u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}</option>)}
-              </select>
-              {isRealManager && (
-                <button onClick={async () => {
-                  const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
-                  if (res?.error) notify.error("Failed: " + res.error); else if (res?.ok) notify.success("Device Linked!");
-                }} className="ml-1 text-[9px] font-black uppercase text-slate-900 bg-yellow-400 hover:bg-yellow-500 px-2 py-1 rounded-md transition-colors">Link Device</button>
-              )}
-              <button onClick={() => signOut()} className="ml-1 text-[9px] font-black uppercase text-white bg-red-600 hover:bg-red-700 px-2 py-1 rounded-md transition-colors">Logout</button>
-            </div>
-          </div>
 
-          {/* TAB NAVIGATION */}
-          <div className="space-y-2">
-            {/* ROW 1: STAFF & COMMS */}
-            <div className="flex flex-col lg:flex-row justify-between items-center gap-2">
-              {/* STAFF SPACE (LEFT) */}
-              <div className="flex flex-wrap gap-1 items-center">
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mr-2">Staff Space</span>
+            {/* TAB NAVIGATION ROWS (RIGHT) */}
+            <div className="flex flex-col gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0">
+              
+              {/* STAFF SPACE ROW */}
+              <div className="flex items-center justify-start lg:justify-end gap-1.5 w-max lg:w-auto">
                 {leftStaffTabs.map(tab => {
                   const visible = (tab === 'clock' || tab === 'calendar' || tab === 'manual') || (tab === 'privileges' && showPasses) || (tab === 'giftcards' && showGiftCards);
                   if (!visible) return null;
                   return (
-                    <button key={tab} onClick={() => setActiveTab(tab)} className={`px-3 py-1.5 rounded-lg font-black text-[9px] transition-all ${activeTab === tab ? 'bg-yellow-400 text-slate-900 shadow-md scale-105' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'}`}>
+                    <button key={tab} onClick={() => setActiveTab(tab)} className={`px-3 py-1.5 rounded-lg font-black text-[10px] whitespace-nowrap transition-all ${activeTab === tab ? 'bg-yellow-400 text-slate-900 shadow-md' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'}`}>
                       {TAB_LABELS[tab]}
                     </button>
                   );
                 })}
-              </div>
 
-              {/* COMMUNICATIONS (RIGHT) */}
-              <div className="flex gap-1 items-center bg-slate-950/50 p-1 rounded-xl border border-slate-800">
+                <div className="w-px h-5 bg-slate-700 mx-1 hidden sm:block"></div>
+                
+                {/* COMMUNICATION CLUSTER */}
                 {communicationTabs.map(tab => (
-                  <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black text-[9px] transition-all ${activeTab === tab ? 'bg-white text-slate-900 shadow-md' : 'bg-transparent hover:bg-slate-800 text-slate-400'}`}>
+                  <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black text-[10px] whitespace-nowrap transition-all ${activeTab === tab ? 'bg-white text-slate-900 shadow-md' : 'bg-slate-950 hover:bg-black text-slate-400 border border-slate-800'}`}>
                     {TAB_LABELS[tab]}
-                    {tab === 'feedback' && unreadFeedbackCount > 0 && <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-[7px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">{unreadFeedbackCount}</span>}
-                    {tab === 'messages' && unreadMessagesCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[7px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">{unreadMessagesCount}</span>}
+                    {tab === 'feedback' && unreadFeedbackCount > 0 && <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">{unreadFeedbackCount}</span>}
+                    {tab === 'messages' && unreadMessagesCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">{unreadMessagesCount}</span>}
                   </button>
                 ))}
               </div>
+
+              {/* MANAGER SPACE ROW */}
+              {isManager && (
+                <div className="flex items-center justify-start lg:justify-end gap-1.5 w-max lg:w-auto">
+                  <span className="text-[8px] font-black text-yellow-600 uppercase tracking-widest px-2 hidden sm:block">Manager</span>
+                  {managerTabsList.map(tab => {
+                    const visible = (tab === 'builder' && showDashboard) || (tab === 'dashboard' && showDashboard) || (tab === 'timesheets' && showTimesheets) || (tab === 'setup' && showSetup) || (tab === 'locations' && showLocationsTab) || (tab === 'staff' && showStaff);
+                    if (!visible) return null;
+                    return (
+                      <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black text-[10px] whitespace-nowrap transition-all ${activeTab === tab ? 'bg-yellow-500 text-slate-900 shadow-md' : 'bg-slate-900/50 hover:bg-slate-800 text-slate-500 border border-slate-800'}`}>
+                        {TAB_LABELS[tab]}
+                        {tab === 'timesheets' && unapprovedCount > 0 && isManager && <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black shadow-md">{unapprovedCount}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            {/* ROW 2: MANAGER CONTROLS (Only visible to Managers) */}
-            {isManager && (
-              <div className="flex flex-wrap gap-1 items-center bg-slate-800/40 p-1.5 rounded-xl border border-slate-700/50">
-                <span className="text-[9px] font-black text-yellow-600 uppercase tracking-widest px-2">Manager Space</span>
-                {managerTabsList.map(tab => {
-                  const visible = (tab === 'builder' && showDashboard) || (tab === 'dashboard' && showDashboard) || (tab === 'timesheets' && showTimesheets) || (tab === 'setup' && showSetup) || (tab === 'locations' && showLocationsTab) || (tab === 'staff' && showStaff);
-                  if (!visible) return null;
-                  return (
-                    <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black text-[9px] transition-all ${activeTab === tab ? 'bg-yellow-500 text-slate-900 shadow-md scale-105' : 'bg-slate-900/50 hover:bg-slate-800 text-slate-400'}`}>
-                      {TAB_LABELS[tab]}
-                      {tab === 'timesheets' && unapprovedCount > 0 && <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[7px] px-1.5 py-0.5 rounded-full font-black shadow-md">{unapprovedCount}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
         </div>
 
-        <div className="p-3 md:p-6 bg-gray-50">
+        {/* TAB CONTENT AREA */}
+        <div className="p-3 md:p-6 min-h-[85vh]">
           {activeTab === 'clock' && <TimeClockTab appState={appState} />}
           {activeTab === 'calendar' && <CalendarTab appState={appState} />}
           {activeTab === 'builder' && <ScheduleBuilderTab appState={appState} />}
@@ -717,27 +724,23 @@ function MainDashboard({ session }: { session: any }) {
           {activeTab === 'feedback' && <FeedbackTab appState={appState} />}
           {activeTab === 'messages' && <MessagesTab appState={appState} />}
         </div>
+
       </div>
     </div>
   );
 }
 
-// ... (rest of your page.tsx file stays exactly the same) ...
-
 export default function SchedulingAppRoot() {
   const { data: session, status } = useSession();
   
-  // NEW: Catch Admin revocations. If the session object comes back empty,
-  // we forcefully clear the user's browser cookie and return them to the login screen.
   useEffect(() => {
     if (status === "authenticated" && session && !session.user) {
       signOut({ redirect: false });
     }
-  },[session, status]);
+  }, [session, status]);
 
-  if (status === "loading") return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="text-white font-bold text-xl animate-pulse">Checking credentials...</div></div>;
+  if (status === "loading") return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="text-white font-bold text-xl animate-pulse uppercase tracking-widest">Verifying...</div></div>;
   
-  // Notice we added "!session.user" here to ensure we block revoked sessions
   if (status === "unauthenticated" || !session || !session.user) return <LoginScreen sessionData={session} />;
   
   return <MainDashboard session={session} />;
