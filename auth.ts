@@ -25,6 +25,7 @@ const customAdapter = {
         return { ...updated, id: updated.id.toString() };
       }
     }
+
     if (!validData.name) validData.name = validData.email ? validData.email.split('@')[0] : "New Employee";
     const created = await prisma.user.create({ data: validData });
     return { ...created, id: created.id.toString() };
@@ -114,10 +115,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Emergency Password", type: "password" }
       },
       async authorize(credentials) {
-        if (credentials.email === "cbriell1@yahoo.com" && credentials.password === process.env.AUTH_SECRET) {
+        // Defensive parsing to strip accidental spaces and lowercase the email
+        const inputEmail = String(credentials?.email || "").toLowerCase().trim();
+        const inputPassword = String(credentials?.password || "").trim();
+        const serverSecret = process.env.AUTH_SECRET;
+
+        // Debugging for Vercel Logs
+        if (!serverSecret) {
+          console.error("🚨 CRITICAL: AUTH_SECRET is completely missing in Vercel Environment Variables for this deployment!");
+          return null;
+        }
+
+        if (inputEmail === "cbriell1@yahoo.com" && inputPassword === serverSecret) {
            let user = await prisma.user.findFirst({ where: { email: "cbriell1@yahoo.com" } });
            
-           // BULLETPROOF FIX: If the staging database is completely empty, force-create Chris as Admin.
            if (!user) {
              user = await prisma.user.create({
                data: {
@@ -131,8 +142,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
              });
            }
            return { ...user, id: user.id.toString() };
+        } else {
+           console.error(`🚨 LOGIN REJECTED: Email Match: ${inputEmail === "cbriell1@yahoo.com"}, Password Match: ${inputPassword === serverSecret}`);
+           return null;
         }
-        return null;
       }
     })
   ],
@@ -141,7 +154,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async session({ session, user }) {
       if (session.user) {
-        session.user.id = user.id;
+        session.user.id = user.id.toString();
         (session.user as any).role = (user as any).role;
         (session.user as any).systemRoles = (user as any).systemRoles;
       }
