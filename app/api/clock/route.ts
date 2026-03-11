@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { sendShiftReportEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,13 +24,10 @@ export async function POST(request: Request) {
     const data = clockSchema.parse(body);
 
     if (data.action === 'CLOCK_IN') {
-      // Safety check: Ensure user isn't already clocked in
       const existing = await prisma.timeCard.findFirst({
         where: { userId: data.userId, clockOut: null }
       });
-      if (existing) {
-        return NextResponse.json({ error: "You are already clocked in!" }, { status: 400 });
-      }
+      if (existing) return NextResponse.json({ error: "Already clocked in!" }, { status: 400 });
 
       const newCard = await prisma.timeCard.create({
         data: { userId: data.userId, locationId: data.locationId, clockIn: new Date() }
@@ -38,7 +36,10 @@ export async function POST(request: Request) {
     }
 
     if (data.action === 'CLOCK_OUT') {
-      const tc = await prisma.timeCard.findUnique({ where: { id: data.timeCardId } });
+      const tc = await prisma.timeCard.findUnique({ 
+        where: { id: data.timeCardId },
+        include: { location: true, user: true }
+      });
       if (!tc) return NextResponse.json({ error: "Timecard not found" }, { status: 404 });
       
       const clockOut = new Date();
@@ -49,6 +50,19 @@ export async function POST(request: Request) {
         where: { id: data.timeCardId },
         data: { clockOut, totalHours: hours }
       });
+
+      // NEW: FIND AND SEND SHIFT REPORT EMAIL
+      // We look for any checklist attached to this specific closing shift
+      const shiftReport = await prisma.checklist.findFirst({
+        where: { timeCardId: tc.id }
+      });
+
+      // Only send if a report exists AND the location switch is enabled
+      if (shiftReport && tc.location.sendReportEmails !== false) {
+        // We pass the updated 'updated' record so the email has the correct clock-out time
+        sendShiftReportEmail(shiftReport, updated, tc.location, tc.user).catch(console.error);
+      }
+
       return NextResponse.json(updated);
     }
   } catch (error: any) {

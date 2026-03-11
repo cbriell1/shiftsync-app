@@ -2,7 +2,6 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { sendShiftReportEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,34 +11,10 @@ const checklistSchema = z.object({
   locationId: z.coerce.number(),
   timeCardId: z.coerce.number().nullable().optional(),
   notes: z.any().transform(v => v ? String(v) : ''),
-  previousShiftNotes: z.any().transform(v => v ? String(v) : ''), // NEW
+  previousShiftNotes: z.any().transform(v => v ? String(v) : ''),
   completedTasks: z.array(z.string()).default([]),
   missedTasks: z.array(z.string()).default([]),
 });
-
-// Helper to handle the email trigger logic
-async function triggerReportEmail(checklistId: number) {
-  try {
-    const fullData = await prisma.checklist.findUnique({
-      where: { id: checklistId },
-      include: {
-        user: true,
-        location: true,
-        timeCard: true
-      }
-    });
-
-    if (!fullData) return;
-
-    // Check if the location allows email notifications
-    if (fullData.location.sendReportEmails === false) return;
-
-    // Trigger the email
-    await sendShiftReportEmail(fullData, fullData.timeCard, fullData.location, fullData.user);
-  } catch (error) {
-    console.error("Email trigger error:", error);
-  }
-}
 
 export async function GET() {
   try {
@@ -93,9 +68,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // Trigger email asynchronously
-    triggerReportEmail(finalChecklist.id).catch(console.error);
-
     return NextResponse.json(finalChecklist);
   } catch (error: any) {
     console.error("Checklist POST Error:", error);
@@ -119,9 +91,6 @@ export async function PUT(request: Request) {
         missedTasks: data.missedTasks
       }
     });
-
-    // Trigger email asynchronously
-    triggerReportEmail(updatedChecklist.id).catch(console.error);
 
     return NextResponse.json(updatedChecklist);
   } catch (error: any) {
