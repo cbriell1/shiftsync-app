@@ -1,6 +1,8 @@
+// filepath: app/components/StaffTab.tsx
 "use client";
 import React, { useState } from 'react';
 import { AppState, User } from '../lib/types';
+import { notify, customConfirm } from '@/lib/ui-utils';
 
 export default function StaffTab({ appState }: { appState: AppState }) {
   const { 
@@ -28,7 +30,7 @@ export default function StaffTab({ appState }: { appState: AppState }) {
   // Merge Tool State
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const [mergeSourceId, setMergeSourceId] = useState('');
-  const [mergeTargetId, setMergeTargetId] = useState('');
+  const[mergeTargetId, setMergeTargetId] = useState('');
   const [isMerging, setIsMerging] = useState(false);
 
   // Filter & Grouping State
@@ -36,7 +38,7 @@ export default function StaffTab({ appState }: { appState: AppState }) {
   const[filterLocation, setFilterLocation] = useState<string>('ALL');
   const [filterRole, setFilterRole] = useState<string>('ALL');
   const [showArchived, setShowArchived] = useState(false);
-  const [groupBy, setGroupBy] = useState<'NONE' | 'LOCATION' | 'ROLE'>('NONE');
+  const[groupBy, setGroupBy] = useState<'NONE' | 'LOCATION' | 'ROLE'>('NONE');
 
   const toggleLocation = async (user: User, locationId: number) => {
     const currentLocs = user.locationIds ? [...user.locationIds] : [];
@@ -60,14 +62,14 @@ export default function StaffTab({ appState }: { appState: AppState }) {
   const handleMergeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mergeSourceId || !mergeTargetId || mergeSourceId === mergeTargetId) {
-      alert("Please select two different users to merge.");
+      notify.error("Please select two different users to merge.");
       return;
     }
     
     const sourceUser = users.find(u => u.id.toString() === mergeSourceId);
     const targetUser = users.find(u => u.id.toString() === mergeTargetId);
     
-    if(!confirm(`WARNING: You are about to move all of ${sourceUser?.name}'s shifts, timecards, and passkeys into ${targetUser?.name}'s account.\n\nThe ${sourceUser?.name} account will be PERMANENTLY DELETED.\n\nAre you absolutely sure?`)) return;
+    if(!(await customConfirm(`WARNING: You are about to move all of ${sourceUser?.name}'s shifts, timecards, and passkeys into ${targetUser?.name}'s account.\n\nThe ${sourceUser?.name} account will be PERMANENTLY DELETED.\n\nAre you absolutely sure?`, "Merge Users", true))) return;
     
     setIsMerging(true);
     await handleMergeUsers(parseInt(mergeSourceId), parseInt(mergeTargetId));
@@ -220,12 +222,13 @@ export default function StaffTab({ appState }: { appState: AppState }) {
         
         {/* Archive/Restore Action Hover Button */}
         <button 
-          onClick={() => {
+          onClick={async () => {
             const newStatus = isInactive ? true : false;
             if (!newStatus) {
-              if(!confirm(`Are you sure you want to archive ${user.name}? They will be hidden from the Kiosk and schedule dropdowns, but historical records will remain.`)) return;
+              if(!(await customConfirm(`Are you sure you want to archive ${user.name}? They will be hidden from the Kiosk and schedule dropdowns, but historical records will remain.`, "Archive Staff", true))) return;
             }
-            handleUpdateUser(user.id, { isActive: newStatus });
+            await handleUpdateUser(user.id, { isActive: newStatus });
+            notify.success(newStatus ? "Staff restored!" : "Staff archived.");
           }}
           className={`absolute top-2 right-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-sm border transition-opacity ${
             isInactive 

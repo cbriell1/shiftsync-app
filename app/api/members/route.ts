@@ -1,10 +1,21 @@
+// filepath: app/api/members/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-const memberActionSchema = z.discriminatedUnion("action", [
+const memberPostSchema = z.object({
+  lastName: z.string().min(1, "Last name is required"),
+  firstName: z.string().optional().default(''),
+  location: z.string().optional().default(''),
+  notes: z.string().optional().default(''),
+  family: z.string().optional().default(''),
+  renewalDate: z.string().optional().default(''),
+  totalPasses: z.coerce.number().optional().default(12)
+});
+
+const memberActionSchema = z.discriminatedUnion("action",[
   z.object({ action: z.literal("LOG_BEVERAGE"), memberId: z.coerce.number() }),
   z.object({ action: z.literal("UPDATE_RENEWAL"), memberId: z.coerce.number(), renewalDate: z.string() }),
   z.object({ action: z.literal("UPDATE_TOTAL_PASSES"), memberId: z.coerce.number(), totalPasses: z.coerce.number(), bonusNotes: z.string().optional() }),
@@ -12,29 +23,36 @@ const memberActionSchema = z.discriminatedUnion("action", [
 ]);
 
 export async function GET() {
-  const members = await prisma.member.findMany({
-    include: { usages: true },
-    orderBy: { lastName: 'asc' }
-  });
-  return NextResponse.json(members);
+  try {
+    const members = await prisma.member.findMany({
+      include: { usages: true },
+      orderBy: { lastName: 'asc' }
+    });
+    return NextResponse.json(members);
+  } catch (error: any) {
+    return NextResponse.json({ error: "Failed to fetch members" }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
   try {
-    const data = await request.json();
+    const body = await request.json();
+    const data = memberPostSchema.parse(body);
+
     const newMember = await prisma.member.create({
       data: {
         lastName: data.lastName,
-        firstName: data.firstName || '',
-        location: data.location || '',
-        notes: data.notes || '',
-        family: data.family || '',
-        renewalDate: data.renewalDate || '',
-        totalPasses: parseInt(data.totalPasses) || 12
+        firstName: data.firstName,
+        location: data.location,
+        notes: data.notes,
+        family: data.family,
+        renewalDate: data.renewalDate,
+        totalPasses: data.totalPasses
       }
     });
     return NextResponse.json(newMember);
   } catch (error: any) {
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -83,6 +101,7 @@ export async function PUT(request: Request) {
       return NextResponse.json(newUsage);
     }
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

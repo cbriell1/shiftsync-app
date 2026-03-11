@@ -1,6 +1,8 @@
+// filepath: app/components/MessagesTab.tsx
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AppState, Message } from '../lib/types';
+import { notify } from '@/lib/ui-utils';
 
 export default function MessagesTab({ appState }: { appState: AppState }) {
   const {
@@ -16,41 +18,33 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
 
   // --- ANNOUNCEMENT STATE ---
   const [showAnnounceForm, setShowAnnounceForm] = useState(false);
-  const [aTitle, setATitle] = useState('');
+  const[aTitle, setATitle] = useState('');
   const [aContent, setAContent] = useState('');
-  const [aTargetType, setATargetType] = useState<'ALL' | 'LOCATIONS'>('ALL');
-  const[aSelectedLocs, setASelectedLocs] = useState<number[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const[aTargetType, setATargetType] = useState<'ALL' | 'LOCATIONS'>('ALL');
+  const [aSelectedLocs, setASelectedLocs] = useState<number[]>([]);
+  const[isSubmitting, setIsSubmitting] = useState(false);
 
   // --- CHAT STATE ---
   const [chatInput, setChatInput] = useState('');
-  const[activeThreadId, setActiveThreadId] = useState<string>('global');
-  const [showNewChatSelector, setShowNewChatSelector] = useState(false);
+  const [activeThreadId, setActiveThreadId] = useState<string>('global');
+  const[showNewChatSelector, setShowNewChatSelector] = useState(false);
   const [cTargetType, setCTargetType] = useState<'USERS' | 'LOCATIONS'>('USERS');
   const [cSelectedUsers, setCSelectedUsers] = useState<number[]>([]);
   const [cSelectedLocs, setCSelectedLocs] = useState<number[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // --- UNREAD TRACKING STATE ---
-  const[readStates, setReadStates] = useState<Record<string, string>>({});
+  const [readStates, setReadStates] = useState<Record<string, string>>({});
 
-  // 1. Load the user's thread read states from local storage on mount
   useEffect(() => {
     if (typeof window !== 'undefined' && selectedUserId) {
       const stored = localStorage.getItem('threadReadStates_' + selectedUserId);
       if (stored) {
-        try {
-          setReadStates(JSON.parse(stored));
-        } catch (e) {
-          setReadStates({});
-        }
-      } else {
-        setReadStates({});
-      }
+        try { setReadStates(JSON.parse(stored)); } catch (e) { setReadStates({}); }
+      } else { setReadStates({}); }
     }
   }, [selectedUserId]);
 
-  // 2. Mark the actively viewed thread as "read" whenever messages update or thread is clicked
   useEffect(() => {
     if (activeThreadId && activeThreadId !== 'NEW' && typeof window !== 'undefined' && selectedUserId) {
       setReadStates(prev => {
@@ -66,24 +60,14 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
   const threads = useMemo(() => {
     const threadMap = new Map();
 
-    // Always ensure a "Global" thread exists at the top
     threadMap.set('global', {
-      id: 'global',
-      type: 'GLOBAL',
-      title: '🌐 Company Wide',
-      messages:[],
-      updatedAt: new Date(0).toISOString(),
-      targetUserIds: [],
-      targetLocationIds: [],
-      isGlobal: true,
-      participants:[]
+      id: 'global', type: 'GLOBAL', title: '🌐 Company Wide',
+      messages:[], updatedAt: new Date(0).toISOString(),
+      targetUserIds:[], targetLocationIds: [], isGlobal: true, participants:[]
     });
 
     messages.forEach(msg => {
-      let tId = '';
-      let tType = '';
-      let title = '';
-      let participants: number[] =[];
+      let tId = ''; let tType = ''; let title = ''; let participants: number[] =[];
 
       if (msg.isGlobal) {
         tId = 'global';
@@ -94,12 +78,10 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
         const locNames = sortedLocs.map(id => locations.find(l => l.id === id)?.name).filter(Boolean);
         title = `📍 ${locNames.join(', ')}`;
       } else {
-        // Direct or Group Message based on participants
         participants = Array.from(new Set([msg.senderId, ...(msg.targetUserIds || [])])).sort();
         tId = 'user_' + participants.join('_');
         tType = participants.length > 2 ? 'GROUP' : 'DIRECT';
 
-        // Create Title excluding myself
         const others = participants.filter(id => id.toString() !== selectedUserId);
         const otherNames = others.map(id => users.find(u => u.id === id)?.name?.split(' ')[0]).filter(Boolean);
         
@@ -111,31 +93,27 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
       if (!threadMap.has(tId)) {
         threadMap.set(tId, {
           id: tId, type: tType, title, messages:[], updatedAt: msg.createdAt,
-          targetUserIds: msg.targetUserIds || [], targetLocationIds: msg.targetLocationIds ||[],
+          targetUserIds: msg.targetUserIds ||[], targetLocationIds: msg.targetLocationIds ||[],
           isGlobal: msg.isGlobal, participants
         });
       }
 
       const t = threadMap.get(tId);
       t.messages.push(msg);
-      if (new Date(msg.createdAt) > new Date(t.updatedAt)) {
-        t.updatedAt = msg.createdAt;
-      }
+      if (new Date(msg.createdAt) > new Date(t.updatedAt)) t.updatedAt = msg.createdAt;
     });
 
-    // Sort threads by most recent activity
     return Array.from(threadMap.values()).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   },[messages, selectedUserId, locations, users]);
 
   const activeThread = threads.find(t => t.id === activeThreadId) || threads[0];
   const activeMessages = activeThread?.messages ||[];
 
-  // Auto-scroll chat to bottom
   useEffect(() => {
     if (subTab === 'CHAT' && !showMobileThreadList) {
       chatEndRef.current?.scrollIntoView({ behavior: 'auto' });
     }
-  }, [subTab, activeMessages.length, activeThreadId, showMobileThreadList]);
+  },[subTab, activeMessages.length, activeThreadId, showMobileThreadList]);
 
   // --- ACTIONS ---
   const onPostAnnouncement = async (e: React.FormEvent) => {
@@ -144,7 +122,7 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
 
     const isGlobal = aTargetType === 'ALL';
     if (!isGlobal && aSelectedLocs.length === 0) {
-      alert("Please select at least one location or set to Everyone.");
+      notify.error("Please select at least one location or set to Everyone.");
       return;
     }
 
@@ -160,19 +138,18 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
     setIsSubmitting(true);
 
     if (activeThreadId === 'NEW') {
-      const isGlobal = false; // "NEW" is strictly for direct/group/location targeting
-      const tUsers = cTargetType === 'USERS' ? cSelectedUsers : [];
+      const isGlobal = false; 
+      const tUsers = cTargetType === 'USERS' ? cSelectedUsers :[];
       const tLocs = cTargetType === 'LOCATIONS' ? cSelectedLocs :[];
 
       if (tUsers.length === 0 && tLocs.length === 0) {
-        alert("Select at least one recipient!");
+        notify.error("Select at least one recipient!");
         setIsSubmitting(false);
         return;
       }
 
       await handleSendMessage(chatInput.trim(), isGlobal, tUsers, tLocs);
       
-      // Attempt to switch view to the newly generated thread pattern
       if (cTargetType === 'LOCATIONS') {
         setActiveThreadId('loc_' + [...tLocs].sort().join('_'));
       } else {
@@ -180,24 +157,13 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
         setActiveThreadId('user_' + participants.join('_'));
       }
       
-      setShowNewChatSelector(false);
-      setCSelectedUsers([]);
-      setCSelectedLocs([]);
-
+      setShowNewChatSelector(false); setCSelectedUsers([]); setCSelectedLocs([]);
     } else {
-      // Replying to existing thread automatically routes to exactly the same people
       let tUsers = activeThread.targetUserIds;
-      
       if (activeThread.type === 'DIRECT' || activeThread.type === 'GROUP') {
         tUsers = activeThread.participants.filter((id: number) => id.toString() !== selectedUserId);
       }
-
-      await handleSendMessage(
-        chatInput.trim(), 
-        activeThread.isGlobal, 
-        tUsers, 
-        activeThread.targetLocationIds
-      );
+      await handleSendMessage(chatInput.trim(), activeThread.isGlobal, tUsers, activeThread.targetLocationIds);
     }
 
     setChatInput('');
@@ -209,7 +175,7 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
     setShowNewChatSelector(true);
     setCSelectedUsers([]);
     setCSelectedLocs([]);
-    setShowMobileThreadList(false); // Move to chat view on mobile
+    setShowMobileThreadList(false);
   };
 
   return (
@@ -331,7 +297,6 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
       {subTab === 'CHAT' && (
         <div className="flex-1 flex overflow-hidden bg-white rounded-2xl border border-slate-300 shadow-inner relative">
           
-          {/* LEFT SIDEBAR: Threads List (Hides on Mobile when Chat is active) */}
           <div className={`${showMobileThreadList ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-1/3 md:min-w-[260px] md:max-w-[320px] border-r border-slate-200 bg-slate-50/50 z-20`}>
             <div className="p-3 border-b border-slate-200 bg-white flex justify-between items-center shadow-sm">
               <h3 className="font-black text-slate-900 text-sm md:text-base">Inbox</h3>
@@ -344,7 +309,6 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
             
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
               {threads.map(t => {
-                // Calculate unread count for this specific thread
                 const unreadCount = t.messages.filter((m: Message) => {
                   if (m.senderId.toString() === selectedUserId) return false;
                   const lastRead = readStates[t.id] || '1970-01-01T00:00:00.000Z';
@@ -357,7 +321,7 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
                     onClick={() => { 
                       setActiveThreadId(t.id); 
                       setShowNewChatSelector(false); 
-                      setShowMobileThreadList(false); // Mobile: Slide over to chat view
+                      setShowMobileThreadList(false); 
                     }}
                     className={`p-3 md:p-4 rounded-xl cursor-pointer transition-colors border flex flex-col gap-1 ${
                       activeThreadId === t.id 
@@ -371,7 +335,6 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
                       <div className={`text-sm md:text-xs font-black truncate pr-2 ${activeThreadId === t.id ? 'text-blue-900' : (unreadCount > 0 ? 'text-slate-900' : 'text-slate-800')}`}>
                         {t.title}
                       </div>
-                      {/* Unread Red Notification Dot */}
                       {unreadCount > 0 && activeThreadId !== t.id && (
                         <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse">
                           {unreadCount}
@@ -390,13 +353,10 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
             </div>
           </div>
 
-          {/* RIGHT PANE: Active Chat (Hides on Mobile when Inbox is active) */}
           <div className={`${!showMobileThreadList ? 'flex' : 'hidden'} md:flex flex-col flex-1 bg-white relative`}>
             
-            {/* Thread Header */}
             <div className="p-3 md:p-4 border-b border-slate-200 bg-white/90 backdrop-blur shadow-sm z-10 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {/* Mobile Back Button */}
                 <button 
                   className="md:hidden p-2 -ml-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors"
                   onClick={() => setShowMobileThreadList(true)}
@@ -413,7 +373,6 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
               </div>
             </div>
 
-            {/* Message Feed */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30">
               {activeThreadId === 'NEW' ? (
                 <div className="h-full flex items-center justify-center text-slate-400 font-bold italic text-sm text-center px-4">
@@ -455,10 +414,8 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
               <div ref={chatEndRef} className="h-2" />
             </div>
 
-            {/* Input Area */}
             <div className="p-3 bg-white border-t border-slate-200">
               
-              {/* Target Selector (Only shown when creating NEW chat) */}
               {activeThreadId === 'NEW' && showNewChatSelector && (
                 <div className="mb-3 p-3 bg-slate-100 rounded-xl border border-slate-300 animate-in slide-in-from-bottom-2">
                   <div className="flex gap-2 mb-2">
@@ -489,7 +446,6 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
                 </div>
               )}
 
-              {/* Message Text Input */}
               <form onSubmit={onSendChat} className="flex items-end gap-2">
                 <textarea
                   value={chatInput}

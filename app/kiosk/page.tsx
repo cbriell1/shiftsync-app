@@ -1,16 +1,18 @@
+// filepath: app/kiosk/page.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
+import { notify } from '@/lib/ui-utils';
 
 export default function KioskPage() {
   const[isMounted, setIsMounted] = useState(false);
   
-  const [users, setUsers] = useState<any[]>([]);
+  const[users, setUsers] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
   const[openCards, setOpenCards] = useState<any[]>([]);
   
   // Selection State
   const [selectedUserId, setSelectedUserId] = useState('');
-  const [selectedLocationId, setSelectedLocationId] = useState('');
+  const[selectedLocationId, setSelectedLocationId] = useState('');
   
   // Security PIN State
   const [pinCode, setPinCode] = useState('');
@@ -59,7 +61,10 @@ export default function KioskPage() {
   };
 
   const handleClockIn = async () => {
-    if (!selectedUserId || !selectedLocationId) return alert("Select your name and location!");
+    if (!selectedUserId || !selectedLocationId) {
+      notify.error("Select your name and location!");
+      return;
+    }
     
     const res = await fetch('/api/kiosk', {
       method: 'POST',
@@ -74,6 +79,7 @@ export default function KioskPage() {
       return;
     }
 
+    notify.success("Clocked In Successfully!");
     setSelectedUserId('');
     setPinCode('');
     fetchOpenCards();
@@ -95,6 +101,7 @@ export default function KioskPage() {
       return;
     }
 
+    notify.success("Clocked Out Successfully!");
     setSelectedUserId('');
     setPinCode('');
     fetchOpenCards();

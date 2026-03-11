@@ -1,15 +1,17 @@
+// filepath: app/components/LocationsTab.tsx
 "use client";
 import React, { useState } from 'react';
 import { AppState, Location } from '../lib/types';
+import { notify, customConfirm } from '@/lib/ui-utils';
 
 export default function LocationsTab({ appState }: { appState: AppState }) {
   const { locations, handleCreateLocation, handleUpdateLocation, isManager, isAdmin } = appState;
 
-  const[isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const[editingLocId, setEditingLocId] = useState<number | null>(null);
 
-  const[newLoc, setNewLoc] = useState({ name: '', address: '', email: '', phoneNumber: '' });
-  const [editLoc, setEditLoc] = useState({ name: '', address: '', email: '', phoneNumber: '', isActive: true });
+  const [newLoc, setNewLoc] = useState({ name: '', address: '', email: '', phoneNumber: '' });
+  const[editLoc, setEditLoc] = useState({ name: '', address: '', email: '', phoneNumber: '', isActive: true });
 
   if (!isAdmin && !isManager) {
     return (
@@ -25,30 +27,41 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
     if (!newLoc.name.trim()) return;
     
     // New locations default to Hidden (Setup Mode) so they don't accidentally go live early
-    await handleCreateLocation({ ...newLoc, isActive: false });
-    setIsAddModalOpen(false);
-    setNewLoc({ name: '', address: '', email: '', phoneNumber: '' });
+    const result = await handleCreateLocation({ ...newLoc, isActive: false });
+    if (result.success) {
+      notify.success("Location Created (Hidden by default)");
+      setIsAddModalOpen(false);
+      setNewLoc({ name: '', address: '', email: '', phoneNumber: '' });
+    } else {
+      notify.error("Failed to create location.");
+    }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingLocId || !editLoc.name.trim()) return;
 
-    await handleUpdateLocation(editingLocId, editLoc);
-    setEditingLocId(null);
+    const result = await handleUpdateLocation(editingLocId, editLoc);
+    if (result.success) {
+      notify.success("Location updated successfully");
+      setEditingLocId(null);
+    } else {
+      notify.error("Failed to update location.");
+    }
   };
 
   const toggleActiveStatus = async (loc: Location) => {
     const newStatus = loc.isActive === false ? true : false;
     if (!newStatus) {
-      if(!confirm(`Are you sure you want to hide ${loc.name}? It will be hidden from the Kiosk and standard staff. This is perfect for closed locations or upcoming locations in Setup Mode.`)) return;
+      if(!(await customConfirm(`Are you sure you want to hide ${loc.name}? It will be hidden from the Kiosk and standard staff. This is perfect for closed locations or upcoming locations in Setup Mode.`, "Hide Location", true))) return;
     }
     
-    // Safely pass both the name and the new status
     const result = await handleUpdateLocation(loc.id, { name: loc.name, isActive: newStatus });
     
     if (!result.success) {
-      alert("Error: Failed to save the location status to the database.");
+      notify.error("Error: Failed to save the location status to the database.");
+    } else {
+      notify.success(newStatus ? "Location is now Live!" : "Location Hidden.");
     }
   };
 

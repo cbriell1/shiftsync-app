@@ -1,3 +1,4 @@
+// filepath: lib/types.ts
 export type Role = 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
 
 export interface Location {
@@ -47,6 +48,8 @@ export interface TimeCard {
   user?: User;
   locationId: number;
   location?: Location;
+  payPeriodId?: Int | null;
+  payPeriod?: any | null;
   checklists?: Checklist[];
 }
 
@@ -175,54 +178,6 @@ export interface AppState {
   setCalLocFilter: (id: string) => void;
   calEmpFilter: string;
   setCalEmpFilter: (id: string) => void;
-  
-  editingCardId: number | null;
-  setEditingCardId: (id: number | null) => void;
-  formUserId: string;
-  setFormUserId: (id: string) => void;
-  formDate: string;
-  setFormDate: (d: string) => void;
-  formStartTime: string;
-  setFormStartTime: (t: string) => void;
-  formEndTime: string;
-  setFormEndTime: (t: string) => void;
-  selectedLocation: string;
-  setSelectedLocation: (id: string) => void;
-  
-  passSearch: string;
-  setPassSearch: (s: string) => void;
-  expandedMember: number | null;
-  setExpandedMember: (id: number | null) => void;
-  pDate: string;
-  setPDate: (d: string) => void;
-  pAmt: number | string;
-  setPAmt: (a: number | string) => void;
-  pInitials: string;
-  setPInitials: (i: string) => void;
-  editingTplId: number | null;
-  setEditingTplId: (id: number | null) => void;
-  tplLocs: number[];
-  setTplLocs: (ids: number[]) => void;
-  tplDays: (string | number)[];
-  setTplDays: (days: (string | number)[]) => void;
-  tplStart: string;
-  setTplStart: (t: string) => void;
-  tplEnd: string;
-  setTplEnd: (t: string) => void;
-  tplStartDate: string;
-  setTplStartDate: (d: string) => void;
-  tplEndDate: string;
-  setTplEndDate: (d: string) => void;
-  tplTasks: string[];
-  setTplTasks: (tasks: string[]) => void;
-  tplUserId: string;
-  setTplUserId: (id: string) => void;
-  tplViewLocs: number[];
-  setTplViewLocs: (ids: number[]) => void;
-  tplViewDays: number[];
-  setTplViewDays: (days: number[]) => void;
-  newTaskStr: string;
-  setNewTaskStr: (s: string) => void;
 
   manPeriods: number[];
   setManPeriods: (ids: number[]) => void;
@@ -252,11 +207,7 @@ export interface AppState {
   toggleManPeriod: (idx: number) => void;
   toggleManLoc: (id: number) => void;
   toggleManEmp: (id: number) => void;
-  toggleTplLoc: (id: number) => void;
-  toggleTplDay: (idx: string | number) => void;
-  toggleTplViewLoc: (id: number) => void;
-  toggleTplViewDay: (idx: number) => void;
-  toggleTplTask: (taskName: string) => void;
+  
   handleAddUser: (userData: any) => Promise<void>;
   handleRoleToggle: (userId: number, role: string) => Promise<void>;
   handleUpdateUser: (userId: number, updates: any) => Promise<void>;
@@ -268,21 +219,10 @@ export interface AppState {
   handleClaimShift: (shiftId: number) => Promise<void>;
   handleUnclaimShift: (shiftId: number) => Promise<void>;
   handleGenerateSchedule: () => Promise<void>;
-  handleManualSubmit: (e: React.FormEvent) => Promise<void>;
   handleOpenReport: (card: TimeCard) => void;
   toggleChecklistTask: (taskName: string) => void;
   submitShiftReport: () => Promise<void>;
-  handleEditTemplate: (t: ShiftTemplate) => void;
-  handleSaveTemplate: (e: React.FormEvent) => Promise<void>;
-  handleDeleteTemplate: (id: number) => Promise<void>;
-  handleRedeemBeverage: (memberId: number) => Promise<void>;
-  handleLogPass: (e: React.FormEvent, memberId: number) => Promise<void>;
-  handleEditClick: (card: TimeCard) => void;
-  handleDeleteClick: (cardId: number) => Promise<void>;
   handleExportCSV: () => void;
-  handleAddMasterTask: () => Promise<void>;
-  handleEditMasterTask: (id: number, newName: string) => Promise<void>;
-  handleDeleteMasterTask: (id: number) => Promise<void>;
   handleUpdateCardStatus: (ids: number[], status: string) => Promise<void>;
   handleUpdateShiftTime: (shiftId: number, startTime: string, endTime: string, userId: number | null) => Promise<void>;
   handleCreateLocation: (payload: any) => Promise<{ success: boolean }>;
@@ -304,16 +244,7 @@ export interface AppState {
   globalTasks: GlobalTask[];
   setGlobalTasks: (t: GlobalTask[]) => void;
   fetchGlobalTasks: () => void;
-  editingRenewalId: number | null;
-  setEditingRenewalId: (id: number | null) => void;
-  newRenewalDate: string;
-  setNewRenewalDate: (d: string) => void;
-  editingTotalId: number | null;
-  setEditingTotalId: (id: number | null) => void;
-  newTotalVal: number | string;
-  setNewTotalVal: (v: number | string) => void;
-  newBonusNotes: string;
-  setNewBonusNotes: (n: string) => void;
+
   giftCards: GiftCard[];
   setGiftCards: (g: GiftCard[]) => void;
   fetchGiftCards: () => void;
@@ -321,6 +252,7 @@ export interface AppState {
   handleRedeemCard: (id: number, amount: number) => Promise<{ success: boolean }>;
   showGiftCards: boolean;
   isGiftCardsLoading: boolean;
+  
   feedbacks: Feedback[];
   setFeedbacks: (f: Feedback[]) => void;
   fetchFeedbacks: () => void;
@@ -328,6 +260,7 @@ export interface AppState {
   handleUpdateFeedback: (id: number, payload: any) => Promise<{ success: boolean }>;
   isFeedbacksLoading: boolean;
   highlightBaseline: string;
+  
   calendarCells: (number | null)[];
   activeCalColor: any;
   activeManPeriods: { label: string; start: string; end: string }[];
@@ -335,19 +268,24 @@ export interface AppState {
   hiddenWarnings: string[];
   missingPunches: Shift[];
   activeUserTimeCards: TimeCard[];
-  filteredMembers: Member[];
-  filteredTemplates: ShiftTemplate[];
   unapprovedCount: number;
   pendingCards: TimeCard[];
   builderWeekStart: string;
   setBuilderWeekStart: (d: string) => void;
   unreadFeedbackCount: number;
+  unreadMessagesCount: number;
+  fetchChecklists: () => void;
   
   messages: Message[];
   setMessages: (m: Message[]) => void;
   fetchMessages: () => void;
   handleSendMessage: (content: string, isGlobal: boolean, targetUserIds: number[], targetLocationIds: number[]) => Promise<{ success: boolean }>;
+  
   announcements: Announcement[];
   setAnnouncements: (a: Announcement[]) => void;
   fetchAnnouncements: () => void;
-  handleCreateAnnouncement: (title: string, content: string, isGlobal: boolean, targetLocationIds: number
+  handleCreateAnnouncement: (title: string, content: string, isGlobal: boolean, targetLocationIds: number[]) => Promise<{ success: boolean }>;
+  handleDeleteAnnouncement: (id: number) => Promise<{ success: boolean }>;
+}
+
+type Int = number;

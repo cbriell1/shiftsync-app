@@ -1,48 +1,82 @@
+// filepath: app/components/TimesheetsTab.tsx
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { AppState, TimeCard } from '../lib/types';
 
 export default function TimesheetsTab({ appState }: { appState: AppState }) {
   const {
-    managerData, formDate, setFormDate, formStartTime, setFormStartTime, 
-    formEndTime, setFormEndTime, selectedLocation, setSelectedLocation, 
-    handleManualSubmit, editingCardId, setEditingCardId, 
-    formUserId, setFormUserId, activeUsers,
-    setActiveTab, handleEditClick, handleDeleteClick, 
-    formatDateSafe, formatTimeSafe, checklists,
-    locations, manLocs
+    managerData, activeUsers, locations, manLocs, 
+    formatDateSafe, formatTimeSafe, checklists
   } = appState;
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
   
-  const toggleGroup = (key: string) => {
-    setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
+  const [editingCardId, setEditingCardId] = useState<number | null>(null);
+  const[formUserId, setFormUserId] = useState('');
+  const [formDate, setFormDate] = useState('');
+  const[formStartTime, setFormStartTime] = useState('');
+  const [formEndTime, setFormEndTime] = useState('');
+  const[selectedLocation, setSelectedLocation] = useState('');
+
+  const triggerSync = () => window.dispatchEvent(new Event('focus'));
+
+  const toggleGroup = (key: string) => setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
+  const toggleReport = (id: number) => setExpandedReports(prev => ({ ...prev,[id]: !prev[id] }));
+
+  const handleManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formUserId) return alert("Select an employee for the timecard!");
+    if (!selectedLocation) return alert("Select a location!");
+    if (!formDate || !formStartTime) return alert("Date and Start Time are required!");
+
+    const clockInDateTime = new Date(`${formDate}T${formStartTime}`);
+    let clockOutDateTime = null;
+    if (formEndTime) {
+      clockOutDateTime = new Date(`${formDate}T${formEndTime}`);
+      if (clockOutDateTime < clockInDateTime) clockOutDateTime.setDate(clockOutDateTime.getDate() + 1);
+    }
+    const body: any = { userId: formUserId, locationId: selectedLocation, clockIn: clockInDateTime.toISOString(), clockOut: clockOutDateTime?.toISOString() || null };
+    if (editingCardId) body.id = editingCardId;
+
+    try {
+      const res = await fetch('/api/timecards', { method: editingCardId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!res.ok) { alert("Failed to save timecard."); return; }
+      setEditingCardId(null); setFormStartTime(''); setFormEndTime(''); setFormUserId(''); setFormDate(''); setSelectedLocation('');
+      triggerSync(); 
+    } catch (err) { alert("An unexpected network error occurred."); }
   };
 
-  const toggleReport = (id: number) => {
-    setExpandedReports(prev => ({ ...prev,[id]: !prev[id] }));
+  const handleEditClick = (card: TimeCard) => {
+    const inD = new Date(card.clockIn);
+    setFormDate(inD.toISOString().split('T')[0]);
+    setFormStartTime(inD.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }));
+    if (card.clockOut) setFormEndTime(new Date(card.clockOut).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }));
+    else setFormEndTime('');
+    setSelectedLocation(card.locationId.toString());
+    setFormUserId(card.userId.toString());
+    setEditingCardId(card.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleManagerEditClick = (card: TimeCard) => {
-    handleEditClick(card); 
-    setActiveTab('timesheets'); 
-    window.scrollTo({ top: 0, behavior: 'smooth' }); 
+  const handleDeleteClick = async (cardId: number) => {
+    if(!confirm("Delete?")) return;
+    await fetch('/api/timecards', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: cardId }) });
+    triggerSync();
   };
 
-  // Group managerData dynamically
-  const groupedCards = (managerData ||[]).reduce((acc: Record<string, Record<string, TimeCard[]>>, card) => {
-    if (manLocs.length > 0 && !manLocs.includes(card.locationId)) return acc;
-
-    const locName = card.location?.name || 'Unknown Location';
-    const empName = card.user?.name || 'Unknown Employee';
-
-    if (!acc[locName]) acc[locName] = {};
-    if (!acc[locName][empName]) acc[locName][empName] = [];
-
-    acc[locName][empName].push(card);
-    return acc;
-  }, {});
+  // OPTIMIZATION: Only group cards when managerData changes, not on every keystroke
+  const groupedCards = useMemo(() => {
+    return (managerData ||[]).reduce((acc: Record<string, Record<string, TimeCard[]>>, card) => {
+      if (manLocs.length > 0 && !manLocs.includes(card.locationId)) return acc;
+      const locName = card.location?.name || 'Unknown Location';
+      const empName = card.user?.name || 'Unknown Employee';
+      if (!acc[locName]) acc[locName] = {};
+      if (!acc[locName][empName]) acc[locName][empName] =[];
+      acc[locName][empName].push(card);
+      return acc;
+    }, {});
+  }, [managerData, manLocs]);
 
   return (
     <div className="bg-white p-4 md:p-6 rounded-2xl border border-gray-300 shadow-md animate-in fade-in duration-300">
@@ -69,7 +103,6 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
             <label className="block text-sm font-bold text-slate-700 mb-1">Employee</label>
             <select value={formUserId} onChange={(e) => setFormUserId(e.target.value)} required className="w-full border border-gray-400 rounded-lg p-2.5 text-slate-900 font-black focus:ring-2 focus:ring-blue-500 outline-none shadow-sm">
               <option value="">-- Select --</option>
-              {/* Only show active users in the dropdown, unless we are editing a card belonging to an archived user */}
               {activeUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
@@ -93,7 +126,6 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
             <label className="block text-sm font-bold text-slate-700 mb-1">Location</label>
             <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} required className="w-full border border-gray-400 rounded-lg p-2.5 text-slate-900 font-black focus:ring-2 focus:ring-blue-500 outline-none shadow-sm">
               <option value="">-- Select --</option>
-              {/* Only show active locations for NEW entries */}
               {locations.filter(l => l.isActive !== false || (editingCardId && l.id.toString() === selectedLocation)).map(loc => (
                 <option key={loc.id} value={loc.id}>{loc.name} {loc.isActive === false && '(Archived)'}</option>
               ))}
@@ -149,8 +181,6 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
                       const empKey = `emp-${locName}-${empName}`;
                       const cards = empGroups[empName];
                       const empTotal = cards.reduce((sum, c) => sum + (c.totalHours || 0), 0);
-
-                      // Determine if employee is archived
                       const sampleCard = cards[0];
                       const isArchivedEmp = sampleCard && sampleCard.user?.isActive === false;
 
@@ -194,18 +224,14 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
                                       </div>
                                       
                                       <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                                        <button onClick={() => handleManagerEditClick(card)} className="px-4 py-1.5 text-xs bg-orange-50 text-orange-900 border border-orange-200 font-bold rounded-lg hover:bg-orange-100 transition-colors">Edit</button>
+                                        <button onClick={() => handleEditClick(card)} className="px-4 py-1.5 text-xs bg-orange-50 text-orange-900 border border-orange-200 font-bold rounded-lg hover:bg-orange-100 transition-colors">Edit</button>
                                         <button onClick={() => handleDeleteClick(card.id)} className="px-4 py-1.5 text-xs bg-slate-100 text-slate-700 border border-slate-300 font-bold rounded-lg hover:bg-slate-200 transition-colors">Delete</button>
                                       </div>
                                     </div>
 
-                                    {/* Embedded Shift Report */}
                                     {report && (
                                       <div className="border-t border-slate-200 bg-slate-50">
-                                        <button 
-                                          onClick={() => toggleReport(card.id)} 
-                                          className="w-full flex items-center justify-between p-3 text-xs font-black text-slate-600 hover:bg-slate-100 transition-colors uppercase tracking-widest"
-                                        >
+                                        <button onClick={() => toggleReport(card.id)} className="w-full flex items-center justify-between p-3 text-xs font-black text-slate-600 hover:bg-slate-100 transition-colors uppercase tracking-widest">
                                           <span>Shift Report Attached</span>
                                           <svg className={`h-4 w-4 transition-transform ${expandedReports[card.id] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                         </button>

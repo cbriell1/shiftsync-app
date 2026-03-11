@@ -1,3 +1,4 @@
+// filepath: prisma/schema.prisma
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -39,7 +40,7 @@ model User {
   locationIds    Int[]      @default([])
 
   locationId     Int?
-  location       Location?  @relation(fields: [ locationId ], references:[ id ])
+  location       Location?  @relation(fields:[ locationId ], references:[ id ])
   
   courtReserveId String?
   phoneNumber    String?
@@ -55,7 +56,6 @@ model User {
   templates      ShiftTemplate[]
   feedbacks      Feedback[]
   
-  // NEW RELATIONS
   messages       Message[]
   announcements  Announcement[]
 
@@ -81,6 +81,7 @@ model Account {
  
   user User @relation(fields:[userId], references:[id], onDelete: Cascade)
   @@unique([provider, providerAccountId])
+  @@index([userId]) // Optimization
 }
  
 model Session {
@@ -89,6 +90,8 @@ model Session {
   userId       Int
   expires      DateTime
   user         User     @relation(fields:[userId], references:[id], onDelete: Cascade)
+  
+  @@index([userId]) // Optimization
 }
  
 model Authenticator {
@@ -125,6 +128,11 @@ model Shift {
   location    Location   @relation(fields: [ locationId ], references:[ id ])
   userId      Int?
   assignedTo  User?      @relation(fields: [ userId ], references:[ id ])
+
+  // Performance Indexes for Calendar and Schedule queries
+  @@index([startTime, endTime])
+  @@index([locationId])
+  @@index([userId])
 }
 
 model TimeCard {
@@ -141,6 +149,11 @@ model TimeCard {
   payPeriod   PayPeriod?   @relation(fields:[ payPeriodId ], references:[ id ])
   
   checklists  Checklist[] 
+
+  // Performance Indexes for Dashboard and Payroll Math
+  @@index([clockIn])
+  @@index([userId])
+  @@index([locationId])
 }
 
 model Member {
@@ -156,6 +169,9 @@ model Member {
   lastBeverageDate DateTime?   
   usages           PassUsage[]
   giftCards        GiftCard[]  
+
+  // Performance Index for Search Bar lookups
+  @@index([lastName])
 }
 
 model PassUsage {
@@ -165,6 +181,8 @@ model PassUsage {
   initials   String?
   memberId   Int
   member     Member   @relation(fields: [ memberId ], references:[ id ])
+
+  @@index([memberId])
 }
 
 model GiftCard {
@@ -177,6 +195,8 @@ model GiftCard {
   member           Member?  @relation(fields:[memberId], references:[id])
   issuedAt         DateTime @default(now())
   updatedAt        DateTime @updatedAt
+
+  @@index([memberId])
 }
 
 model ShiftTemplate {
@@ -191,6 +211,9 @@ model ShiftTemplate {
   checklistTasks String[] @default([]) 
   userId         Int?     
   user           User?    @relation(fields:[userId], references:[id])
+
+  @@index([locationId])
+  @@index([dayOfWeek])
 }
 
 model Checklist {
@@ -206,6 +229,9 @@ model Checklist {
   completedTasks String[]  @default([])
   missedTasks    String[]  @default([])
   photoUrls      String[]  @default([])
+
+  @@index([timeCardId])
+  @@index([userId])
 }
 
 model GlobalTask {
@@ -223,6 +249,9 @@ model Feedback {
   devNotes    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
 
 model Message {
@@ -234,6 +263,9 @@ model Message {
   targetUserIds     Int[]    @default([])
   targetLocationIds Int[]    @default([])
   createdAt         DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([senderId])
 }
 
 model Announcement {
@@ -245,4 +277,7 @@ model Announcement {
   isGlobal          Boolean  @default(true)
   targetLocationIds Int[]    @default([])
   createdAt         DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([authorId])
 }

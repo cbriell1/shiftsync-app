@@ -1,6 +1,8 @@
+// filepath: app/components/CalendarTab.tsx
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import { AppState, Shift, Location, User } from '../lib/types';
+import { customConfirm, notify } from '@/lib/ui-utils'; // <-- NEW IMPORTS
 
 // Constants for the Timeline View (Week & Day)
 const TIMELINE_START_HOUR = 6; // 6:00 AM
@@ -38,13 +40,13 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
     setCurrentYear(baseDate.getFullYear());
   }, [baseDate, setCurrentMonth, setCurrentYear]);
 
-  const [selectedLocs, setSelectedLocs] = useState<number[]>([]);
+  const[selectedLocs, setSelectedLocs] = useState<number[]>([]);
   const [selectedEmps, setSelectedEmps] = useState<number[]>([]);
   const [showLocDropdown, setShowLocDropdown] = useState(false);
-  const [showEmpDropdown, setShowEmpDropdown] = useState(false);
+  const[showEmpDropdown, setShowEmpDropdown] = useState(false);
 
   const activeUserObj = users.find(u => u.id === parseInt(selectedUserId));
-  const userLocationIds = activeUserObj?.locationIds || [];
+  const userLocationIds = activeUserObj?.locationIds ||[];
   const allowedLocationIds = userLocationIds.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
 
   const activeLocations = (isAdmin || isManager) 
@@ -124,21 +126,23 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
       });
     });
     const renderedLocs = Array.from(locsToRender).map(id => locations.find(l => l.id === id)).filter(Boolean) as Location[];
-    const safeLocs = renderedLocs.length > 0 ? renderedLocs.sort((a,b) => a.name.localeCompare(b.name)) : [{ id: 0, name: 'No Locations' } as Location];
+    const safeLocs = renderedLocs.length > 0 ? renderedLocs.sort((a,b) => a.name.localeCompare(b.name)) :[{ id: 0, name: 'No Locations' } as Location];
     return dayArray.flatMap(d => safeLocs.map(loc => ({ date: d, location: loc })));
-  }, [dayArray, activeLocations, selectedLocs, shifts, locations, isAdmin, isManager, allowedLocationIds]);
+  },[dayArray, activeLocations, selectedLocs, shifts, locations, isAdmin, isManager, allowedLocationIds]);
 
   const handleRequestCover = async (shiftId: number) => {
-    if(!confirm("Are you sure you need coverage?")) return;
+    if(!(await customConfirm("Are you sure you need coverage for this shift?", "Need Cover", true))) return;
     await fetch('/api/shifts', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ shiftId: shiftId, action: 'REQUEST_COVER' }) });
     const res = await fetch('/api/shifts?t=' + new Date().getTime());
     setShifts(await res.json());
+    notify.success("Coverage requested!");
   };
 
   const handleCancelCover = async (shiftId: number) => {
     await fetch('/api/shifts', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ shiftId: shiftId, action: 'CANCEL_COVER' }) });
     const res = await fetch('/api/shifts?t=' + new Date().getTime());
     setShifts(await res.json());
+    notify.success("Coverage request canceled.");
   };
 
   const handleDrop = (e: React.DragEvent, targetDate: Date) => {
@@ -263,7 +267,7 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
             <div className="grid grid-cols-7 gap-2 border-l border-t border-gray-300 bg-gray-200 rounded-b-lg overflow-hidden shadow-inner">
               {calendarCells.map((dayNum, index) => {
                 const dateObj = dayNum ? new Date(baseDate.getFullYear(), baseDate.getMonth(), dayNum) : null;
-                const dayShifts = dateObj ? getFilteredShifts(dateObj) : [];
+                const dayShifts = dateObj ? getFilteredShifts(dateObj) :[];
                 dayShifts.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
                 const isToday = dateObj && dateObj.getDate() === new Date().getDate() && dateObj.getMonth() === new Date().getMonth() && dateObj.getFullYear() === new Date().getFullYear();
                 return (
@@ -294,8 +298,8 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
                                   )}
                                   {isMyShift && shift.status !== 'COVERAGE_REQUESTED' && <button onClick={() => handleRequestCover(shift.id)} className="w-full text-xs bg-orange-100 text-orange-800 border border-orange-300 font-bold py-1 rounded shadow-sm">Need Coverage</button>}
                                   {isMyShift && shift.status === 'COVERAGE_REQUESTED' && <button onClick={() => handleCancelCover(shift.id)} className="w-full text-[10px] uppercase tracking-widest bg-gray-200 text-gray-800 font-black py-1.5 rounded shadow-sm border border-gray-400">Cancel Request</button>}
-                                  {!isMyShift && shift.status === 'COVERAGE_REQUESTED' && <button onClick={() => { if(confirm("PICK UP shift?")) handleClaimShift(shift.id); }} className="w-full text-[10px] uppercase tracking-widest bg-green-600 text-white font-black py-1.5 rounded shadow-sm border border-green-700 mt-1">Pick Up Shift</button>}
-                                  {!isMyShift && shift.status === 'OPEN' && (!isAdmin && !isManager) && <button onClick={() => { if(confirm("CLAIM open shift?")) handleClaimShift(shift.id); }} className="w-full text-[10px] uppercase tracking-widest bg-blue-600 text-white font-black py-1.5 rounded shadow-sm border border-blue-700 mt-1">Claim Shift</button>}
+                                  {!isMyShift && shift.status === 'COVERAGE_REQUESTED' && <button onClick={async () => { if(await customConfirm("Pick up shift?", "Pick Up", false)) handleClaimShift(shift.id); }} className="w-full text-[10px] uppercase tracking-widest bg-green-600 text-white font-black py-1.5 rounded shadow-sm border border-green-700 mt-1">Pick Up Shift</button>}
+                                  {!isMyShift && shift.status === 'OPEN' && (!isAdmin && !isManager) && <button onClick={async () => { if(await customConfirm("Claim open shift?", "Claim", false)) handleClaimShift(shift.id); }} className="w-full text-[10px] uppercase tracking-widest bg-blue-600 text-white font-black py-1.5 rounded shadow-sm border border-blue-700 mt-1">Claim Shift</button>}
                                 </div>
                               </div>
                             );
@@ -346,7 +350,7 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
                     {timelineColumns.map((col, colIndex) => {
                       const colShifts = getFilteredShifts(col.date, col.location?.id);
                       colShifts.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-                      const overlapCols: Shift[][] = [];
+                      const overlapCols: Shift[][] =[];
                       colShifts.forEach(shift => {
                         let placed = false;
                         const startMs = new Date(shift.startTime).getTime();
@@ -378,8 +382,8 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
                                     {!isCompact && <div className={`text-[10px] mt-0.5 font-bold truncate opacity-80 ${shiftColor.text}`}>{shift.status === 'OPEN' ? 'Unassigned' : (isMyShift ? 'Your Shift' : (shift.assignedTo?.name || 'Assigned'))}</div>}
                                   </div>
                                   {(isAdmin || isManager) && !isCompact && <div className="px-1 pb-1 mt-auto"><select value={shift.userId || ""} onChange={(e) => handleUpdateShiftTime(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} className="w-full bg-white/50 border border-black/10 rounded outline-none text-[9px] font-bold p-0.5 cursor-pointer text-slate-800"><option value="">- Open -</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>}
-                                  {!isMyShift && shift.status === 'COVERAGE_REQUESTED' && !isCompact && <button onClick={() => { if(confirm("Pick up shift?")) handleClaimShift(shift.id); }} className="mx-1 mb-1 text-[8px] bg-green-600 text-white font-black py-1 rounded">CLAIM</button>}
-                                  {!isMyShift && shift.status === 'OPEN' && (!isAdmin && !isManager) && !isCompact && <button onClick={() => { if(confirm("Claim open shift?")) handleClaimShift(shift.id); }} className="mx-1 mb-1 text-[8px] bg-blue-600 text-white font-black py-1 rounded">CLAIM</button>}
+                                  {!isMyShift && shift.status === 'COVERAGE_REQUESTED' && !isCompact && <button onClick={async () => { if(await customConfirm("Pick up shift?", "Pick Up", false)) handleClaimShift(shift.id); }} className="mx-1 mb-1 text-[8px] bg-green-600 text-white font-black py-1 rounded">CLAIM</button>}
+                                  {!isMyShift && shift.status === 'OPEN' && (!isAdmin && !isManager) && !isCompact && <button onClick={async () => { if(await customConfirm("Claim open shift?", "Claim", false)) handleClaimShift(shift.id); }} className="mx-1 mb-1 text-[8px] bg-blue-600 text-white font-black py-1 rounded">CLAIM</button>}
                                 </div>
                               </div>
                             );

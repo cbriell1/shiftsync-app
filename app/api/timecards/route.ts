@@ -3,7 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-// FIX: Added .nullable() to the ID so brand new timecards don't crash the validator
+export const dynamic = 'force-dynamic';
+
 const timeCardSchema = z.object({
   id: z.number().nullable().optional(),
   userId: z.coerce.number(),
@@ -13,6 +14,10 @@ const timeCardSchema = z.object({
   status: z.string().optional(),
 });
 
+const getQuerySchema = z.object({
+  userId: z.coerce.number().optional()
+});
+
 // Helper function to calculate duration in hours
 const calculateTotalHours = (clockIn: string, clockOut?: string | null) => {
   if (!clockOut) return null;
@@ -20,16 +25,29 @@ const calculateTotalHours = (clockIn: string, clockOut?: string | null) => {
   return parseFloat((msDiff / (1000 * 60 * 60)).toFixed(2));
 };
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const parsed = getQuerySchema.safeParse({ 
+      userId: searchParams.get('userId') || undefined 
+    });
+
+    let whereClause = {};
+    if (parsed.success && parsed.data.userId) {
+      whereClause = { userId: parsed.data.userId };
+    }
+
     const timeCards = await prisma.timeCard.findMany({
+      where: whereClause,
       include: { 
         user: true, 
         location: true, 
         checklists: true 
       },
-      orderBy: { clockIn: 'desc' }
+      orderBy: { clockIn: 'desc' },
+      take: 100 // Prevent payload limit crashes by capping history to last 100 shifts
     });
+    
     return NextResponse.json(timeCards);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -47,12 +65,11 @@ export async function POST(req: Request) {
         locationId: data.locationId,
         clockIn: new Date(data.clockIn),
         clockOut: data.clockOut ? new Date(data.clockOut) : null,
-        totalHours: calculateTotalHours(data.clockIn, data.clockOut), // Computes hours instantly
+        totalHours: calculateTotalHours(data.clockIn, data.clockOut), 
       }
     });
     return NextResponse.json(tc);
   } catch (error: any) {
-    console.error("POST Timecard Error:", error);
     if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -70,7 +87,7 @@ export async function PUT(req: Request) {
       locationId: data.locationId,
       clockIn: new Date(data.clockIn),
       clockOut: data.clockOut ? new Date(data.clockOut) : null,
-      totalHours: calculateTotalHours(data.clockIn, data.clockOut), // Computes hours instantly
+      totalHours: calculateTotalHours(data.clockIn, data.clockOut), 
     };
 
     if (data.status) updateData.status = data.status;
@@ -81,7 +98,6 @@ export async function PUT(req: Request) {
     });
     return NextResponse.json(tc);
   } catch (error: any) {
-    console.error("PUT Timecard Error:", error);
     if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

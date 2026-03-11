@@ -1,7 +1,9 @@
+// filepath: app/page.tsx
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { signOut, useSession, signIn as signInReact } from "next-auth/react";
 import { signIn as signInPasskey } from "next-auth/webauthn"; 
+import { notify, customConfirm } from '@/lib/ui-utils';
 import { 
   User, Location, TimeCard, Shift, Member, ShiftTemplate, 
   Checklist, GlobalTask, GiftCard, Feedback, Message, Announcement, AppState 
@@ -24,9 +26,9 @@ import MessagesTab from './components/MessagesTab';
 // 1. LOGIN SCREEN COMPONENT
 // ==================================================================
 function LoginScreen({ sessionData }: { sessionData: any }) {
-  const [email, setEmail] = useState("");
+  const[email, setEmail] = useState("");
   const[password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const[loading, setLoading] = useState(false);
   const[usePassword, setUsePassword] = useState(false);
 
   const handlePasskeyLogin = async (action: "authenticate" | "register") => {
@@ -45,21 +47,14 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 p-4 font-sans">
       <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md space-y-8 border-b-8 border-green-800 relative">
-        
         {sessionData && (
-          <button 
-            onClick={() => signOut()}
-            className="absolute top-4 right-4 text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded"
-          >
+          <button onClick={() => signOut()} className="absolute top-4 right-4 text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded">
             Clear Session
           </button>
         )}
-
         <div className="text-center">
           <img src="/logo.png" alt="Pickles & Play" className="h-20 mx-auto mb-4" onError={(e) => e.currentTarget.style.display = 'none'} />
-          <h2 className="text-3xl font-black text-slate-900 italic tracking-tight uppercase">
-            <span className="text-yellow-500">Pickles</span> & Play
-          </h2>
+          <h2 className="text-3xl font-black text-slate-900 italic tracking-tight uppercase"><span className="text-yellow-500">Pickles</span> & Play</h2>
           <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-2">Manager Access</p>
         </div>
 
@@ -67,32 +62,16 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
           <div className="space-y-4 animate-in fade-in">
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1">Email Address</label>
-              <input 
-                type="email" 
-                placeholder="admin@picklesandplay.com" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-green-600 outline-none shadow-inner"
-              />
+              <input type="email" placeholder="admin@picklesandplay.com" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-green-600 outline-none shadow-inner" />
             </div>
-            
             <div className="flex flex-col gap-2 pt-2">
-              <button 
-                onClick={() => handlePasskeyLogin("authenticate")}
-                disabled={!email || loading}
-                className="w-full bg-green-800 hover:bg-green-900 disabled:opacity-50 text-white font-black py-3.5 rounded-xl shadow-md transition-all text-sm uppercase tracking-wider"
-              >
+              <button onClick={() => handlePasskeyLogin("authenticate")} disabled={!email || loading} className="w-full bg-green-800 hover:bg-green-900 disabled:opacity-50 text-white font-black py-3.5 rounded-xl shadow-md transition-all text-sm uppercase tracking-wider">
                 {loading ? "..." : "🔐 Sign In"}
               </button>
-              <button 
-                onClick={() => handlePasskeyLogin("register")}
-                disabled={!email || loading}
-                className="w-full bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-bold py-3 rounded-xl transition-all text-sm"
-              >
+              <button onClick={() => handlePasskeyLogin("register")} disabled={!email || loading} className="w-full bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-bold py-3 rounded-xl transition-all text-sm">
                 ➕ Register new Passkey
               </button>
             </div>
-
             <div className="pt-4 border-t border-slate-100 text-center">
               <button onClick={() => setUsePassword(true)} className="text-xs font-black text-blue-600 hover:text-blue-800 transition-colors">
                 Lost Device or Changed Domains? Use Emergency Login
@@ -101,43 +80,20 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
           </div>
         ) : (
           <form onSubmit={handlePasswordLogin} className="space-y-4 animate-in fade-in slide-in-from-right-4">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs font-bold text-red-800 text-center mb-4">
-              Emergency Override Mode
-            </div>
-            
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs font-bold text-red-800 text-center mb-4">Emergency Override Mode</div>
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1">Admin Email</label>
-              <input 
-                type="email" 
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-red-600 outline-none shadow-inner"
-              />
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-red-600 outline-none shadow-inner" />
             </div>
-            
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1">Server Secret (Password)</label>
-              <input 
-                type="password" 
-                required
-                placeholder="Paste AUTH_SECRET here..."
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-red-600 outline-none shadow-inner"
-              />
+              <input type="password" required placeholder="Paste AUTH_SECRET here..." value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-red-600 outline-none shadow-inner" />
             </div>
-
             <div className="pt-2">
-              <button 
-                type="submit"
-                disabled={loading || !email || !password}
-                className="w-full bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white font-black py-3.5 rounded-xl shadow-md transition-all text-sm uppercase tracking-wider"
-              >
+              <button type="submit" disabled={loading || !email || !password} className="w-full bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white font-black py-3.5 rounded-xl shadow-md transition-all text-sm uppercase tracking-wider">
                 {loading ? "Authenticating..." : "⚠️ Force Login"}
               </button>
             </div>
-
             <div className="pt-4 text-center">
               <button type="button" onClick={() => setUsePassword(false)} className="text-xs font-black text-slate-500 hover:text-slate-800 transition-colors">
                 ← Back to Passkeys
@@ -151,44 +107,38 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
 }
 
 // ==================================================================
-// 2. MAIN DASHBOARD APP (Requires Authentication)
+// 2. MAIN DASHBOARD APP
 // ==================================================================
 function MainDashboard({ session }: { session: any }) {
-  // --- UI & Global App State ---
   const[isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState('calendar'); // Default safe tab
+  const[activeTab, setActiveTab] = useState('calendar');
   
-  // --- Data States ---
   const [users, setUsers] = useState<User[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
+  const[locations, setLocations] = useState<Location[]>([]);
   const[timeCards, setTimeCards] = useState<TimeCard[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
+  const[members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const[checklists, setChecklists] = useState<Checklist[]>([]);
-  const [globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const[globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
+  const[feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const[giftCards, setGiftCards] = useState<GiftCard[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const[messages, setMessages] = useState<Message[]>([]);
+  const[announcements, setAnnouncements] = useState<Announcement[]>([]);
 
-  // --- Loading States ---
-  const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
+  const[isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
   const [isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
 
-  // --- User & Date Context ---
   const [selectedUserId, setSelectedUserId] = useState(session?.user?.id?.toString() || '');
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const[currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const[currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
-  // --- Notifications & Local Storage Trackers ---
-  const [lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
+  const[lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
   const[highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
-  const [lastViewedMessages, setLastViewedMessages] = useState<string>('1970-01-01T00:00:00.000Z');
+  const[lastViewedMessages, setLastViewedMessages] = useState<string>('1970-01-01T00:00:00.000Z');
 
-  // --- Calendar & Filter States ---
   const[calLocFilter, setCalLocFilter] = useState('');
-  const [calEmpFilter, setCalEmpFilter] = useState('');
+  const[calEmpFilter, setCalEmpFilter] = useState('');
 
   const getMonday = (d: Date) => { 
     const dt = new Date(d); 
@@ -196,60 +146,21 @@ function MainDashboard({ session }: { session: any }) {
     const diff = dt.getDate() - day + (day === 0 ? -6 : 1); 
     return new Date(dt.setDate(diff)).toISOString().split('T')[0]; 
   };
-  const [builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
+  const[builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
 
-  // --- Form States (Timecards) ---
-  const[editingCardId, setEditingCardId] = useState<number | null>(null);
-  const [formUserId, setFormUserId] = useState<string>(''); 
-  const [formDate, setFormDate] = useState('');
-  const [formStartTime, setFormStartTime] = useState('');
-  const [formEndTime, setFormEndTime] = useState('');
-  const[selectedLocation, setSelectedLocation] = useState('');
-
-  // --- Form States (Checklists & Reports) ---
   const[showChecklistModal, setShowChecklistModal] = useState(false);
-  const [reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
-  const [editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
-  const [clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
-  const [clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
-  const [clNotes, setClNotes] = useState('');
+  const[reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
+  const[editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
+  const[clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
+  const[clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
+  const[clNotes, setClNotes] = useState('');
 
-  // --- Form States (Members/Passes) ---
-  const [passSearch, setPassSearch] = useState('');
-  const [expandedMember, setExpandedMember] = useState<number | null>(null);
-  const [pDate, setPDate] = useState('');
-  const [pAmt, setPAmt] = useState<number | string>(1);
-  const[pInitials, setPInitials] = useState('');
-  const [editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
-  const [newRenewalDate, setNewRenewalDate] = useState('');
-  const[editingTotalId, setEditingTotalId] = useState<number | null>(null);
-  const[newTotalVal, setNewTotalVal] = useState<number | string>(12);
-  const[newBonusNotes, setNewBonusNotes] = useState('');
-
-  // --- Form States (Templates & Tasks) ---
-  const[editingTplId, setEditingTplId] = useState<number | null>(null); 
-  const[tplLocs, setTplLocs] = useState<number[]>([]);
-  const[tplDays, setTplDays] = useState<(string | number)[]>([]);
-  const[tplStart, setTplStart] = useState('');
-  const [tplEnd, setTplEnd] = useState('');
-  const[tplStartDate, setTplStartDate] = useState(''); 
-  const [tplEndDate, setTplEndDate] = useState('');     
-  const [tplTasks, setTplTasks] = useState<string[]>([]); 
-  const [newTaskStr, setNewTaskStr] = useState(''); 
-  const[tplUserId, setTplUserId] = useState(''); 
-  const [tplViewLocs, setTplViewLocs] = useState<number[]>([]);
-  const [tplViewDays, setTplViewDays] = useState<number[]>([]);
-
-  // --- Constants & Generators ---
   const generatePeriods = () => {
     const p =[];
     const today = new Date();
     let curM = today.getMonth();
     let curY = today.getFullYear();
-    if (today.getDate() < 28) { 
-      curM--; 
-      if(curM < 0) { curM = 11; curY--; } 
-    }
+    if (today.getDate() < 28) { curM--; if(curM < 0) { curM = 11; curY--; } }
     for(let i = 0; i < 6; i++) {
       const s = new Date(curY, curM - i, 28);
       const e = new Date(curY, curM - i + 1, 27);
@@ -258,18 +169,17 @@ function MainDashboard({ session }: { session: any }) {
     return p;
   };
 
-  const [periods] = useState(generatePeriods());
+  const[periods] = useState(generatePeriods());
   const[manPeriods, setManPeriods] = useState<number[]>([0]); 
   const[manLocs, setManLocs] = useState<number[]>([]);
-  const [manEmps, setManEmps] = useState<number[]>([]);
-  const [managerData, setManagerData] = useState<TimeCard[]>([]);
+  const[manEmps, setManEmps] = useState<number[]>([]);
+  const[managerData, setManagerData] = useState<TimeCard[]>([]);
 
-  const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const DAYS_OF_WEEK =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const YEARS =[2025, 2026, 2027];
   const AVAILABLE_ROLES =['Administrator', 'Manager', 'Front Desk', 'Trainer'];
 
-  // --- Utilities ---
   const formatTimeSafe = (dStr: string) => {
     if (!dStr) return 'Active';
     const d = new Date(dStr);
@@ -298,7 +208,6 @@ function MainDashboard({ session }: { session: any }) {
     return colors[index];
   };
 
-  // --- Initial Data Fetching API calls ---
   useEffect(() => {
     if (session?.user?.id && !selectedUserId) {
       setSelectedUserId(session.user.id.toString());
@@ -313,13 +222,17 @@ function MainDashboard({ session }: { session: any }) {
   const fetchGlobalTasks = () => fetch('/api/tasks?t=' + new Date().getTime()).then(res => res.json()).then(data => setGlobalTasks(Array.isArray(data) ? data :[])).catch(() => {});
   const fetchGiftCards = () => fetch('/api/giftcards?t=' + new Date().getTime()).then(res => res.json()).then(data => { setGiftCards(Array.isArray(data) ? data :[]); setIsGiftCardsLoading(false); }).catch(() => setIsGiftCardsLoading(false));
   const fetchFeedbacks = () => fetch('/api/feedback?t=' + new Date().getTime()).then(res => res.json()).then(data => { setFeedbacks(Array.isArray(data) ? data :[]); setIsFeedbacksLoading(false); }).catch(() => setIsFeedbacksLoading(false));
-  const fetchTimeCards = () => fetch('/api/timecards?t=' + new Date().getTime()).then(res => res.json()).then(data => setTimeCards(Array.isArray(data) ? data :[])).catch(() => {});
-
-  const fetchLocations = () => fetch('/api/locations?t=' + new Date().getTime()).then(res => res.json()).then(data => { 
-    setLocations(Array.isArray(data) ? data :[]); 
-    if(Array.isArray(data) && data.length > 0 && !selectedLocation) setSelectedLocation(data[0].id.toString()); 
-  }).catch(() => {});
+  const fetchLocations = () => fetch('/api/locations?t=' + new Date().getTime()).then(res => res.json()).then(data => setLocations(Array.isArray(data) ? data :[])).catch(() => {});
   
+  const fetchTimeCards = () => {
+    const id = selectedUserId || session?.user?.id?.toString();
+    if (!id) return;
+    fetch(`/api/timecards?userId=${id}&t=${new Date().getTime()}`)
+      .then(res => res.json())
+      .then(data => setTimeCards(Array.isArray(data) ? data :[]))
+      .catch(() => {});
+  };
+
   const fetchMessages = () => {
     const id = selectedUserId || session?.user?.id?.toString();
     if (!id) return;
@@ -338,48 +251,21 @@ function MainDashboard({ session }: { session: any }) {
       .catch(() => {});
   };
 
-  // --- BACKGROUND POLLING & WINDOW FOCUS SYNC ---
   useEffect(() => {
     setIsMounted(true);
     if (!session) return;
-
-    fetchUsers();
-    fetchMembers();
-    fetchTemplates();
-    fetchChecklists(); 
-    fetchGlobalTasks();
-    fetchGiftCards(); 
-    fetchFeedbacks();
-    fetchLocations();
-    fetchMessages();
-    fetchAnnouncements();
-    fetchTimeCards();
-    fetchShifts();
-
+    fetchUsers(); fetchMembers(); fetchTemplates(); fetchChecklists(); fetchGlobalTasks(); fetchGiftCards(); fetchFeedbacks(); fetchLocations(); fetchMessages(); fetchAnnouncements(); fetchTimeCards(); fetchShifts();
     const syncOperationalData = () => {
       if (!selectedUserId) return;
-      fetchChecklists();
-      fetchTimeCards();
-      fetchShifts();
-      fetchMessages();
-      fetchAnnouncements();
+      fetchChecklists(); fetchTimeCards(); fetchShifts(); fetchMessages(); fetchAnnouncements();
     };
-
     const onFocus = () => syncOperationalData();
     window.addEventListener('focus', onFocus);
-
     const intervalId = setInterval(syncOperationalData, 30000);
-
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      clearInterval(intervalId);
-    };
+    return () => { window.removeEventListener('focus', onFocus); clearInterval(intervalId); };
   },[session, selectedUserId]); 
 
-  // --- Auth & Access Control Logic ---
   const safeUsers = Array.isArray(users) ? users :[];
-  
-  // This computes the active users explicitly for dropdowns
   const activeUsers = safeUsers.filter(u => u.isActive !== false);
 
   const authenticatedUserId = session?.user?.id?.toString();
@@ -391,7 +277,6 @@ function MainDashboard({ session }: { session: any }) {
 
   const activeUserObj = safeUsers.find(u => u.id === parseInt(selectedUserId));
   const activeRoles = activeUserObj?.systemRoles ||[];
-
   const hasRole = (roleName: string) => activeRoles.includes(roleName);
   
   const isAdmin = hasRole('Administrator');
@@ -408,13 +293,11 @@ function MainDashboard({ session }: { session: any }) {
   const showPasses = isFrontDesk; 
   const showGiftCards = isFrontDesk; 
 
-  // --- COMPUTE VISIBLE LOCATIONS ---
   const allowedLocationIds = activeUserObj?.locationIds?.map(id => typeof id === 'string' ? parseInt(id, 10) : id) ||[];
   const visibleLocations = isAdmin 
     ? locations 
     : locations.filter(loc => allowedLocationIds.includes(loc.id));
 
-  // --- STICKY TAB LOGIC (LOCAL STORAGE) ---
   useEffect(() => {
     if (isMounted && authenticatedUserId) {
       const savedTab = localStorage.getItem('lastActiveTab_' + authenticatedUserId);
@@ -426,12 +309,10 @@ function MainDashboard({ session }: { session: any }) {
     if (isMounted && authenticatedUserId && users.length > 0) {
       localStorage.setItem('lastActiveTab_' + authenticatedUserId, activeTab);
     }
-  }, [activeTab, authenticatedUserId, isMounted, users.length]);
+  },[activeTab, authenticatedUserId, isMounted, users.length]);
 
-  // --- Tab Redirection Safety ---
   useEffect(() => {
     if (!isMounted || !session || users.length === 0) return; 
-
     if (activeTab === 'dashboard' && !showDashboard) setActiveTab('calendar');
     if (activeTab === 'timesheets' && !showTimesheets) setActiveTab('calendar');
     if (activeTab === 'builder' && !showBuilder) setActiveTab('calendar');
@@ -442,17 +323,15 @@ function MainDashboard({ session }: { session: any }) {
     if (activeTab === 'locations' && !showLocationsTab) setActiveTab('calendar');
   },[selectedUserId, users, activeTab, session, isMounted, showDashboard, showTimesheets, showBuilder, showPasses, showGiftCards, showSetup, showStaff, showLocationsTab]);
 
-  // --- Notification / LocalStorage Logic ---
   useEffect(() => {
     if (typeof window !== 'undefined' && selectedUserId) {
       const storedFb = localStorage.getItem('lastViewedFeedback_' + selectedUserId);
       setLastViewedFeedback(storedFb || '1970-01-01T00:00:00.000Z');
       setHighlightBaseline(storedFb || '1970-01-01T00:00:00.000Z');
-
       const storedMsg = localStorage.getItem('lastViewedMessages_' + selectedUserId);
       setLastViewedMessages(storedMsg || '1970-01-01T00:00:00.000Z');
     }
-  }, [selectedUserId]);
+  },[selectedUserId]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && selectedUserId) {
@@ -468,30 +347,32 @@ function MainDashboard({ session }: { session: any }) {
     }
   },[activeTab, selectedUserId, feedbacks, messages, announcements]);
 
-  const unreadFeedbackCount = (Array.isArray(feedbacks) ? feedbacks :[]).filter(fb => {
-    const fbUpdated = new Date(fb.updatedAt || fb.createdAt).getTime();
-    const lastViewed = new Date(lastViewedFeedback).getTime();
-    if (fbUpdated <= lastViewed) return false;
-    if (isManager) return true;
-    return fb.userId === parseInt(selectedUserId);
-  }).length;
+  // OPTIMIZATION: Memoize unread calculations
+  const unreadFeedbackCount = useMemo(() => {
+    return (Array.isArray(feedbacks) ? feedbacks :[]).filter(fb => {
+      const fbUpdated = new Date(fb.updatedAt || fb.createdAt).getTime();
+      const lastViewed = new Date(lastViewedFeedback).getTime();
+      if (fbUpdated <= lastViewed) return false;
+      if (isManager) return true;
+      return fb.userId === parseInt(selectedUserId);
+    }).length;
+  },[feedbacks, lastViewedFeedback, isManager, selectedUserId]);
 
-  const unreadMessagesCount =[...(Array.isArray(messages) ? messages : []), ...(Array.isArray(announcements) ? announcements :[])].filter(item => {
-    const itemDate = new Date(item.createdAt).getTime();
-    const lastViewed = new Date(lastViewedMessages).getTime();
-    if (itemDate <= lastViewed) return false;
-    if ('senderId' in item && item.senderId === parseInt(selectedUserId)) return false;
-    if ('authorId' in item && item.authorId === parseInt(selectedUserId)) return false;
-    return true;
-  }).length;
+  const unreadMessagesCount = useMemo(() => {
+    return[...(Array.isArray(messages) ? messages : []), ...(Array.isArray(announcements) ? announcements :[])].filter(item => {
+      const itemDate = new Date(item.createdAt).getTime();
+      const lastViewed = new Date(lastViewedMessages).getTime();
+      if (itemDate <= lastViewed) return false;
+      if ('senderId' in item && item.senderId === parseInt(selectedUserId)) return false;
+      if ('authorId' in item && item.authorId === parseInt(selectedUserId)) return false;
+      return true;
+    }).length;
+  }, [messages, announcements, lastViewedMessages, selectedUserId]);
 
-  // --- API / Handler Functions ---
   const fetchManagerData = async () => {
     const selectedPeriods = manPeriods.map(idx => periods[idx]);
     let targetEmployees = manEmps;
-    if (!isManager && selectedUserId) {
-      targetEmployees = [parseInt(selectedUserId)];
-    }
+    if (!isManager && selectedUserId) targetEmployees = [parseInt(selectedUserId)];
     const res = await fetch('/api/manager?t=' + new Date().getTime(), { 
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' }, 
@@ -504,20 +385,11 @@ function MainDashboard({ session }: { session: any }) {
   };
 
   useEffect(() => {
-    if (session && (activeTab === 'dashboard' || activeTab === 'timesheets')) {
-      fetchManagerData();
-    }
+    if (session && (activeTab === 'dashboard' || activeTab === 'timesheets')) fetchManagerData();
   },[activeTab, manPeriods, manLocs, manEmps, selectedUserId, isManager, session]);
 
-  const handleCreateLocation = async (payload: any) => {
-    const res = await fetch('/api/locations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    fetchLocations(); return { success: res.ok };
-  };
-
-  const handleUpdateLocation = async (id: number, payload: any) => {
-    const res = await fetch('/api/locations', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...payload }) });
-    fetchLocations(); return { success: res.ok };
-  };
+  const handleCreateLocation = async (payload: any) => { const res = await fetch('/api/locations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); fetchLocations(); return { success: res.ok }; };
+  const handleUpdateLocation = async (id: number, payload: any) => { const res = await fetch('/api/locations', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...payload }) }); fetchLocations(); return { success: res.ok }; };
 
   const handleUpdateShiftTime = async (shiftId: number, startTime: string, endTime: string, userId: number | null) => {
     setShifts(prev => prev.map(s => s.id === shiftId ? { ...s, startTime, endTime, userId, status: userId === null ? 'OPEN' : 'CLAIMED' } : s));
@@ -527,37 +399,23 @@ function MainDashboard({ session }: { session: any }) {
 
   const handleUpdateCardStatus = async (ids: number[], status: string) => {
     await fetch('/api/timecards/status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, status }) });
-    fetchManagerData();
-    fetchTimeCards();
-  };
-
-  const toggleTplLoc = (id: number) => { 
-    if (editingTplId) { setTplLocs([id]); return; }
-    setTplLocs(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-
-  const toggleTplDay = (idx: string | number) => { 
-    const dayNum = parseInt(String(idx), 10);
-    if (editingTplId) { setTplDays([dayNum]); return; }
-    setTplDays(prev => prev.includes(dayNum) ? prev.filter(x => x !== dayNum) : [...prev, dayNum]);
+    fetchManagerData(); fetchTimeCards();
   };
 
   const toggleManPeriod = (idx: number) => manPeriods.includes(idx) ? setManPeriods(manPeriods.filter(x => x !== idx)) : setManPeriods([...manPeriods, idx]);
   const toggleManLoc = (id: number) => manLocs.includes(id) ? setManLocs(manLocs.filter(x => x !== id)) : setManLocs([...manLocs, id]);
   const toggleManEmp = (id: number) => manEmps.includes(id) ? setManEmps(manEmps.filter(x => x !== id)) : setManEmps([...manEmps, id]);
-  const toggleTplViewLoc = (id: number) => tplViewLocs.includes(id) ? setTplViewLocs(tplViewLocs.filter(x => x !== id)) : setTplViewLocs([...tplViewLocs, id]);
-  const toggleTplViewDay = (idx: number) => tplViewDays.includes(idx) ? setTplViewDays(tplViewDays.filter(x => x !== idx)) : setTplViewDays([...tplViewDays, idx]);
-  const toggleTplTask = (taskName: string) => { if (tplTasks.includes(taskName)) setTplTasks(tplTasks.filter(t => t !== taskName)); else setTplTasks([...tplTasks, taskName]); };
 
   const handleAddUser = async (userData: any) => {
     const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(userData) });
-    if (res.ok) fetchUsers(); else { const err = await res.json(); alert(`Failed to add user: ${err.error || 'Unknown error'}`); }
+    if (res.ok) { fetchUsers(); notify.success("User added successfully!"); } 
+    else { const err = await res.json(); notify.error(`Failed to add user: ${err.error || 'Unknown error'}`); }
   };
 
   const handleRoleToggle = async (targetUserId: number, roleName: string) => {
     const targetUser = safeUsers.find(u => u.id === targetUserId);
     if (!targetUser) return;
-    let currentRoles = targetUser.systemRoles ? [...targetUser.systemRoles] :[];
+    let currentRoles = targetUser.systemRoles ?[...targetUser.systemRoles] :[];
     if (currentRoles.includes(roleName)) currentRoles = currentRoles.filter(r => r !== roleName);
     else currentRoles.push(roleName);
     setUsers(safeUsers.map(u => u.id === targetUserId ? { ...u, systemRoles: currentRoles } : u));
@@ -570,59 +428,36 @@ function MainDashboard({ session }: { session: any }) {
   };
 
   const handleMergeUsers = async (oldId: number, newId: number) => {
-    const res = await fetch('/api/users', { 
-      method: 'PUT', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ action: 'MERGE', oldId, newId }) 
-    });
-    if (res.ok) {
-      alert("Users merged successfully!");
-      fetchUsers();
-      fetchTimeCards();
-      fetchShifts();
-    } else {
-      const err = await res.json();
-      alert(`Merge failed: ${err.error || 'Unknown error'}`);
-    }
+    const res = await fetch('/api/users', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'MERGE', oldId, newId }) });
+    if (res.ok) { notify.success("Users merged successfully!"); fetchUsers(); fetchTimeCards(); fetchShifts(); } 
+    else { const err = await res.json(); notify.error(`Merge failed: ${err.error || 'Unknown error'}`); }
   };
 
-  const handleSeedEmployees = async () => { if(!confirm("Add all new employees?")) return; const res = await fetch('/api/users/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} new employees added.`); fetchUsers(); };
-  const handleImportHistory = async () => { if(!confirm("Import Garner Schedule History?")) return; const res = await fetch('/api/shifts/import-history', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} shifts synced.`); fetchShifts(); };
-  const handleImportTimecards = async () => { if(!confirm("Import Jan/Feb Worked Timecards?")) return; const res = await fetch('/api/timecards/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! ${data.count} missing timecards logged.`); fetchTimeCards(); if (activeTab === 'dashboard') fetchManagerData(); };
-  const handleImportPasses = async () => { if(!confirm("Import Platinum Guest Passes CSV?")) return; const res = await fetch('/api/members/seed', { method: 'POST' }); const data = await res.json(); alert(`Success! Added ${data.members} members.`); fetchMembers(); };
+  const handleSeedEmployees = async () => { if(!(await customConfirm("Add all new employees?"))) return; const res = await fetch('/api/users/seed', { method: 'POST' }); const data = await res.json(); notify.success(`Success! ${data.count} new employees added.`); fetchUsers(); };
+  const handleImportHistory = async () => { if(!(await customConfirm("Import Garner Schedule History?"))) return; const res = await fetch('/api/shifts/import-history', { method: 'POST' }); const data = await res.json(); notify.success(`Success! ${data.count} shifts synced.`); fetchShifts(); };
+  const handleImportTimecards = async () => { if(!(await customConfirm("Import Jan/Feb Worked Timecards?"))) return; const res = await fetch('/api/timecards/seed', { method: 'POST' }); const data = await res.json(); notify.success(`Success! ${data.count} missing timecards logged.`); fetchTimeCards(); if (activeTab === 'dashboard') fetchManagerData(); };
+  const handleImportPasses = async () => { if(!(await customConfirm("Import Platinum Guest Passes CSV?"))) return; const res = await fetch('/api/members/seed', { method: 'POST' }); const data = await res.json(); notify.success(`Success! Added ${data.members} members.`); fetchMembers(); };
 
-  const handleClaimShift = async (shiftId: number) => { if(!selectedUserId) return alert("Select an employee first!"); await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, userId: parseInt(selectedUserId), action: 'CLAIM' }) }); fetchShifts(); };
-  const handleUnclaimShift = async (shiftId: number) => { if(!confirm("Unclaim this shift?")) return; await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, action: 'UNCLAIM' }) }); fetchShifts(); };
+  const handleClaimShift = async (shiftId: number) => { 
+    if(!selectedUserId) { notify.error("Select an employee first!"); return; } 
+    await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, userId: parseInt(selectedUserId), action: 'CLAIM' }) }); 
+    fetchShifts(); 
+    notify.success("Shift claimed successfully!");
+  };
+
+  const handleUnclaimShift = async (shiftId: number) => { 
+    if(!(await customConfirm("Unclaim this shift?"))) return; 
+    await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, action: 'UNCLAIM' }) }); 
+    fetchShifts(); 
+    notify.success("Shift unclaimed!");
+  };
 
   const handleGenerateSchedule = async () => {
-    if (templates.length === 0) return alert("Create templates first!");
+    if (templates.length === 0) { notify.error("Create templates first!"); return; }
     const res = await fetch('/api/shifts/seed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locationId: calLocFilter, month: currentMonth, year: currentYear }) });
     const data = await res.json();
-    alert(`Success! ${data.count} new shifts generated.`);
+    notify.success(`Success! ${data.count} new shifts generated.`);
     fetchShifts();
-  };
-
-  const handleManualSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formUserId) return alert("Select an employee for the timecard!");
-    if (!selectedLocation) return alert("Select a location!");
-    if (!formDate || !formStartTime) return alert("Date and Start Time are required!");
-
-    const clockInDateTime = new Date(`${formDate}T${formStartTime}`);
-    let clockOutDateTime = null;
-    if (formEndTime) {
-      clockOutDateTime = new Date(`${formDate}T${formEndTime}`);
-      if (clockOutDateTime < clockInDateTime) clockOutDateTime.setDate(clockOutDateTime.getDate() + 1);
-    }
-    const body: any = { userId: formUserId, locationId: selectedLocation, clockIn: clockInDateTime.toISOString(), clockOut: clockOutDateTime?.toISOString() || null };
-    if (editingCardId) body.id = editingCardId;
-
-    try {
-      const res = await fetch('/api/timecards', { method: editingCardId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (!res.ok) { alert("Failed to save timecard."); return; }
-      setEditingCardId(null); setFormStartTime(''); setFormEndTime(''); setFormUserId(''); setFormDate(''); setSelectedLocation('');
-      fetchTimeCards(); await fetchManagerData(); setActiveTab('timesheets');
-    } catch (err) { alert("An unexpected network error occurred."); }
   };
 
   const handleOpenReport = (card: TimeCard) => {
@@ -651,54 +486,29 @@ function MainDashboard({ session }: { session: any }) {
     await fetch('/api/checklists', { method: editingChecklistId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     setShowChecklistModal(false); setReportTargetCard(null); setEditingChecklistId(null);
     fetchTimeCards(); fetchChecklists(); 
+    notify.success("Report Saved!");
   };
 
-  const handleAddMasterTask = async () => {
-    if (!newTaskStr.trim()) return;
-    const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newTaskStr.trim() }) });
-    if (res.ok) { setNewTaskStr(''); fetchGlobalTasks(); } else { const data = await res.json(); alert(data.error || "Failed to add task."); }
-  };
-
-  const handleEditMasterTask = async (id: number, newName: string) => {
-    const res = await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, name: newName }) });
-    if (res.ok) { fetchGlobalTasks(); fetchTemplates(); } else { const data = await res.json(); alert(data.error || "Failed to edit task."); }
-  };
-
-  const handleDeleteMasterTask = async (taskId: number) => { if(!confirm("Delete task?")) return; const res = await fetch('/api/tasks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: taskId }) }); if (res.ok) fetchGlobalTasks(); };
-  const handleEditTemplate = (t: ShiftTemplate) => { setEditingTplId(t.id); setTplLocs([t.locationId]); setTplDays([t.dayOfWeek]); setTplStart(t.startTime); setTplEnd(t.endTime); setTplStartDate(t.startDate || ''); setTplEndDate(t.endDate || ''); setTplTasks(t.checklistTasks ||[]); setTplUserId(t.userId?.toString() || ''); window.scrollTo(0, 0); };
-  const handleSaveTemplate = async (e: React.FormEvent) => { e.preventDefault(); const body = { id: editingTplId, locationIds: tplLocs, daysOfWeek: tplDays, startTime: tplStart, endTime: tplEnd, startDate: tplStartDate || null, endDate: tplEndDate || null, checklistTasks: tplTasks, userId: tplUserId || null }; const res = await fetch('/api/templates', { method: editingTplId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); if (!res.ok) { const err = await res.json(); alert("Failed: " + (err.error || "Error")); return; } setEditingTplId(null); setTplLocs([]); setTplDays([]); setTplStart(''); setTplEnd(''); setTplStartDate(''); setTplEndDate(''); setTplTasks([]); setTplUserId(''); fetchTemplates(); };
-  const handleDeleteTemplate = async (id: number) => { if(!confirm("Delete?")) return; await fetch('/api/templates', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); fetchTemplates(); };
-  const handleRedeemBeverage = async (memberId: number) => { await fetch('/api/members', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId, action: 'LOG_BEVERAGE' }) }); fetchMembers(); };
-  const handleLogPass = async (e: React.FormEvent, memberId: number) => { e.preventDefault(); const res = await fetch('/api/members', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId, dateUsed: pDate, amount: pAmt, initials: pInitials }) }); if (res.ok) { setPDate(''); setPAmt(1); setPInitials(''); fetchMembers(); } };
-  const handleEditClick = (card: TimeCard) => { const inD = new Date(card.clockIn); setFormDate(inD.toISOString().split('T')[0]); setFormStartTime(inD.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })); if (card.clockOut) setFormEndTime(new Date(card.clockOut).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })); else setFormEndTime(''); setSelectedLocation(card.locationId.toString()); setFormUserId(card.userId.toString()); setEditingCardId(card.id); setActiveTab('timesheets'); window.scrollTo(0, 0); };
-  const handleDeleteClick = async (cardId: number) => { if(!confirm("Delete?")) return; await fetch('/api/timecards', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: cardId }) }); fetchTimeCards(); fetchManagerData(); };
   const handleExportCSV = () => { let csv = "Pay Period,Location,Employee,Hours\n"; appState.matrixRows.forEach((row: any) => { appState.activeManPeriods.forEach((p: any) => { const h = row.periodTotals.get(p.label); if (h > 0) csv += `"${p.label}","${row.locName}","${row.empName}",${h.toFixed(2)}\n`; }); }); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "Payroll.csv"; link.click(); };
-  const handleIssueGiftCard = async (payload: any) => { const res = await fetch('/api/giftcards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); fetchGiftCards(); return { success: res.ok }; };
-  const handleRedeemCard = async (id: number, amount: number) => { const res = await fetch(`/api/giftcards/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ redemptionAmount: amount }) }); fetchGiftCards(); return { success: res.ok }; };
-  const handleSubmitFeedback = async (payload: any) => { const res = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); fetchFeedbacks(); return { success: res.ok }; };
-  const handleUpdateFeedback = async (id: number, payload: any) => { const res = await fetch(`/api/feedback/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); fetchFeedbacks(); return { success: res.ok }; };
+  const handleIssueGiftCard = async (payload: any) => { const res = await fetch('/api/giftcards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); fetchGiftCards(); if(res.ok) notify.success("Card Issued!"); return { success: res.ok }; };
+  const handleRedeemCard = async (id: number, amount: number) => { const res = await fetch(`/api/giftcards/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ redemptionAmount: amount }) }); fetchGiftCards(); if(res.ok) notify.success("Card Redeemed!"); return { success: res.ok }; };
+  const handleSubmitFeedback = async (payload: any) => { const res = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); fetchFeedbacks(); if(res.ok) notify.success("Feedback Submitted!"); return { success: res.ok }; };
+  const handleUpdateFeedback = async (id: number, payload: any) => { const res = await fetch(`/api/feedback/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); fetchFeedbacks(); if(res.ok) notify.success("Ticket Updated!"); return { success: res.ok }; };
 
   const handleSendMessage = async (content: string, isGlobal: boolean, targetUserIds: number[], targetLocationIds: number[]) => {
-    const res = await fetch('/api/messages', { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ senderId: selectedUserId, content, isGlobal, targetUserIds, targetLocationIds }) 
-    });
-    if (res.ok) fetchMessages();
-    return { success: res.ok };
+    const res = await fetch('/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ senderId: selectedUserId, content, isGlobal, targetUserIds, targetLocationIds }) });
+    if (res.ok) fetchMessages(); return { success: res.ok };
   };
 
   const handleCreateAnnouncement = async (title: string, content: string, isGlobal: boolean, targetLocationIds: number[]) => {
     const res = await fetch('/api/announcements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ authorId: selectedUserId, title, content, isGlobal, targetLocationIds }) });
-    if (res.ok) fetchAnnouncements();
-    return { success: res.ok };
+    if (res.ok) { fetchAnnouncements(); notify.success("Announcement Posted!"); } return { success: res.ok };
   };
 
   const handleDeleteAnnouncement = async (id: number) => {
-    if (!confirm("Delete this announcement?")) return { success: false };
+    if (!(await customConfirm("Delete this announcement?"))) return { success: false };
     const res = await fetch('/api/announcements', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
-    if (res.ok) fetchAnnouncements();
-    return { success: res.ok };
+    if (res.ok) { fetchAnnouncements(); notify.success("Announcement Deleted!"); } return { success: res.ok };
   };
 
   const TAB_LABELS: Record<string, string> = {
@@ -707,70 +517,78 @@ function MainDashboard({ session }: { session: any }) {
     giftcards: 'Gift Cards', feedback: '💬 Feedback', setup: 'Shift Setup', staff: 'Staff', locations: 'Locations'
   };
 
-  const generalTabs = ['calendar', 'manual', 'messages', 'privileges', 'giftcards', 'feedback'];
-  const adminTabs = ['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
+  const generalTabs =['calendar', 'manual', 'messages', 'privileges', 'giftcards', 'feedback'];
+  const adminTabs =['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
 
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInM = new Date(currentYear, currentMonth + 1, 0).getDate();
   const calendarCells =[...new Array(firstDay).fill(null), ...Array.from({ length: daysInM }, (_, i) => i + 1)];
 
-  const matrixMap = new Map();
-  const hiddenWarningsMap = new Map();
-  const activeManPeriods = manPeriods.map(idx => periods[idx]);
+  // OPTIMIZATION: Memoize heavy matrix calculations so typing in the UI doesn't lag the app
+  const { matrixRows, hiddenWarnings, activeManPeriods } = useMemo(() => {
+    const activePeriods = manPeriods.map(idx => periods[idx]);
+    const matrixMap = new Map();
+    const hiddenMap = new Map();
 
-  (Array.isArray(managerData) ? managerData :[]).forEach(card => {
-    if (!visibleLocations.some(l => l.id === card.locationId)) return;
-
-    if (manLocs.length > 0 && !manLocs.includes(card.locationId)) {
-      if (!hiddenWarningsMap.has(card.user?.name)) hiddenWarningsMap.set(card.user?.name, new Set());
-      hiddenWarningsMap.get(card.user?.name).add(card.location?.name); return;
-    }
-    const key = `${card.locationId}_${card.userId}`;
-    if (!matrixMap.has(key)) matrixMap.set(key, { locName: card.location?.name, empName: card.user?.name, periodTotals: new Map(), totalRowHours: 0 });
-    const row = matrixMap.get(key);
-    activeManPeriods.forEach(p => {
-      const cDate = new Date(card.clockIn); if (cDate >= new Date(p.start) && cDate <= new Date(new Date(p.end).setHours(23,59,59))) {
-        row.periodTotals.set(p.label, (row.periodTotals.get(p.label) || 0) + (card.totalHours || 0));
-        row.totalRowHours += (card.totalHours || 0);
+    (Array.isArray(managerData) ? managerData :[]).forEach(card => {
+      if (!visibleLocations.some(l => l.id === card.locationId)) return;
+      if (manLocs.length > 0 && !manLocs.includes(card.locationId)) {
+        if (!hiddenMap.has(card.user?.name)) hiddenMap.set(card.user?.name, new Set());
+        hiddenMap.get(card.user?.name).add(card.location?.name); return;
       }
+      const key = `${card.locationId}_${card.userId}`;
+      if (!matrixMap.has(key)) matrixMap.set(key, { locName: card.location?.name, empName: card.user?.name, periodTotals: new Map(), totalRowHours: 0 });
+      const row = matrixMap.get(key);
+      activePeriods.forEach(p => {
+        const cDate = new Date(card.clockIn); 
+        if (cDate >= new Date(p.start) && cDate <= new Date(new Date(p.end).setHours(23,59,59))) {
+          row.periodTotals.set(p.label, (row.periodTotals.get(p.label) || 0) + (card.totalHours || 0));
+          row.totalRowHours += (card.totalHours || 0);
+        }
+      });
     });
-  });
 
-  const pendingCards = isManager ? (Array.isArray(managerData) ? managerData :[]).filter(c => (!c.status || c.status === 'PENDING') && c.clockOut) :[];
-  const unapprovedCount = pendingCards.length;
+    return {
+      activeManPeriods: activePeriods,
+      matrixRows: Array.from(matrixMap.values()),
+      hiddenWarnings: Array.from(hiddenMap.entries()).map(([k, v]) => `${k} (${Array.from(v).join(', ')})`)
+    };
+  }, [managerData, manPeriods, periods, visibleLocations, manLocs]);
+
+  // OPTIMIZATION: Memoize pending cards
+  const { pendingCards, unapprovedCount } = useMemo(() => {
+    const pending = isManager ? (Array.isArray(managerData) ? managerData :[]).filter(c => (!c.status || c.status === 'PENDING') && c.clockOut) :[];
+    return { pendingCards: pending, unapprovedCount: pending.length };
+  }, [managerData, isManager]);
+
+  const activeCalColor = useMemo(() => {
+    return calLocFilter ? getLocationColor(calLocFilter) : { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-800' };
+  }, [calLocFilter]);
+
+  const activeUserTimeCards = useMemo(() => {
+    return (Array.isArray(timeCards) ? timeCards :[]).filter(c => c.userId === parseInt(selectedUserId));
+  }, [timeCards, selectedUserId]);
 
   const appState: AppState = {
     isMounted, activeTab, setActiveTab, users: safeUsers, activeUsers, locations, visibleLocations, timeCards, shifts, setShifts, members, setMembers, templates, checklists,
     selectedUserId, setSelectedUserId, currentMonth, setCurrentMonth, currentYear, setCurrentYear,
     messages, setMessages, fetchMessages, handleSendMessage,
     announcements, setAnnouncements, fetchAnnouncements, handleCreateAnnouncement, handleDeleteAnnouncement,
-    calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter, editingCardId, setEditingCardId,
-    formUserId, setFormUserId, formDate, setFormDate, formStartTime, setFormStartTime, formEndTime, setFormEndTime,
-    selectedLocation, setSelectedLocation, passSearch, setPassSearch, expandedMember, setExpandedMember,
-    pDate, setPDate, pAmt, setPAmt, pInitials, setPInitials, editingTplId, setEditingTplId,
-    tplLocs, setTplLocs, tplDays, setTplDays, tplStart, setTplStart, tplEnd, setTplEnd,
-    tplStartDate, setTplStartDate, tplEndDate, setTplEndDate, tplTasks, setTplTasks, tplUserId, setTplUserId,
-    tplViewLocs, setTplViewLocs, tplViewDays, setTplViewDays, newTaskStr, setNewTaskStr,
+    calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter,
     manPeriods, setManPeriods, manLocs, setManLocs, manEmps, setManEmps, managerData, DAYS_OF_WEEK, MONTHS, YEARS, AVAILABLE_ROLES, formatTimeSafe, 
     formatDateSafe, getLocationColor, showDashboard, showTimesheets, showSetup, showStaff, 
     showLocations: showLocationsTab, showPasses, showBuilder, isManager, isAdmin, toggleManPeriod, toggleManLoc, toggleManEmp, 
-    toggleTplLoc, toggleTplDay, toggleTplViewLoc, toggleTplViewDay, toggleTplTask, 
     handleAddUser, handleRoleToggle, handleUpdateUser, handleMergeUsers, handleSeedEmployees, handleImportHistory, handleImportTimecards, handleImportPasses, handleClaimShift, 
-    handleUnclaimShift, handleGenerateSchedule, handleManualSubmit, handleOpenReport, toggleChecklistTask, 
-    submitShiftReport, handleAddMasterTask, handleEditMasterTask, handleDeleteMasterTask, handleEditTemplate, handleSaveTemplate, handleDeleteTemplate, handleRedeemBeverage, 
-    handleLogPass, handleEditClick, handleDeleteClick, handleExportCSV, handleUpdateCardStatus, handleUpdateShiftTime,
+    handleUnclaimShift, handleGenerateSchedule, handleOpenReport, toggleChecklistTask, 
+    submitShiftReport, handleExportCSV, handleUpdateCardStatus, handleUpdateShiftTime,
     handleCreateLocation, handleUpdateLocation, periods, showChecklistModal, setShowChecklistModal, reportTargetCard, setReportTargetCard, editingChecklistId, setEditingChecklistId,
     clDynamicTasks, setClDynamicTasks, clCompletedTasks, setClCompletedTasks, clNotes, setClNotes,
-    globalTasks, setGlobalTasks, fetchGlobalTasks, editingRenewalId, setEditingRenewalId, newRenewalDate, setNewRenewalDate,
-    editingTotalId, setEditingTotalId, newTotalVal, setNewTotalVal, newBonusNotes, setNewBonusNotes,
+    globalTasks, setGlobalTasks, fetchGlobalTasks, 
     giftCards, setGiftCards, fetchGiftCards, handleIssueGiftCard, handleRedeemCard, showGiftCards,
     isGiftCardsLoading, feedbacks, setFeedbacks, fetchFeedbacks, handleSubmitFeedback, handleUpdateFeedback, 
     isFeedbacksLoading, highlightBaseline, calendarCells, 
-    activeCalColor: calLocFilter ? getLocationColor(calLocFilter) : { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-800' },
-    activeManPeriods, matrixRows: Array.from(matrixMap.values()), hiddenWarnings: Array.from(hiddenWarningsMap.entries()).map(([k, v]) => `${k} (${Array.from(v).join(', ')})`),
-    missingPunches:[], activeUserTimeCards: (Array.isArray(timeCards) ? timeCards :[]).filter(c => c.userId === parseInt(selectedUserId)),
-    filteredMembers: (Array.isArray(members) ? members :[]).filter(m => m.lastName.toLowerCase().includes(passSearch.toLowerCase())),
-    filteredTemplates: Array.isArray(templates) ? templates :[],
+    activeCalColor, activeManPeriods, matrixRows, hiddenWarnings,
+    missingPunches:[], activeUserTimeCards,
     unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart, unreadFeedbackCount, unreadMessagesCount, fetchChecklists
   };
 
@@ -813,7 +631,7 @@ function MainDashboard({ session }: { session: any }) {
               {isRealManager && (
                 <button onClick={async () => {
                   const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
-                  if (res?.error) alert("Failed: " + res.error); else if (res?.ok) alert("Success!");
+                  if (res?.error) notify.error("Failed: " + res.error); else if (res?.ok) notify.success("Device Linked!");
                 }} className="ml-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-800 bg-yellow-400 px-2 py-1 rounded transition">📱 Link Device</button>
               )}
               <button onClick={() => signOut()} className="ml-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white bg-red-600 px-2 py-1 rounded transition">Logout</button>

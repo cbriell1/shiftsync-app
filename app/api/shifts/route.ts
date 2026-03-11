@@ -7,19 +7,23 @@ export const dynamic = 'force-dynamic';
 
 const shiftActionSchema = z.object({
   shiftId: z.coerce.number(),
-  // Transform handles explicitly passing `null` versus a number
-  userId: z.any().transform(v => v === null ? null : Number(v)).optional(),
+  // Safer transform: explicitly checks for null or empty strings before converting to Number
+  userId: z.any().transform(v => (v === null || v === "") ? null : Number(v)).optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   action: z.enum(['CLAIM', 'UNCLAIM', 'REQUEST_COVER', 'CANCEL_COVER', 'UPDATE'])
 });
 
 export async function GET() {
-  const shifts = await prisma.shift.findMany({
-    include: { location: true, assignedTo: true },
-    orderBy: { startTime: 'asc' }
-  });
-  return NextResponse.json(shifts);
+  try {
+    const shifts = await prisma.shift.findMany({
+      include: { location: true, assignedTo: true },
+      orderBy: { startTime: 'asc' }
+    });
+    return NextResponse.json(shifts);
+  } catch (error: any) {
+    return NextResponse.json({ error: "Failed to fetch shifts" }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -44,7 +48,6 @@ export async function POST(request: Request) {
         updateData = { status: 'CLAIMED', userId };
         break;
       case 'UPDATE':
-        // Dynamic update for Drag and Drop Builder
         if (userId !== undefined) {
           updateData.userId = userId;
           updateData.status = userId === null ? 'OPEN' : 'CLAIMED';
@@ -60,6 +63,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(updated);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

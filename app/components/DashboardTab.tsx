@@ -1,5 +1,6 @@
+// filepath: app/components/DashboardTab.tsx
 "use client";
-import React from 'react';
+import React, { useMemo } from 'react';
 import { AppState } from '../lib/types';
 
 export default function DashboardTab({ appState }: { appState: AppState }) {
@@ -9,7 +10,10 @@ export default function DashboardTab({ appState }: { appState: AppState }) {
     hiddenWarnings, matrixRows, activeManPeriods, managerData, formatDateSafe
   } = appState;
 
-  const suspiciousCards = managerData.filter(c => c.totalHours && (c.totalHours > 10 || c.totalHours < 1));
+  // OPTIMIZATION: Only calculate suspicious cards when the underlying data changes
+  const suspiciousCards = useMemo(() => {
+    return managerData.filter(c => c.totalHours && (c.totalHours > 10 || c.totalHours < 1));
+  }, [managerData]);
 
   return (
     <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-300 shadow-md animate-in fade-in duration-300">
@@ -135,7 +139,7 @@ export default function DashboardTab({ appState }: { appState: AppState }) {
             <tr>
               <th className="p-3 font-black text-slate-900 border-r border-gray-300">Location</th>
               <th className="p-3 font-black text-slate-900 border-r border-gray-300">Employee</th>
-              {activeManPeriods.map(p => <th key={p.label} className="p-3 font-black text-slate-900 border-r border-gray-300 text-center">{p.label}</th>)}
+              {activeManPeriods.map((p: any) => <th key={p.label} className="p-3 font-black text-slate-900 border-r border-gray-300 text-center">{p.label}</th>)}
               <th className="p-3 font-black text-blue-900 bg-blue-100 text-center border-l border-blue-300">Total Hours</th>
             </tr>
           </thead>
@@ -158,7 +162,7 @@ export default function DashboardTab({ appState }: { appState: AppState }) {
                     <td className="p-3 font-black text-slate-900 border-r border-gray-200">
                       {row.empName} {isArchivedEmp && <span className="text-[10px] text-red-500 uppercase tracking-widest block">Archived Staff</span>}
                     </td>
-                    {activeManPeriods.map(p => {
+                    {activeManPeriods.map((p: any) => {
                       const val = row.periodTotals.get(p.label);
                       return (
                         <td key={p.label} className={`p-3 font-bold text-center border-r border-gray-200 ${val > 0 ? 'text-green-800 bg-green-50' : 'text-gray-400'}`}>

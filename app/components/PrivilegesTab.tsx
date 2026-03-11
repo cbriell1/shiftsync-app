@@ -1,31 +1,42 @@
+// filepath: app/components/PrivilegesTab.tsx
 "use client";
 import React, { useState } from 'react';
 import { AppState, Member, PassUsage } from '../lib/types';
 
 export default function PrivilegesTab({ appState }: { appState: AppState }) {
-  const {
-    passSearch, setPassSearch, filteredMembers,
-    handleRedeemBeverage, expandedMember, setExpandedMember,
-    pDate, setPDate, pAmt, setPAmt, pInitials, setPInitials, handleLogPass,
-    isManager, setMembers, editingRenewalId, setEditingRenewalId,
-    newRenewalDate, setNewRenewalDate,
-    editingTotalId, setEditingTotalId, newTotalVal, setNewTotalVal,
-    newBonusNotes, setNewBonusNotes
-  } = appState;
+  const { members, isManager } = appState;
+
+  // --- LOCALIZED FORM STATE ---
+  const [passSearch, setPassSearch] = useState('');
+  const [expandedMember, setExpandedMember] = useState<number | null>(null);
+  
+  const [pDate, setPDate] = useState('');
+  const [pAmt, setPAmt] = useState<number | string>(1);
+  const [pInitials, setPInitials] = useState('');
+  
+  const [editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
+  const [newRenewalDate, setNewRenewalDate] = useState('');
+  
+  const[editingTotalId, setEditingTotalId] = useState<number | null>(null);
+  const[newTotalVal, setNewTotalVal] = useState<number | string>(12);
+  const [newBonusNotes, setNewBonusNotes] = useState('');
 
   const [showAddMember, setShowAddMember] = useState(false);
-  const [newMemLast, setNewMemLast] = useState('');
+  const[newMemLast, setNewMemLast] = useState('');
   const [newMemFirst, setNewMemFirst] = useState('');
   const [newMemLoc, setNewMemLoc] = useState('');
-  const [newMemDate, setNewMemDate] = useState('');
+  const[newMemDate, setNewMemDate] = useState('');
   const [newMemTotal, setNewMemTotal] = useState<number | string>(12);
 
-  const refreshMembers = async () => {
-    const res = await fetch('/api/members?t=' + new Date().getTime());
-    const data = await res.json();
-    setMembers(data);
-  };
+  // Trigger global background sync in page.tsx
+  const triggerSync = () => window.dispatchEvent(new Event('focus'));
 
+  const filteredMembers = (members ||[]).filter(m => 
+    m.lastName.toLowerCase().includes(passSearch.toLowerCase()) || 
+    m.firstName.toLowerCase().includes(passSearch.toLowerCase())
+  );
+
+  // --- API HANDLERS ---
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMemLast) return alert("Last name is required!");
@@ -34,10 +45,9 @@ export default function PrivilegesTab({ appState }: { appState: AppState }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lastName: newMemLast, firstName: newMemFirst, location: newMemLoc, renewalDate: newMemDate, totalPasses: newMemTotal })
     });
-    alert("New member added successfully!");
     setNewMemLast(''); setNewMemFirst(''); setNewMemLoc(''); setNewMemDate(''); setNewMemTotal(12);
     setShowAddMember(false);
-    refreshMembers();
+    triggerSync();
   };
 
   const handleUpdateRenewal = async (memberId: number) => {
@@ -47,7 +57,7 @@ export default function PrivilegesTab({ appState }: { appState: AppState }) {
       body: JSON.stringify({ action: 'UPDATE_RENEWAL', memberId, renewalDate: newRenewalDate }) 
     });
     setEditingRenewalId(null);
-    refreshMembers();
+    triggerSync();
   };
 
   const handleUpdateTotal = async (memberId: number) => {
@@ -57,7 +67,29 @@ export default function PrivilegesTab({ appState }: { appState: AppState }) {
       body: JSON.stringify({ action: 'UPDATE_TOTAL_PASSES', memberId, totalPasses: newTotalVal, bonusNotes: newBonusNotes }) 
     });
     setEditingTotalId(null);
-    refreshMembers();
+    triggerSync();
+  };
+
+  const handleRedeemBeverage = async (memberId: number) => {
+    await fetch('/api/members', { 
+      method: 'PUT', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ memberId, action: 'LOG_BEVERAGE' }) 
+    });
+    triggerSync();
+  };
+
+  const handleLogPass = async (e: React.FormEvent, memberId: number) => {
+    e.preventDefault();
+    const res = await fetch('/api/members', { 
+      method: 'PUT', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ memberId, dateUsed: pDate, amount: pAmt, initials: pInitials }) 
+    });
+    if (res.ok) { 
+      setPDate(''); setPAmt(1); setPInitials(''); 
+      triggerSync();
+    }
   };
 
   return (
@@ -65,18 +97,17 @@ export default function PrivilegesTab({ appState }: { appState: AppState }) {
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-gray-200 pb-4 gap-4">
         <h2 className="text-lg md:text-xl font-bold text-slate-900 text-center md:text-left">Platinum Privileges & Passes</h2>
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full md:w-auto">
-          <input type="text" placeholder="Search Name/Loc..." value={passSearch} onChange={(e) => setPassSearch(e.target.value)} className="w-full sm:w-auto border border-gray-400 rounded p-2 text-slate-900 font-bold outline-none shadow-inner" />
+          <input type="text" placeholder="Search Name..." value={passSearch} onChange={(e) => setPassSearch(e.target.value)} className="w-full sm:w-auto border border-gray-400 rounded p-2 text-slate-900 font-bold outline-none shadow-inner" />
           {isManager && (
             <button onClick={() => setShowAddMember(!showAddMember)} className="w-full sm:w-auto bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition">
               {showAddMember ? 'Cancel' : '+ Add Member'}
             </button>
           )}
-          {/* Import CSV Button Removed */}
         </div>
       </div>
 
       {showAddMember && (
-        <div className="mb-6 bg-slate-50 border border-gray-300 p-4 rounded-xl shadow-inner">
+        <div className="mb-6 bg-slate-50 border border-gray-300 p-4 rounded-xl shadow-inner animate-in slide-in-from-top-2">
           <h3 className="font-black text-slate-900 mb-3">Add New Platinum Member</h3>
           <form onSubmit={handleAddMember} className="grid grid-cols-1 sm:grid-cols-6 gap-3">
             <input type="text" placeholder="Last Name" required value={newMemLast} onChange={(e) => setNewMemLast(e.target.value)} className="sm:col-span-2 border border-gray-400 p-2 rounded text-slate-900 font-bold outline-none" />
