@@ -27,22 +27,34 @@ import TimeClockTab from './components/TimeClockTab';
 // 1. LOGIN SCREEN COMPONENT
 // ==================================================================
 function LoginScreen({ sessionData }: { sessionData: any }) {
-  const[email, setEmail] = useState("");
-  const[password, setPassword] = useState("");
-  const[loading, setLoading] = useState(false);
-  const[usePassword, setUsePassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [usePassword, setUsePassword] = useState(false);
 
   const handlePasskeyLogin = async (action: "authenticate" | "register") => {
     setLoading(true);
-    await signInPasskey("passkey", { email, action, callbackUrl: "/" });
+    const res = await signInPasskey("passkey", { email, action, redirect: false });
     setLoading(false);
+    if (res?.error) {
+      notify.error("Passkey failed. Did you register on this device?");
+    } else if (res?.ok) {
+      window.location.reload();
+    }
   };
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await signInReact("credentials", { email, password, callbackUrl: "/" });
+    const res = await signInReact("credentials", { email, password, redirect: false });
     setLoading(false);
+    
+    if (res?.error) {
+      notify.error("Access Denied: Invalid Email or Secret Code.");
+    } else if (res?.ok) {
+      notify.success("Emergency Access Granted.");
+      window.location.reload();
+    }
   };
 
   return (
@@ -84,7 +96,7 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs font-bold text-red-800 text-center mb-4">Emergency Override Mode</div>
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1">Admin Email</label>
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-green-600 outline-none shadow-inner" />
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3.5 font-bold text-slate-900 focus:border-red-600 outline-none shadow-inner" />
             </div>
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1">Server Secret (Password)</label>
@@ -111,35 +123,35 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
 // 2. MAIN DASHBOARD APP
 // ==================================================================
 function MainDashboard({ session }: { session: any }) {
-  const[isMounted, setIsMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('clock');
   
-  const [users, setUsers] = useState<User[]>([]);
-  const[locations, setLocations] = useState<Location[]>([]);
-  const[timeCards, setTimeCards] = useState<TimeCard[]>([]);
-  const [shifts, setShifts] = useState<Shift[]>([]);
-  const[members, setMembers] = useState<Member[]>([]);
+  const[users, setUsers] = useState<User[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [timeCards, setTimeCards] = useState<TimeCard[]>([]);
+  const[shifts, setShifts] = useState<Shift[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const[checklists, setChecklists] = useState<Checklist[]>([]);
-  const[globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
+  const [globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const[giftCards, setGiftCards] = useState<GiftCard[]>([]);
-  const[messages, setMessages] = useState<Message[]>([]);
-  const[announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   const[isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
-  const [isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
+  const[isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
 
   const [selectedUserId, setSelectedUserId] = useState(session?.user?.id?.toString() || '');
-  const[currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const[currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
-  const[lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
-  const[highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
+  const [lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
+  const [highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
   const[lastViewedMessages, setLastViewedMessages] = useState<string>('1970-01-01T00:00:00.000Z');
 
   const[calLocFilter, setCalLocFilter] = useState('');
-  const[calEmpFilter, setCalEmpFilter] = useState('');
+  const [calEmpFilter, setCalEmpFilter] = useState('');
 
   const getMonday = (d: Date) => { 
     const dt = new Date(d); 
@@ -147,14 +159,14 @@ function MainDashboard({ session }: { session: any }) {
     const diff = dt.getDate() - day + (day === 0 ? -6 : 1); 
     return new Date(dt.setDate(diff)).toISOString().split('T')[0]; 
   };
-  const[builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
+  const [builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
 
-  const[showChecklistModal, setShowChecklistModal] = useState(false);
+  const [showChecklistModal, setShowChecklistModal] = useState(false);
   const[reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
   const[editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
   const[clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
   const[clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
-  const[clNotes, setClNotes] = useState('');
+  const [clNotes, setClNotes] = useState('');
 
   const generatePeriods = () => {
     const p =[];
@@ -170,13 +182,13 @@ function MainDashboard({ session }: { session: any }) {
     return p;
   };
 
-  const[periods] = useState(generatePeriods());
-  const[manPeriods, setManPeriods] = useState<number[]>([0]); 
+  const [periods] = useState(generatePeriods());
+  const [manPeriods, setManPeriods] = useState<number[]>([0]); 
   const[manLocs, setManLocs] = useState<number[]>([]);
-  const[manEmps, setManEmps] = useState<number[]>([]);
-  const[managerData, setManagerData] = useState<TimeCard[]>([]);
+  const [manEmps, setManEmps] = useState<number[]>([]);
+  const [managerData, setManagerData] = useState<TimeCard[]>([]);
 
-  const DAYS_OF_WEEK =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const YEARS =[2025, 2026, 2027];
   const AVAILABLE_ROLES =['Administrator', 'Manager', 'Front Desk', 'Trainer'];
@@ -209,7 +221,7 @@ function MainDashboard({ session }: { session: any }) {
     return colors[index];
   };
 
-  const fetchUsers = () => fetch('/api/users?t=' + new Date().getTime()).then(res => res.json()).then(data => setUsers(Array.isArray(data) ? data :[])).catch(() => {});
+  const fetchUsers = () => fetch('/api/users?t=' + new Date().getTime()).then(res => res.json()).then(data => { if (!data.error) setUsers(Array.isArray(data) ? data :[]); }).catch(() => {});
   const fetchMembers = () => fetch('/api/members?t=' + new Date().getTime()).then(res => res.json()).then(data => setMembers(Array.isArray(data) ? data :[])).catch(() => {});
   const fetchShifts = () => fetch('/api/shifts?t=' + new Date().getTime()).then(res => res.json()).then(data => setShifts(Array.isArray(data) ? data :[])).catch(() => {});
   const fetchTemplates = () => fetch('/api/templates?t=' + new Date().getTime()).then(res => res.json()).then(data => setTemplates(Array.isArray(data) ? data :[])).catch(() => {});
@@ -263,7 +275,7 @@ function MainDashboard({ session }: { session: any }) {
     window.addEventListener('focus', onFocus);
     const intervalId = setInterval(syncOperationalData, 30000);
     return () => { window.removeEventListener('focus', onFocus); clearInterval(intervalId); };
-  },[session, selectedUserId]); 
+  }, [session, selectedUserId]); 
 
   const safeUsers = Array.isArray(users) ? users :[];
   const activeUsers = safeUsers.filter(u => u.isActive !== false);
@@ -302,13 +314,13 @@ function MainDashboard({ session }: { session: any }) {
       const savedTab = localStorage.getItem('lastActiveTab_' + authenticatedUserId);
       if (savedTab) setActiveTab(savedTab);
     }
-  },[isMounted, authenticatedUserId]);
+  }, [isMounted, authenticatedUserId]);
 
   useEffect(() => {
     if (isMounted && authenticatedUserId && users.length > 0) {
       localStorage.setItem('lastActiveTab_' + authenticatedUserId, activeTab);
     }
-  },[activeTab, authenticatedUserId, isMounted, users.length]);
+  }, [activeTab, authenticatedUserId, isMounted, users.length]);
 
   useEffect(() => {
     if (!isMounted || !session || users.length === 0) return; 
@@ -330,7 +342,7 @@ function MainDashboard({ session }: { session: any }) {
       const storedMsg = localStorage.getItem('lastViewedMessages_' + selectedUserId);
       setLastViewedMessages(storedMsg || '1970-01-01T00:00:00.000Z');
     }
-  },[selectedUserId]);
+  }, [selectedUserId]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && selectedUserId) {
@@ -354,7 +366,7 @@ function MainDashboard({ session }: { session: any }) {
       if (isManager) return true;
       return fb.userId === parseInt(selectedUserId);
     }).length;
-  },[feedbacks, lastViewedFeedback, isManager, selectedUserId]);
+  }, [feedbacks, lastViewedFeedback, isManager, selectedUserId]);
 
   const unreadMessagesCount = useMemo(() => {
     return[...(Array.isArray(messages) ? messages : []), ...(Array.isArray(announcements) ? announcements :[])].filter(item => {
@@ -365,12 +377,12 @@ function MainDashboard({ session }: { session: any }) {
       if ('authorId' in item && item.authorId === parseInt(selectedUserId)) return false;
       return true;
     }).length;
-  },[messages, announcements, lastViewedMessages, selectedUserId]);
+  }, [messages, announcements, lastViewedMessages, selectedUserId]);
 
   const fetchManagerData = async () => {
     const selectedPeriods = manPeriods.map(idx => periods[idx]);
     let targetEmployees = manEmps;
-    if (!isManager && selectedUserId) targetEmployees = [parseInt(selectedUserId)];
+    if (!isManager && selectedUserId) targetEmployees =[parseInt(selectedUserId)];
     const res = await fetch('/api/manager?t=' + new Date().getTime(), { 
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' }, 
@@ -413,7 +425,7 @@ function MainDashboard({ session }: { session: any }) {
   const handleRoleToggle = async (targetUserId: number, roleName: string) => {
     const targetUser = safeUsers.find(u => u.id === targetUserId);
     if (!targetUser) return;
-    let currentRoles = targetUser.systemRoles ?[...targetUser.systemRoles] :[];
+    let currentRoles = targetUser.systemRoles ? [...targetUser.systemRoles] :[];
     if (currentRoles.includes(roleName)) currentRoles = currentRoles.filter(r => r !== roleName);
     else currentRoles.push(roleName);
     setUsers(safeUsers.map(u => u.id === targetUserId ? { ...u, systemRoles: currentRoles } : u));
@@ -454,7 +466,7 @@ function MainDashboard({ session }: { session: any }) {
     if (templates.length === 0) { notify.error("Create templates first!"); return; }
     const res = await fetch('/api/shifts/seed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locationId: calLocFilter, month: currentMonth, year: currentYear }) });
     const data = await res.json();
-    notify.success(`Success! ${data.count} new shifts generated.`);
+    notify.success(`Success! ${data.count} shifts generated.`);
     fetchShifts();
   };
 
@@ -516,9 +528,10 @@ function MainDashboard({ session }: { session: any }) {
     giftcards: 'GIFT CARDS', feedback: '💬 FEEDBACK', setup: 'SHIFT SETUP', staff: 'STAFF', locations: 'LOCATIONS'
   };
 
-  const leftStaffTabs = ['clock', 'calendar', 'manual', 'privileges', 'giftcards'];
-  const communicationTabs = ['messages', 'feedback'];
-  const managerTabsList = ['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
+  // Group tabs into Logical Spaces for navigation
+  const leftStaffTabs =['clock', 'calendar', 'manual', 'privileges', 'giftcards'];
+  const communicationTabs =['messages', 'feedback'];
+  const managerTabsList =['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
 
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInM = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -564,7 +577,7 @@ function MainDashboard({ session }: { session: any }) {
   }, [calLocFilter]);
 
   const activeUserTimeCards = useMemo(() => {
-    return (Array.isArray(timeCards) ? timeCards :[]).filter(c => c.userId === parseInt(selectedUserId));
+    return (Array.isArray(timeCards) ? timeCards : []).filter(c => c.userId === parseInt(selectedUserId));
   }, [timeCards, selectedUserId]);
 
   const appState: AppState = {
@@ -617,7 +630,7 @@ function MainDashboard({ session }: { session: any }) {
       
       <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden border border-gray-300">
         <div className="bg-slate-900 px-4 py-2 text-white space-y-2">
-          {/* COMPACT TOP BAR */}
+          {/* COMPACT TOP BAR: BRANDING & USER CONTROLS */}
           <div className="flex flex-col md:flex-row justify-between items-center gap-2 border-b border-slate-800 pb-2">
             <div className="flex items-center gap-2">
               <img src="/logo.png" alt="Logo" className="h-8 md:h-10 w-auto" />
@@ -630,52 +643,63 @@ function MainDashboard({ session }: { session: any }) {
               <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="bg-yellow-400 text-slate-900 rounded-md px-2 py-0.5 text-[10px] font-black outline-none cursor-pointer">
                 {safeUsers.map(u => <option key={u.id} value={u.id}>{u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}</option>)}
               </select>
+              {isRealManager && (
+                <button onClick={async () => {
+                  const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
+                  if (res?.error) notify.error("Failed: " + res.error); else if (res?.ok) notify.success("Device Linked!");
+                }} className="ml-1 text-[9px] font-black uppercase text-slate-900 bg-yellow-400 hover:bg-yellow-500 px-2 py-1 rounded-md transition-colors">Link Device</button>
+              )}
               <button onClick={() => signOut()} className="ml-1 text-[9px] font-black uppercase text-white bg-red-600 hover:bg-red-700 px-2 py-1 rounded-md transition-colors">Logout</button>
             </div>
           </div>
 
-          {/* COMPACT ROW 1: STAFF & COMMS */}
-          <div className="flex flex-col lg:flex-row justify-between items-center gap-2">
-            <div className="flex flex-wrap gap-1 items-center">
-              <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest mr-2">Staff Space</span>
-              {leftStaffTabs.map(tab => {
-                const visible = (tab === 'clock' || tab === 'calendar' || tab === 'manual') || (tab === 'privileges' && showPasses) || (tab === 'giftcards' && showGiftCards);
-                if (!visible) return null;
-                return (
-                  <button key={tab} onClick={() => setActiveTab(tab)} className={`px-3 py-1.5 rounded-lg font-black text-[9px] transition-all ${activeTab === tab ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 hover:bg-slate-700 text-slate-400'}`}>
+          {/* TAB NAVIGATION */}
+          <div className="space-y-2">
+            {/* ROW 1: STAFF & COMMS */}
+            <div className="flex flex-col lg:flex-row justify-between items-center gap-2">
+              {/* STAFF SPACE (LEFT) */}
+              <div className="flex flex-wrap gap-1 items-center">
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mr-2">Staff Space</span>
+                {leftStaffTabs.map(tab => {
+                  const visible = (tab === 'clock' || tab === 'calendar' || tab === 'manual') || (tab === 'privileges' && showPasses) || (tab === 'giftcards' && showGiftCards);
+                  if (!visible) return null;
+                  return (
+                    <button key={tab} onClick={() => setActiveTab(tab)} className={`px-3 py-1.5 rounded-lg font-black text-[9px] transition-all ${activeTab === tab ? 'bg-yellow-400 text-slate-900 shadow-md scale-105' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'}`}>
+                      {TAB_LABELS[tab]}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* COMMUNICATIONS (RIGHT) */}
+              <div className="flex gap-1 items-center bg-slate-950/50 p-1 rounded-xl border border-slate-800">
+                {communicationTabs.map(tab => (
+                  <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black text-[9px] transition-all ${activeTab === tab ? 'bg-white text-slate-900 shadow-md' : 'bg-transparent hover:bg-slate-800 text-slate-400'}`}>
                     {TAB_LABELS[tab]}
+                    {tab === 'feedback' && unreadFeedbackCount > 0 && <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-[7px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">{unreadFeedbackCount}</span>}
+                    {tab === 'messages' && unreadMessagesCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[7px] px-1.5 py-0.5 rounded-full font-black animate-pulse shadow-md">{unreadMessagesCount}</span>}
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
 
-            <div className="flex gap-1 items-center bg-slate-950/40 p-1 rounded-xl border border-slate-800">
-              {communicationTabs.map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black text-[9px] transition-all ${activeTab === tab ? 'bg-white text-slate-900' : 'bg-transparent hover:bg-slate-800 text-slate-500'}`}>
-                  {TAB_LABELS[tab]}
-                  {tab === 'feedback' && unreadFeedbackCount > 0 && <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-[7px] px-1.5 py-0.5 rounded-full font-black animate-pulse">{unreadFeedbackCount}</span>}
-                  {tab === 'messages' && unreadMessagesCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[7px] px-1.5 py-0.5 rounded-full font-black animate-pulse">{unreadMessagesCount}</span>}
-                </button>
-              ))}
-            </div>
+            {/* ROW 2: MANAGER CONTROLS (Only visible to Managers) */}
+            {isManager && (
+              <div className="flex flex-wrap gap-1 items-center bg-slate-800/40 p-1.5 rounded-xl border border-slate-700/50">
+                <span className="text-[9px] font-black text-yellow-600 uppercase tracking-widest px-2">Manager Space</span>
+                {managerTabsList.map(tab => {
+                  const visible = (tab === 'builder' && showDashboard) || (tab === 'dashboard' && showDashboard) || (tab === 'timesheets' && showTimesheets) || (tab === 'setup' && showSetup) || (tab === 'locations' && showLocationsTab) || (tab === 'staff' && showStaff);
+                  if (!visible) return null;
+                  return (
+                    <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black text-[9px] transition-all ${activeTab === tab ? 'bg-yellow-500 text-slate-900 shadow-md scale-105' : 'bg-slate-900/50 hover:bg-slate-800 text-slate-400'}`}>
+                      {TAB_LABELS[tab]}
+                      {tab === 'timesheets' && unapprovedCount > 0 && <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[7px] px-1.5 py-0.5 rounded-full font-black shadow-md">{unapprovedCount}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-
-          {/* COMPACT ROW 2: MANAGER */}
-          {isManager && (
-            <div className="flex flex-wrap gap-1 items-center bg-slate-800/30 p-1 rounded-xl border border-slate-700/50">
-              <span className="text-[9px] font-black text-yellow-600 uppercase tracking-widest px-2">Manager Space</span>
-              {managerTabsList.map(tab => {
-                const visible = (tab === 'builder' && showDashboard) || (tab === 'dashboard' && showDashboard) || (tab === 'timesheets' && showTimesheets) || (tab === 'setup' && showSetup) || (tab === 'locations' && showLocationsTab) || (tab === 'staff' && showStaff);
-                if (!visible) return null;
-                return (
-                  <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-3 py-1.5 rounded-lg font-black text-[9px] transition-all ${activeTab === tab ? 'bg-yellow-500 text-slate-900' : 'bg-slate-900/40 hover:bg-slate-800 text-slate-500'}`}>
-                    {TAB_LABELS[tab]}
-                    {tab === 'timesheets' && unapprovedCount > 0 && <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[7px] px-1.5 py-0.5 rounded-full font-black">{unapprovedCount}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         <div className="p-3 md:p-6 bg-gray-50">

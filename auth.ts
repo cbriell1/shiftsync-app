@@ -12,6 +12,7 @@ const customAdapter = {
   
   createUser: async (data: any) => {
     const { id, ...validData } = data; 
+    
     if (validData.email === "cbriell1@yahoo.com") {
       const existingChris = await prisma.user.findFirst({ 
         where: { name: { contains: "Chris Briell", mode: 'insensitive' } } 
@@ -19,7 +20,7 @@ const customAdapter = {
       if (existingChris) {
         const updated = await prisma.user.update({
           where: { id: existingChris.id },
-          data: { email: "cbriell1@yahoo.com", role: "ADMIN", systemRoles: ["Administrator", "Manager", "Front Desk"] }
+          data: { email: "cbriell1@yahoo.com", role: "ADMIN", systemRoles:["Administrator", "Manager", "Front Desk"] }
         });
         return { ...updated, id: updated.id.toString() };
       }
@@ -74,21 +75,10 @@ const customAdapter = {
     if (!userAndSession) return null;
     const { user, ...session } = userAndSession;
     
-    // Check if roles have changed in DB to keep session synced
     return {
       session: { ...session, userId: session.userId.toString() },
       user: { ...user, id: user.id.toString() },
     };
-  },
-
-  updateSession: async (session: any) => {
-    const { userId, ...data } = session;
-    const updated = await prisma.session.update({ where: { sessionToken: session.sessionToken }, data });
-    return { ...updated, userId: updated.userId.toString() };
-  },
-
-  deleteSession: async (sessionToken: string) => {
-    await prisma.session.delete({ where: { sessionToken } });
   },
 
   createAuthenticator: async (authenticator: any) => {
@@ -115,7 +105,7 @@ const customAdapter = {
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: customAdapter,
-  providers: [
+  providers:[
     Passkey(),
     Credentials({
       name: "Emergency Fallback",
@@ -125,14 +115,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       async authorize(credentials) {
         if (credentials.email === "cbriell1@yahoo.com" && credentials.password === process.env.AUTH_SECRET) {
-           const user = await prisma.user.findFirst({ where: { email: "cbriell1@yahoo.com" } });
-           if (user) return { ...user, id: user.id.toString() };
+           let user = await prisma.user.findFirst({ where: { email: "cbriell1@yahoo.com" } });
+           
+           // BULLETPROOF FIX: If the staging database is completely empty, force-create Chris as Admin.
+           if (!user) {
+             user = await prisma.user.create({
+               data: {
+                 name: "Chris Briell",
+                 email: "cbriell1@yahoo.com",
+                 role: "ADMIN",
+                 systemRoles:["Administrator", "Manager", "Front Desk"],
+                 isActive: true,
+                 receiveReportEmails: true
+               }
+             });
+           }
+           return { ...user, id: user.id.toString() };
         }
         return null;
       }
     })
   ],
-  // UPDATED: Now using database strategy to allow for remote session revocation
   session: { strategy: "database" }, 
   experimental: { enableWebAuthn: true },
   callbacks: {
