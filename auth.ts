@@ -12,6 +12,7 @@ const customAdapter = {
   
   createUser: async (data: any) => {
     const { id, ...validData } = data; 
+    
     if (validData.email === "cbriell1@yahoo.com") {
       const existingChris = await prisma.user.findFirst({ 
         where: { name: { contains: "Chris Briell", mode: 'insensitive' } } 
@@ -19,11 +20,12 @@ const customAdapter = {
       if (existingChris) {
         const updated = await prisma.user.update({
           where: { id: existingChris.id },
-          data: { email: "cbriell1@yahoo.com", role: "ADMIN", systemRoles: ["Administrator", "Manager", "Front Desk"] }
+          data: { email: "cbriell1@yahoo.com", role: "ADMIN", systemRoles:["Administrator", "Manager", "Front Desk"] }
         });
         return { ...updated, id: updated.id.toString() };
       }
     }
+
     if (!validData.name) validData.name = validData.email ? validData.email.split('@')[0] : "New Employee";
     const created = await prisma.user.create({ data: validData });
     return { ...created, id: created.id.toString() };
@@ -74,21 +76,10 @@ const customAdapter = {
     if (!userAndSession) return null;
     const { user, ...session } = userAndSession;
     
-    // Check if roles have changed in DB to keep session synced
     return {
       session: { ...session, userId: session.userId.toString() },
       user: { ...user, id: user.id.toString() },
     };
-  },
-
-  updateSession: async (session: any) => {
-    const { userId, ...data } = session;
-    const updated = await prisma.session.update({ where: { sessionToken: session.sessionToken }, data });
-    return { ...updated, userId: updated.userId.toString() };
-  },
-
-  deleteSession: async (sessionToken: string) => {
-    await prisma.session.delete({ where: { sessionToken } });
   },
 
   createAuthenticator: async (authenticator: any) => {
@@ -115,7 +106,7 @@ const customAdapter = {
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: customAdapter,
-  providers: [
+  providers:[
     Passkey(),
     Credentials({
       name: "Emergency Fallback",
@@ -124,23 +115,94 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Emergency Password", type: "password" }
       },
       async authorize(credentials) {
-        if (credentials.email === "cbriell1@yahoo.com" && credentials.password === process.env.AUTH_SECRET) {
-           const user = await prisma.user.findFirst({ where: { email: "cbriell1@yahoo.com" } });
-           if (user) return { ...user, id: user.id.toString() };
+        const inputEmail = String(credentials?.email || "").toLowerCase().trim();
+        const inputPassword = String(credentials?.password || "").trim();
+        const serverSecret = process.env.AUTH_SECRET;
+
+        if (!serverSecret) {
+          console.error("🚨 AUTH_SECRET is missing in Environment Variables!");
+          return null;
+        }
+
+        if (inputEmail === "cbriell1@yahoo.com" && inputPassword === serverSecret) {
+           let user = await prisma.user.findFirst({ where: { email: "cbriell1@yahoo.com" } });
+           
+           if (!user) {
+             user = await prisma.user.create({
+               data: {
+                 name: "Chris Briell",
+                 email: "cbriell1@yahoo.com",
+                 role: "ADMIN",
+                 systemRoles:["Administrator", "Manager", "Front Desk"],
+                 isActive: true,
+                 receiveReportEmails: true
+               }
+             });
+           }
+           return { ...user, id: user.id.toString() };
         }
         return null;
       }
     })
   ],
-  // UPDATED: Now using database strategy to allow for remote session revocation
-  session: { strategy: "database" }, 
+  session: { strategy: "jwt" }, // <-- Reverted to JWT to fix Credentials
   experimental: { enableWebAuthn: true },
   callbacks: {
-    async session({ session, user }) {
+    async jwt({ token, user }) {
+      // 1. Initial Sign In: Generate a tracking session in the database
+      if (user) {
+        token.id = user.id.toString();
+        
+        const sessionToken = crypto.randomUUID();
+        const expires = new Date();
+        expires.setDate(expires.getDate() + 30);
+        
+        await prisma.session.create({
+          data: {
+            sessionToken,
+            userId: Number(user.id),
+            expires
+          }
+        });
+        
+        token.sessionId = sessionToken;
+      }
+
+      // 2. On every request, check if the session was killed by an Admin
+      if (token.id && token.sessionId) {
+        const activeSession = await prisma.session.findUnique({
+          where: { sessionToken: token.sessionId as string }
+        });
+
+        if (!activeSession) {
+          // Admin deleted the session! Flag it for destruction.
+          token.isRevoked = true;
+        } else {
+          token.isRevoked = false;
+          // Keep roles updated live
+          const dbUser = await prisma.user.findUnique({
+            where: { id: Number(token.id) },
+            select: { role: true, systemRoles: true }
+          });
+          if (dbUser) {
+            token.role = dbUser.role;
+            token.systemRoles = dbUser.systemRoles;
+          }
+        }
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      // If the Admin deleted the session, we return a blank object. 
+      // This tells the frontend to kick the user out immediately.
+      if (token.isRevoked) {
+        return {} as any; 
+      }
+
       if (session.user) {
-        session.user.id = user.id;
-        (session.user as any).role = (user as any).role;
-        (session.user as any).systemRoles = (user as any).systemRoles;
+        session.user.id = token.id as string;
+        (session.user as any).role = token.role;
+        (session.user as any).systemRoles = token.systemRoles;
       }
       return session;
     }
