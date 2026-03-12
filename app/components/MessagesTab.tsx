@@ -17,36 +17,46 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
   const[showMobileThreadList, setShowMobileThreadList] = useState(true);
 
   // --- ANNOUNCEMENT STATE ---
-  const [showAnnounceForm, setShowAnnounceForm] = useState(false);
-  const[aTitle, setATitle] = useState('');
-  const [aContent, setAContent] = useState('');
-  const[aTargetType, setATargetType] = useState<'ALL' | 'LOCATIONS'>('ALL');
+  const[showAnnounceForm, setShowAnnounceForm] = useState(false);
+  const [aTitle, setATitle] = useState('');
+  const[aContent, setAContent] = useState('');
+  const [aTargetType, setATargetType] = useState<'ALL' | 'LOCATIONS'>('ALL');
   const [aSelectedLocs, setASelectedLocs] = useState<number[]>([]);
-  const[isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // NEW: Track last viewed time for Announcements specifically
+  const [lastViewedAnnouncements, setLastViewedAnnouncements] = useState('1970-01-01T00:00:00.000Z');
 
   // --- CHAT STATE ---
   const [chatInput, setChatInput] = useState('');
-  const [activeThreadId, setActiveThreadId] = useState<string>('global');
-  const[showNewChatSelector, setShowNewChatSelector] = useState(false);
+  const[activeThreadId, setActiveThreadId] = useState<string>('global');
+  const [showNewChatSelector, setShowNewChatSelector] = useState(false);
   const [cTargetType, setCTargetType] = useState<'USERS' | 'LOCATIONS'>('USERS');
   const [cSelectedUsers, setCSelectedUsers] = useState<number[]>([]);
   const [cSelectedLocs, setCSelectedLocs] = useState<number[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // --- UNREAD TRACKING STATE ---
+  // --- UNREAD TRACKING STATE (CHATS) ---
   const [readStates, setReadStates] = useState<Record<string, string>>({});
 
+  // 1. Load Local Storage Trackers on mount
   useEffect(() => {
     if (typeof window !== 'undefined' && selectedUserId) {
-      const stored = localStorage.getItem('threadReadStates_' + selectedUserId);
-      if (stored) {
-        try { setReadStates(JSON.parse(stored)); } catch (e) { setReadStates({}); }
+      // Load Chat thread reads
+      const storedChats = localStorage.getItem('threadReadStates_' + selectedUserId);
+      if (storedChats) {
+        try { setReadStates(JSON.parse(storedChats)); } catch (e) { setReadStates({}); }
       } else { setReadStates({}); }
-    }
-  }, [selectedUserId]);
 
+      // Load Announcements read
+      const storedAnnouncements = localStorage.getItem('lastViewedAnnouncements_' + selectedUserId);
+      if (storedAnnouncements) setLastViewedAnnouncements(storedAnnouncements);
+    }
+  },[selectedUserId]);
+
+  // 2. Mark specific Chat Thread as read (ONLY if looking at the chat tab)
   useEffect(() => {
-    if (activeThreadId && activeThreadId !== 'NEW' && typeof window !== 'undefined' && selectedUserId) {
+    if (subTab === 'CHAT' && activeThreadId && activeThreadId !== 'NEW' && typeof window !== 'undefined' && selectedUserId) {
       setReadStates(prev => {
         const now = new Date().toISOString();
         const next = { ...prev, [activeThreadId]: now };
@@ -54,7 +64,16 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
         return next;
       });
     }
-  },[activeThreadId, messages, selectedUserId]);
+  }, [subTab, activeThreadId, messages, selectedUserId]);
+
+  // 3. Mark Announcements as read (ONLY if looking at the announcements tab)
+  useEffect(() => {
+    if (subTab === 'ANNOUNCEMENTS' && typeof window !== 'undefined' && selectedUserId) {
+      const now = new Date().toISOString();
+      localStorage.setItem('lastViewedAnnouncements_' + selectedUserId, now);
+      setLastViewedAnnouncements(now);
+    }
+  }, [subTab, announcements, selectedUserId]);
 
   // --- THREAD GROUPING LOGIC ---
   const threads = useMemo(() => {
@@ -104,7 +123,28 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
     });
 
     return Array.from(threadMap.values()).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  },[messages, selectedUserId, locations, users]);
+  }, [messages, selectedUserId, locations, users]);
+
+  // --- COMPUTE UNREAD BUBBLE COUNTS ---
+  const totalUnreadChats = useMemo(() => {
+    let count = 0;
+    threads.forEach(t => {
+      const tUnread = t.messages.filter((m: Message) => {
+        if (m.senderId.toString() === selectedUserId) return false;
+        const lastRead = readStates[t.id] || '1970-01-01T00:00:00.000Z';
+        return new Date(m.createdAt).getTime() > new Date(lastRead).getTime();
+      }).length;
+      count += tUnread;
+    });
+    return count;
+  }, [threads, readStates, selectedUserId]);
+
+  const totalUnreadAnnouncements = useMemo(() => {
+    return announcements.filter(a => {
+      if (a.authorId.toString() === selectedUserId) return false;
+      return new Date(a.createdAt).getTime() > new Date(lastViewedAnnouncements).getTime();
+    }).length;
+  },[announcements, lastViewedAnnouncements, selectedUserId]);
 
   const activeThread = threads.find(t => t.id === activeThreadId) || threads[0];
   const activeMessages = activeThread?.messages ||[];
@@ -181,23 +221,33 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
   return (
     <div className="bg-white p-2 md:p-6 rounded-2xl border border-gray-300 shadow-md h-[85vh] md:h-[80vh] flex flex-col animate-in fade-in duration-300">
       
-      {/* --- Top Sub-Tabs --- */}
+      {/* --- Top Sub-Tabs with NEW Inline Bubbles --- */}
       <div className="flex border-b border-gray-200 mb-4 gap-1 md:gap-2 px-2 md:px-0 pt-2 md:pt-0 overflow-x-auto">
         <button
           onClick={() => setSubTab('ANNOUNCEMENTS')}
-          className={`py-2 px-4 md:px-6 font-black text-xs md:text-sm outline-none transition-colors border-b-2 whitespace-nowrap ${
+          className={`py-2 px-4 md:px-6 font-black text-xs md:text-sm outline-none transition-colors border-b-2 whitespace-nowrap flex items-center ${
             subTab === 'ANNOUNCEMENTS' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
           }`}
         >
           📢 Message Board
+          {totalUnreadAnnouncements > 0 && (
+            <span className="ml-2 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm animate-pulse">
+              {totalUnreadAnnouncements}
+            </span>
+          )}
         </button>
         <button
           onClick={() => { setSubTab('CHAT'); setShowMobileThreadList(true); }}
-          className={`py-2 px-4 md:px-6 font-black text-xs md:text-sm outline-none transition-colors border-b-2 whitespace-nowrap ${
+          className={`py-2 px-4 md:px-6 font-black text-xs md:text-sm outline-none transition-colors border-b-2 whitespace-nowrap flex items-center ${
             subTab === 'CHAT' ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
           }`}
         >
           💬 Team Chat
+          {totalUnreadChats > 0 && (
+            <span className="ml-2 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm animate-pulse">
+              {totalUnreadChats}
+            </span>
+          )}
         </button>
       </div>
 
@@ -293,7 +343,7 @@ export default function MessagesTab({ appState }: { appState: AppState }) {
         </div>
       )}
 
-      {/* --- STREAMLINED CHAT VIEW (Google Messages Style) --- */}
+      {/* --- STREAMLINED CHAT VIEW --- */}
       {subTab === 'CHAT' && (
         <div className="flex-1 flex overflow-hidden bg-white rounded-2xl border border-slate-300 shadow-inner relative">
           

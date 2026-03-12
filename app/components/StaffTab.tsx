@@ -13,19 +13,19 @@ export default function StaffTab({ appState }: { appState: AppState }) {
 
   const [staffView, setStaffView] = useState<'DIRECTORY' | 'SESSIONS'>('DIRECTORY');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newStaff, setNewStaff] = useState({ name: '', pinCode: '', courtReserveId: '', phoneNumber: '', email: '' });
+  const[newStaff, setNewStaff] = useState({ name: '', pinCode: '', courtReserveId: '', phoneNumber: '', email: '' });
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
-  const [mergeSourceId, setMergeSourceId] = useState('');
+  const[mergeSourceId, setMergeSourceId] = useState('');
   const [mergeTargetId, setMergeTargetId] = useState('');
-  const [isMerging, setIsMerging] = useState(false);
+  const[isMerging, setIsMerging] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterLocation, setFilterLocation] = useState<string>('ALL');
+  const[filterLocation, setFilterLocation] = useState<string>('ALL');
   const [filterRole, setFilterRole] = useState<string>('ALL');
   const [showArchived, setShowArchived] = useState(false);
   const [groupBy, setGroupBy] = useState<'NONE' | 'LOCATION' | 'ROLE'>('NONE');
 
   const toggleLocation = async (user: User, locationId: number) => {
-    const currentLocs = user.locationIds ? [...user.locationIds] : [];
+    const currentLocs = user.locationIds ?[...user.locationIds] :[];
     let newLocs = currentLocs.includes(locationId) ? currentLocs.filter(id => id !== locationId) : [...currentLocs, locationId];
     await handleUpdateUser(user.id, { locationIds: newLocs });
   };
@@ -62,6 +62,14 @@ export default function StaffTab({ appState }: { appState: AppState }) {
   const renderUserRow = (user: User) => {
     const isInactive = user.isActive === false;
     const isManagement = user.systemRoles?.includes('Administrator') || user.systemRoles?.includes('Manager');
+    
+    // Formatting the Last Login Date
+    let lastLoginDisplay = 'Never';
+    if (user.lastLoginAt) {
+      const loginDate = new Date(user.lastLoginAt);
+      lastLoginDisplay = `${loginDate.toLocaleDateString()} ${loginDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
     return (
       <div key={user.id} className={`bg-white border border-slate-200 rounded-xl p-3 flex flex-col xl:flex-row gap-3 items-start xl:items-center shadow-sm hover:shadow transition-all group relative ${isInactive ? 'opacity-60 grayscale' : ''}`}>
         <div className="flex w-full xl:w-[18%] items-center gap-3">
@@ -76,6 +84,11 @@ export default function StaffTab({ appState }: { appState: AppState }) {
                  className="w-10 bg-slate-100 border border-slate-300 rounded text-[9px] font-black text-center text-slate-950 focus:bg-white focus:border-blue-500 outline-none"
                  placeholder="PIN"
                />
+            </div>
+            {/* NEW: Last Login Display */}
+            <div className="text-[9px] font-bold text-slate-500 mt-1 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+              Last Login: {lastLoginDisplay}
             </div>
           </div>
         </div>

@@ -27,9 +27,9 @@ import TimeClockTab from './components/TimeClockTab';
 // 1. LOGIN SCREEN COMPONENT
 // ==================================================================
 function LoginScreen({ sessionData }: { sessionData: any }) {
-  const [email, setEmail] = useState("");
+  const[email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const[loading, setLoading] = useState(false);
   const [usePassword, setUsePassword] = useState(false);
 
   const handlePasskeyLogin = async (action: "authenticate" | "register") => {
@@ -123,35 +123,35 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
 // 2. MAIN DASHBOARD APP
 // ==================================================================
 function MainDashboard({ session }: { session: any }) {
-  const [isMounted, setIsMounted] = useState(false);
-  const[activeTab, setActiveTab] = useState('clock');
+  const[isMounted, setIsMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState('clock');
   
   const [users, setUsers] = useState<User[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
-  const[timeCards, setTimeCards] = useState<TimeCard[]>([]);
+  const [timeCards, setTimeCards] = useState<TimeCard[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
-  const[templates, setTemplates] = useState<ShiftTemplate[]>([]);
+  const[members, setMembers] = useState<Member[]>([]);
+  const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const [checklists, setChecklists] = useState<Checklist[]>([]);
-  const [globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
-  const[feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const[globalTasks, setGlobalTasks] = useState<GlobalTask[]>([]);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const[announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const[messages, setMessages] = useState<Message[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(true);
-  const [isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
+  const[isGiftCardsLoading, setIsGiftCardsLoading] = useState(true);
 
   const [selectedUserId, setSelectedUserId] = useState(session?.user?.id?.toString() || '');
-  const[currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   
-  const[lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
+  const [lastViewedFeedback, setLastViewedFeedback] = useState<string>('1970-01-01T00:00:00.000Z');
   const [highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
-  const [lastViewedMessages, setLastViewedMessages] = useState<string>('1970-01-01T00:00:00.000Z');
+  const[lastViewedMessages, setLastViewedMessages] = useState<string>('1970-01-01T00:00:00.000Z');
 
-  const [calLocFilter, setCalLocFilter] = useState('');
-  const[calEmpFilter, setCalEmpFilter] = useState('');
+  const[calLocFilter, setCalLocFilter] = useState('');
+  const [calEmpFilter, setCalEmpFilter] = useState('');
 
   const getMonday = (d: Date) => { 
     const dt = new Date(d); 
@@ -161,10 +161,10 @@ function MainDashboard({ session }: { session: any }) {
   };
   const[builderWeekStart, setBuilderWeekStart] = useState(getMonday(new Date()));
 
-  const[showChecklistModal, setShowChecklistModal] = useState(false);
-  const[reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
-  const[editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
-  const[clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
+  const [showChecklistModal, setShowChecklistModal] = useState(false);
+  const [reportTargetCard, setReportTargetCard] = useState<TimeCard | null>(null); 
+  const [editingChecklistId, setEditingChecklistId] = useState<number | null>(null); 
+  const [clDynamicTasks, setClDynamicTasks] = useState<string[]>([]); 
   const [clCompletedTasks, setClCompletedTasks] = useState<string[]>([]); 
   const [clNotes, setClNotes] = useState('');
 
@@ -182,8 +182,8 @@ function MainDashboard({ session }: { session: any }) {
     return p;
   };
 
-  const[periods] = useState(generatePeriods());
-  const [manPeriods, setManPeriods] = useState<number[]>([0]); 
+  const [periods] = useState(generatePeriods());
+  const[manPeriods, setManPeriods] = useState<number[]>([0]); 
   const [manLocs, setManLocs] = useState<number[]>([]);
   const [manEmps, setManEmps] = useState<number[]>([]);
   const[managerData, setManagerData] = useState<TimeCard[]>([]);
@@ -258,21 +258,6 @@ function MainDashboard({ session }: { session: any }) {
       .catch(() => {});
   };
 
-  const fetchManagerData = async () => {
-    const selectedPeriods = manPeriods.map(idx => periods[idx]);
-    let targetEmployees = manEmps;
-    if (!isManager && selectedUserId) targetEmployees = [parseInt(selectedUserId)];
-    const res = await fetch('/api/manager?t=' + new Date().getTime(), { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ periods: selectedPeriods, userIds: targetEmployees }) 
-    }).catch(() => null);
-    if(res) {
-      const data = await res.json();
-      setManagerData(Array.isArray(data) ? data :[]);
-    }
-  };
-
   useEffect(() => {
     setIsMounted(true);
     if (!session) return;
@@ -291,10 +276,6 @@ function MainDashboard({ session }: { session: any }) {
     const intervalId = setInterval(syncOperationalData, 30000);
     return () => { window.removeEventListener('focus', onFocus); clearInterval(intervalId); };
   }, [session, selectedUserId]); 
-
-  useEffect(() => {
-    if (session && (activeTab === 'dashboard' || activeTab === 'timesheets')) fetchManagerData();
-  },[activeTab, manPeriods, manLocs, manEmps, selectedUserId, session]);
 
   const safeUsers = Array.isArray(users) ? users :[];
   const activeUsers = safeUsers.filter(u => u.isActive !== false);
@@ -385,10 +366,10 @@ function MainDashboard({ session }: { session: any }) {
       if (isManager) return true;
       return fb.userId === parseInt(selectedUserId);
     }).length;
-  }, [feedbacks, lastViewedFeedback, isManager, selectedUserId]);
+  },[feedbacks, lastViewedFeedback, isManager, selectedUserId]);
 
   const unreadMessagesCount = useMemo(() => {
-    return[...(Array.isArray(messages) ? messages : []), ...(Array.isArray(announcements) ? announcements :[])].filter(item => {
+    return [...(Array.isArray(messages) ? messages : []), ...(Array.isArray(announcements) ? announcements :[])].filter(item => {
       const itemDate = new Date(item.createdAt).getTime();
       const lastViewed = new Date(lastViewedMessages).getTime();
       if (itemDate <= lastViewed) return false;
@@ -397,6 +378,25 @@ function MainDashboard({ session }: { session: any }) {
       return true;
     }).length;
   }, [messages, announcements, lastViewedMessages, selectedUserId]);
+
+  const fetchManagerData = async () => {
+    const selectedPeriods = manPeriods.map(idx => periods[idx]);
+    let targetEmployees = manEmps;
+    if (!isManager && selectedUserId) targetEmployees = [parseInt(selectedUserId)];
+    const res = await fetch('/api/manager?t=' + new Date().getTime(), { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ periods: selectedPeriods, userIds: targetEmployees }) 
+    }).catch(() => null);
+    if(res) {
+      const data = await res.json();
+      setManagerData(Array.isArray(data) ? data :[]);
+    }
+  };
+
+  useEffect(() => {
+    if (session && (activeTab === 'dashboard' || activeTab === 'timesheets')) fetchManagerData();
+  }, [activeTab, manPeriods, manLocs, manEmps, selectedUserId, session]);
 
   const handleCreateLocation = async (payload: any) => { const res = await fetch('/api/locations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); fetchLocations(); return { success: res.ok }; };
   const handleUpdateLocation = async (id: number, payload: any) => { const res = await fetch('/api/locations', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...payload }) }); fetchLocations(); return { success: res.ok }; };
@@ -528,7 +528,7 @@ function MainDashboard({ session }: { session: any }) {
     giftcards: 'GIFT CARDS', feedback: '💬 FEEDBACK', setup: 'SHIFT SETUP', staff: 'STAFF', locations: 'LOCATIONS'
   };
 
-  const leftStaffTabs =['clock', 'calendar', 'manual', 'privileges', 'giftcards'];
+  const leftStaffTabs = ['clock', 'calendar', 'manual', 'privileges', 'giftcards'];
   const communicationTabs = ['messages', 'feedback'];
   const managerTabsList =['builder', 'timesheets', 'dashboard', 'setup', 'staff', 'locations'];
 
@@ -569,15 +569,15 @@ function MainDashboard({ session }: { session: any }) {
   const { pendingCards, unapprovedCount } = useMemo(() => {
     const pending = isManager ? (Array.isArray(managerData) ? managerData :[]).filter(c => (!c.status || c.status === 'PENDING') && c.clockOut) :[];
     return { pendingCards: pending, unapprovedCount: pending.length };
-  },[managerData, isManager]);
+  }, [managerData, isManager]);
 
   const activeCalColor = useMemo(() => {
     return calLocFilter ? getLocationColor(calLocFilter) : { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-800' };
-  }, [calLocFilter]);
+  },[calLocFilter]);
 
   const activeUserTimeCards = useMemo(() => {
-    return (Array.isArray(timeCards) ? timeCards :[]).filter(c => c.userId === parseInt(selectedUserId));
-  }, [timeCards, selectedUserId]);
+    return (Array.isArray(timeCards) ? timeCards : []).filter(c => c.userId === parseInt(selectedUserId));
+  },[timeCards, selectedUserId]);
 
   const appState: AppState = {
     isMounted, activeTab, setActiveTab, users: safeUsers, activeUsers, locations, visibleLocations, timeCards, shifts, setShifts, members, setMembers, templates, checklists,
@@ -601,6 +601,9 @@ function MainDashboard({ session }: { session: any }) {
     missingPunches:[], activeUserTimeCards,
     unapprovedCount, pendingCards, builderWeekStart, setBuilderWeekStart, unreadFeedbackCount, unreadMessagesCount, fetchChecklists, fetchManagerData, fetchTimeCards
   };
+
+  // CHECK ENVIRONMENT VERCEL VARIABLE
+  const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV || 'development';
 
   if (!isMounted) return <div className="p-10 text-center font-bold text-slate-500 uppercase tracking-widest">Loading Workspace...</div>;
 
@@ -641,11 +644,22 @@ function MainDashboard({ session }: { session: any }) {
                 <h1 className="text-xl font-black italic uppercase tracking-widest leading-none hidden sm:block">
                   <span className="text-yellow-400">Pickles</span> & Play
                 </h1>
+                
+                {/* DYNAMIC ENVIRONMENT BADGE */}
+                {vercelEnv === 'preview' ? (
+                  <span className="bg-pink-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded shadow-sm tracking-widest animate-pulse ml-1">STAGING</span>
+                ) : vercelEnv === 'development' ? (
+                  <span className="bg-slate-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded shadow-sm tracking-widest ml-1">LOCAL DEV</span>
+                ) : null}
               </div>
               
               <div className="flex items-center bg-slate-800 px-2 py-1 rounded-full border border-slate-700 shadow-inner">
                 <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="bg-transparent text-yellow-400 hover:bg-slate-700 rounded-full px-2 py-1 text-[11px] font-black outline-none cursor-pointer text-center">
-                  {safeUsers.map(u => <option key={u.id} value={u.id} className="text-slate-900">{u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}</option>)}
+                  {safeUsers.map(u => (
+                    <option key={u.id} value={u.id} className="bg-white text-slate-900 font-bold">
+                      {u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}
+                    </option>
+                  ))}
                 </select>
                 {isRealManager && (
                   <button onClick={async () => {
@@ -661,10 +675,10 @@ function MainDashboard({ session }: { session: any }) {
             </div>
 
             {/* TAB NAVIGATION ROWS (RIGHT) */}
-            <div className="flex flex-col gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0">
+            <div className="flex flex-col gap-2 w-full lg:w-auto justify-end">
               
               {/* STAFF SPACE ROW */}
-              <div className="flex items-center justify-start lg:justify-end gap-1.5 w-max lg:w-auto">
+              <div className="flex flex-wrap items-center justify-center lg:justify-end gap-1.5">
                 {leftStaffTabs.map(tab => {
                   const visible = (tab === 'clock' || tab === 'calendar' || tab === 'manual') || (tab === 'privileges' && showPasses) || (tab === 'giftcards' && showGiftCards);
                   if (!visible) return null;
@@ -689,7 +703,7 @@ function MainDashboard({ session }: { session: any }) {
 
               {/* MANAGER SPACE ROW */}
               {isManager && (
-                <div className="flex items-center justify-start lg:justify-end gap-1.5 w-max lg:w-auto">
+                <div className="flex flex-wrap items-center justify-center lg:justify-end gap-1.5">
                   <span className="text-[8px] font-black text-yellow-600 uppercase tracking-widest px-2 hidden sm:block">Manager</span>
                   {managerTabsList.map(tab => {
                     const visible = (tab === 'builder' && showDashboard) || (tab === 'dashboard' && showDashboard) || (tab === 'timesheets' && showTimesheets) || (tab === 'setup' && showSetup) || (tab === 'locations' && showLocationsTab) || (tab === 'staff' && showStaff);

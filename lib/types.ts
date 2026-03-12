@@ -27,6 +27,7 @@ export interface User {
   image?: string | null;
   isActive?: boolean;
   receiveReportEmails?: boolean; 
+  lastLoginAt?: string | null; // NEW: Track last login time
 }
 
 export interface Shift {
@@ -279,7 +280,7 @@ export interface AppState {
   unreadMessagesCount: number;
   fetchChecklists: () => void;
   fetchTimeCards: () => void;
-  fetchManagerData: () => void; // <-- ADDED HERE
+  fetchManagerData: () => void; 
   
   messages: Message[];
   setMessages: (m: Message[]) => void;
