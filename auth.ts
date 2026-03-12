@@ -119,7 +119,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const inputPassword = String(credentials?.password || "").trim();
         const serverSecret = process.env.AUTH_SECRET;
 
-        if (!serverSecret) return null;
+        // LOUD DEBUGGING LOGS
+        if (!serverSecret) {
+          console.error("🚨 CRITICAL ERROR: AUTH_SECRET is completely missing in this Vercel environment!");
+          return null;
+        }
 
         if (inputEmail === "cbriell1@yahoo.com" && inputPassword === serverSecret) {
            let user = await prisma.user.findFirst({ where: { email: "cbriell1@yahoo.com" } });
@@ -137,8 +141,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
              });
            }
            return { ...user, id: user.id.toString() };
+        } else {
+           console.error(`🚨 LOGIN DENIED: Email Match: ${inputEmail === "cbriell1@yahoo.com"} | Password Match: ${inputPassword === serverSecret}`);
+           return null;
         }
-        return null;
       }
     })
   ],
@@ -153,7 +159,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const expires = new Date();
         expires.setDate(expires.getDate() + 30);
         
-        // NEW: Update the User's lastLoginAt timestamp alongside creating the session
         await prisma.$transaction([
           prisma.session.create({
             data: { sessionToken, userId: Number(user.id), expires }
