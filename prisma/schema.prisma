@@ -38,6 +38,7 @@ model User {
   systemRoles         String[]   @default(["Front Desk"]) 
   isActive            Boolean    @default(true)
   receiveReportEmails Boolean    @default(true) 
+  lastLoginAt         DateTime?  // NEW: Track when they last authenticated
   
   locationIds    Int[]      @default([])
 
@@ -201,7 +202,7 @@ model GiftCard {
 model ShiftTemplate {
   id             Int      @id @default(autoincrement())
   locationId     Int
-  location       Location @relation(fields: [locationId], references:[id])
+  location       Location @relation(fields:[locationId], references:[id])
   dayOfWeek      Int      
   startTime      String   
   endTime        String   
@@ -223,7 +224,7 @@ model Checklist {
   locationId         Int
   location           Location  @relation(fields:[locationId], references:[id])
   timeCardId         Int?      
-  timeCard       TimeCard? @relation(fields:[timeCardId], references:[id]) 
+  timeCard           TimeCard? @relation(fields:[timeCardId], references:[id]) 
   notes              String?
   previousShiftNotes String?   
   completedTasks     String[]  @default([])
