@@ -1,7 +1,7 @@
 // filepath: app/page.tsx
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
-import Image from 'next/image'; // <-- Imported Next.js Image
+import Image from 'next/image';
 import { signOut, useSession, signIn as signInReact } from "next-auth/react";
 import { signIn as signInPasskey } from "next-auth/webauthn"; 
 import { notify, useEscapeKey } from '@/lib/ui-utils';
@@ -77,7 +77,7 @@ function DashboardSkeleton() {
 
 function LoginScreen({ sessionData }: { sessionData: any }) {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const[password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const[usePassword, setUsePassword] = useState(false);
 
@@ -97,6 +97,7 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
     setLoading(true);
     const res = await signInReact("credentials", { email, password, redirect: false });
     setLoading(false);
+    
     if (res?.error) {
       notify.error("Access Denied: Invalid Email or Secret Code.");
     } else if (res?.ok) {
@@ -114,7 +115,6 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
           </button>
         )}
         <div className="text-center">
-          {/* OPTIMIZED IMAGE */}
           <Image 
             src="/logo.png" 
             alt="Pickles & Play" 
@@ -199,7 +199,7 @@ function MainDashboard({ session }: { session: any }) {
   useEscapeKey(() => setSidebarOpen(false), sidebarOpen);
   useEscapeKey(() => setShowChecklistModal(false), showChecklistModal);
 
-  const[isMounted, setIsMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const[lastViewedFeedback, setLastViewedFeedback] = useState('1970-01-01T00:00:00.000Z');
   const [lastViewedMessages, setLastViewedMessages] = useState('1970-01-01T00:00:00.000Z');
 
@@ -297,7 +297,7 @@ function MainDashboard({ session }: { session: any }) {
   },[feedbacks, lastViewedFeedback, isManager, selectedUserId]);
 
   const unreadMessagesCount = useMemo(() => {
-    return[...messages, ...announcements].filter(item => {
+    return [...messages, ...announcements].filter(item => {
       const itemDate = new Date(item.createdAt).getTime();
       if (itemDate <= new Date(lastViewedMessages).getTime()) return false;
       if ('senderId' in item && item.senderId.toString() === selectedUserId) return false;
@@ -355,7 +355,6 @@ function MainDashboard({ session }: { session: any }) {
       <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-slate-300 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:block flex flex-col h-full border-r border-slate-800 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 flex items-center justify-between border-b border-slate-800 shrink-0">
           <div className="flex items-center gap-3">
-            {/* OPTIMIZED IMAGE */}
             <Image src="/logo.png" alt="Logo" width={32} height={32} priority className="h-8 w-auto" />
             <h1 className="text-xl font-black italic uppercase tracking-widest leading-none text-white"><span className="text-yellow-400">Pickles</span><br/>& Play</h1>
           </div>
@@ -470,4 +469,19 @@ function MainDashboard({ session }: { session: any }) {
       )}
     </div>
   );
+}
+
+export default function SchedulingAppRoot() {
+  const { data: session, status } = useSession();
+  
+  useEffect(() => {
+    if (status === "authenticated" && session && !session.user) {
+      signOut({ redirect: false });
+    }
+  }, [session, status]);
+
+  if (status === "loading") return <LoginSkeleton />;
+  if (status === "unauthenticated" || !session || !session.user) return <LoginScreen sessionData={session} />;
+  
+  return <MainDashboard session={session} />;
 }
