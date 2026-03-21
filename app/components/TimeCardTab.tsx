@@ -1,16 +1,21 @@
 // filepath: app/components/TimeCardTab.tsx
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { AppState, TimeCard, User, Location, ShiftTemplate, Checklist } from '../lib/types';
+import { TimeCard, User, Location, ShiftTemplate, Checklist } from '../lib/types';
 import { notify } from '@/lib/ui-utils';
+import { useAppStore } from '@/lib/store';
+import { formatTimeSafe, formatDateSafe } from '@/lib/common';
 
-const TimeCardRow = ({ 
-  card, activeUser, locations, templates, formatTimeSafe, formatDateSafe, checklists, fetchChecklists 
-}: {
-  card: TimeCard, activeUser?: User, locations: Location[], templates: ShiftTemplate[],
-  formatTimeSafe: (d: string) => string, formatDateSafe: (d: string) => string,
-  checklists: Checklist[], fetchChecklists?: () => void
-}) => {
+const TimeCardRow = ({ card }: { card: TimeCard }) => {
+  // 1. Store Subscriptions (Inside Row to stay decoupled)
+  const users = useAppStore(state => state.users);
+  const locations = useAppStore(state => state.locations);
+  const templates = useAppStore(state => state.templates);
+  const checklists = useAppStore(state => state.checklists);
+  const fetchChecklists = useAppStore(state => state.fetchChecklists);
+
+  const activeUser = users.find(u => u.id === card.userId);
+
   const outD = new Date(card.clockOut || '');
   const isActive = !card.clockOut || isNaN(outD.getTime()) || outD.getFullYear() === 1970;
   
@@ -35,7 +40,7 @@ const TimeCardRow = ({
     });
   }
 
-  const assignedTasks = bestTpl ? (bestTpl.checklistTasks || []) :[];
+  const assignedTasks = bestTpl ? (bestTpl.checklistTasks || []) : [];
   
   const [isExpanded, setIsExpanded] = useState(isActive); 
   const [completedTasks, setCompletedTasks] = useState<string[]>(activeReport ? activeReport.completedTasks ||[] : []);
@@ -53,7 +58,7 @@ const TimeCardRow = ({
       if (!reportId) setReportId(sourceReport.id);
       if (!savedOnce) setSavedOnce(true);
       if (Date.now() - lastLocalUpdate.current < 10000) return;
-      setCompletedTasks(prev => JSON.stringify(prev) !== JSON.stringify(sourceReport.completedTasks || []) ? sourceReport.completedTasks || [] : prev);
+      setCompletedTasks(prev => JSON.stringify(prev) !== JSON.stringify(sourceReport.completedTasks || []) ? sourceReport.completedTasks ||[] : prev);
       setNotes(prev => prev !== (sourceReport.notes || '') ? sourceReport.notes || '' : prev);
       setPrevNotes(prev => prev !== (sourceReport.previousShiftNotes || '') ? sourceReport.previousShiftNotes || '' : prev);
     }
@@ -81,7 +86,7 @@ const TimeCardRow = ({
         const data = await res.json();
         if (data?.id) setReportId(data.id);
         setSavedOnce(true);
-        if (fetchChecklists) fetchChecklists();
+        await fetchChecklists();
       }
     } catch (err) {
       notify.error("Network Error saving report.");
@@ -175,9 +180,12 @@ const TimeCardRow = ({
   );
 };
 
-export default function TimeCardTab({ appState }: { appState: AppState }) {
-  const { activeUserTimeCards, formatTimeSafe, formatDateSafe, selectedUserId, users, templates, locations, checklists, fetchChecklists } = appState;
-  const activeUser = users?.find(u => u.id === parseInt(selectedUserId));
+export default function TimeCardTab({ appState }: any) {
+  // 1. Store Subscriptions
+  const timeCards = useAppStore(state => state.timeCards);
+  const selectedUserId = useAppStore(state => state.selectedUserId);
+
+  const activeUserTimeCards = timeCards.filter(c => c.userId.toString() === selectedUserId);
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -187,7 +195,7 @@ export default function TimeCardTab({ appState }: { appState: AppState }) {
       ) : (
         <div className="space-y-6">
           {[...activeUserTimeCards].sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map(card => (
-            <TimeCardRow key={card.id} card={card} activeUser={activeUser} locations={locations} templates={templates} formatDateSafe={formatDateSafe} formatTimeSafe={formatTimeSafe} checklists={checklists} fetchChecklists={fetchChecklists} />
+            <TimeCardRow key={card.id} card={card} />
           ))}
         </div>
       )}

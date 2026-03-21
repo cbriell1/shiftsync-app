@@ -1,57 +1,68 @@
 // filepath: app/components/CalendarTab.tsx
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
-import { AppState, Shift, Location, User } from '../lib/types';
-import { customConfirm, notify } from '@/lib/ui-utils'; // <-- NEW IMPORTS
+import { Shift, Location } from '../lib/types';
+import { customConfirm, notify } from '@/lib/ui-utils';
+import { useAppStore } from '@/lib/store';
+import { MONTHS, YEARS, DAYS_OF_WEEK, getLocationColor, formatTimeSafe } from '@/lib/common';
 
-// Constants for the Timeline View (Week & Day)
-const TIMELINE_START_HOUR = 6; // 6:00 AM
-const TIMELINE_END_HOUR = 24;  // 12:00 AM (Midnight)
-const HOUR_HEIGHT = 70;        // pixels per hour
+const TIMELINE_START_HOUR = 6; 
+const TIMELINE_END_HOUR = 24;  
+const HOUR_HEIGHT = 70;        
 
-// Generate array of hours [6, 7, 8... 23]
 const TIME_LABELS = Array.from(
   { length: TIMELINE_END_HOUR - TIMELINE_START_HOUR }, 
   (_, i) => i + TIMELINE_START_HOUR
 );
 
-export default function CalendarTab({ appState }: { appState: AppState }) {
-  const {
-    currentMonth, setCurrentMonth, currentYear, setCurrentYear, MONTHS, YEARS,
-    locations, users, DAYS_OF_WEEK, activeCalColor, calendarCells,
-    shifts, selectedUserId, getLocationColor, formatTimeSafe,
-    isAdmin, isManager, setShifts, handleUpdateShiftTime, handleClaimShift,
-    calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter
-  } = appState;
+export default function CalendarTab({ appState }: any) {
+  const currentMonth = useAppStore(state => state.currentMonth);
+  const currentYear = useAppStore(state => state.currentYear);
+  const setCurrentMonth = useAppStore(state => state.setCurrentMonth);
+  const setCurrentYear = useAppStore(state => state.setCurrentYear);
+  const locations = useAppStore(state => state.locations);
+  const users = useAppStore(state => state.users);
+  const shifts = useAppStore(state => state.shifts);
+  const fetchShifts = useAppStore(state => state.fetchShifts);
+  const selectedUserId = useAppStore(state => state.selectedUserId);
 
-  // --- DEFAULT VIEW SET TO MONTH ---
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
-  
-  const [baseDate, setBaseDate] = useState(() => {
-    const today = new Date();
-    if (today.getMonth() === currentMonth && today.getFullYear() === currentYear) {
-      return today;
-    }
-    return new Date(currentYear, currentMonth, 1);
-  });
+  const calLocFilter = useAppStore(state => state.calLocFilter);
+  const setCalLocFilter = useAppStore(state => state.setCalLocFilter);
+  const calEmpFilter = useAppStore(state => state.calEmpFilter);
+  const setCalEmpFilter = useAppStore(state => state.setCalEmpFilter);
 
-  useEffect(() => {
-    setCurrentMonth(baseDate.getMonth());
-    setCurrentYear(baseDate.getFullYear());
-  }, [baseDate, setCurrentMonth, setCurrentYear]);
+  const activeUserObj = users.find(u => u.id.toString() === selectedUserId);
+  const isAdmin = activeUserObj?.systemRoles?.includes('Administrator');
+  const isManager = activeUserObj?.systemRoles?.includes('Manager') || isAdmin;
 
-  const[selectedLocs, setSelectedLocs] = useState<number[]>([]);
-  const [selectedEmps, setSelectedEmps] = useState<number[]>([]);
-  const [showLocDropdown, setShowLocDropdown] = useState(false);
-  const[showEmpDropdown, setShowEmpDropdown] = useState(false);
-
-  const activeUserObj = users.find(u => u.id === parseInt(selectedUserId));
   const userLocationIds = activeUserObj?.locationIds ||[];
   const allowedLocationIds = userLocationIds.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
 
   const activeLocations = (isAdmin || isManager) 
     ? locations.filter(l => l.isActive !== false) 
     : locations.filter(loc => allowedLocationIds.includes(loc.id) && loc.isActive !== false);
+
+  const activeCalColor = calLocFilter ? getLocationColor(calLocFilter) : { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-800' };
+
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInM = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const calendarCells =[...new Array(firstDay).fill(null), ...Array.from({ length: daysInM }, (_, i) => i + 1)];
+
+  const[viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
+  const[mobileMoveShiftId, setMobileMoveShiftId] = useState<number | null>(null);
+  
+  const[baseDate, setBaseDate] = useState(() => {
+    const today = new Date();
+    if (today.getMonth() === currentMonth && today.getFullYear() === currentYear) return today;
+    return new Date(currentYear, currentMonth, 1);
+  });
+
+  useEffect(() => { setCurrentMonth(baseDate.getMonth()); setCurrentYear(baseDate.getFullYear()); },[baseDate, setCurrentMonth, setCurrentYear]);
+
+  const [selectedLocs, setSelectedLocs] = useState<number[]>([]);
+  const[selectedEmps, setSelectedEmps] = useState<number[]>([]);
+  const[showLocDropdown, setShowLocDropdown] = useState(false);
+  const [showEmpDropdown, setShowEmpDropdown] = useState(false);
 
   const handlePrev = () => {
     const newDate = new Date(baseDate);
@@ -71,77 +82,58 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
 
   const jumpToToday = () => setBaseDate(new Date());
 
-  const handleMonthDropdown = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const m = parseInt(e.target.value);
-    const newDate = new Date(baseDate);
-    newDate.setMonth(m);
-    setBaseDate(newDate);
-  };
+  const handleMonthDropdown = (e: React.ChangeEvent<HTMLSelectElement>) => { const m = parseInt(e.target.value); const newDate = new Date(baseDate); newDate.setMonth(m); setBaseDate(newDate); };
+  const handleYearDropdown = (e: React.ChangeEvent<HTMLSelectElement>) => { const y = parseInt(e.target.value); const newDate = new Date(baseDate); newDate.setFullYear(y); setBaseDate(newDate); };
 
-  const handleYearDropdown = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const y = parseInt(e.target.value);
-    const newDate = new Date(baseDate);
-    newDate.setFullYear(y);
-    setBaseDate(newDate);
-  };
-
-  const toggleEmpFilter = (id: number) => {
-    if (selectedEmps.includes(id)) setSelectedEmps(selectedEmps.filter(x => x !== id));
-    else setSelectedEmps([...selectedEmps, id]);
-  };
-
-  const toggleLocFilter = (id: number) => {
-    if (selectedLocs.includes(id)) setSelectedLocs(selectedLocs.filter(x => x !== id));
-    else setSelectedLocs([...selectedLocs, id]);
-  };
+  const toggleEmpFilter = (id: number) => { if (selectedEmps.includes(id)) setSelectedEmps(selectedEmps.filter(x => x !== id)); else setSelectedEmps([...selectedEmps, id]); };
+  const toggleLocFilter = (id: number) => { if (selectedLocs.includes(id)) setSelectedLocs(selectedLocs.filter(x => x !== id)); else setSelectedLocs([...selectedLocs, id]); };
 
   const dayArray = useMemo(() => {
     const days = viewMode === 'week' ? 7 : 1;
     const startOfGrid = new Date(baseDate);
-    if (viewMode === 'week') {
-      startOfGrid.setDate(startOfGrid.getDate() - startOfGrid.getDay());
-    }
-    return Array.from({ length: days }, (_, i) => {
-      const d = new Date(startOfGrid);
-      d.setDate(d.getDate() + i);
-      return d;
-    });
+    if (viewMode === 'week') startOfGrid.setDate(startOfGrid.getDate() - startOfGrid.getDay());
+    return Array.from({ length: days }, (_, i) => { const d = new Date(startOfGrid); d.setDate(d.getDate() + i); return d; });
   }, [baseDate, viewMode]);
 
   const timelineColumns = useMemo(() => {
     const locsToRender = new Set<number>();
-    if (selectedLocs.length > 0) {
-      selectedLocs.forEach(id => locsToRender.add(id));
-    } else {
-      activeLocations.forEach(l => locsToRender.add(l.id));
-    }
+    if (selectedLocs.length > 0) selectedLocs.forEach(id => locsToRender.add(id));
+    else activeLocations.forEach(l => locsToRender.add(l.id));
     dayArray.forEach(d => {
       shifts.forEach(s => {
         const sd = new Date(s.startTime);
         if (sd.getFullYear() === d.getFullYear() && sd.getMonth() === d.getMonth() && sd.getDate() === d.getDate()) {
-          if ((isAdmin || isManager) || allowedLocationIds.includes(s.locationId)) {
-            locsToRender.add(s.locationId);
-          }
+          if ((isAdmin || isManager) || allowedLocationIds.includes(s.locationId)) locsToRender.add(s.locationId);
         }
       });
     });
     const renderedLocs = Array.from(locsToRender).map(id => locations.find(l => l.id === id)).filter(Boolean) as Location[];
-    const safeLocs = renderedLocs.length > 0 ? renderedLocs.sort((a,b) => a.name.localeCompare(b.name)) :[{ id: 0, name: 'No Locations' } as Location];
+    const safeLocs = renderedLocs.length > 0 ? renderedLocs.sort((a,b) => a.name.localeCompare(b.name)) : [{ id: 0, name: 'No Locations' } as Location];
     return dayArray.flatMap(d => safeLocs.map(loc => ({ date: d, location: loc })));
   },[dayArray, activeLocations, selectedLocs, shifts, locations, isAdmin, isManager, allowedLocationIds]);
+
+  const handleUpdateShiftTime = async (shiftId: number, startTime: string, endTime: string, userId: number | null) => {
+    await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId, userId, startTime, endTime, action: 'UPDATE' }) });
+    await fetchShifts(); 
+  };
+
+  const handleClaimShift = async (shiftId: number) => { 
+    if(!selectedUserId) { notify.error("Select an employee first!"); return; } 
+    await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, userId: parseInt(selectedUserId), action: 'CLAIM' }) }); 
+    await fetchShifts(); 
+    notify.success("Shift claimed!");
+  };
 
   const handleRequestCover = async (shiftId: number) => {
     if(!(await customConfirm("Are you sure you need coverage for this shift?", "Need Cover", true))) return;
     await fetch('/api/shifts', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ shiftId: shiftId, action: 'REQUEST_COVER' }) });
-    const res = await fetch('/api/shifts?t=' + new Date().getTime());
-    setShifts(await res.json());
+    await fetchShifts();
     notify.success("Coverage requested!");
   };
 
   const handleCancelCover = async (shiftId: number) => {
     await fetch('/api/shifts', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ shiftId: shiftId, action: 'CANCEL_COVER' }) });
-    const res = await fetch('/api/shifts?t=' + new Date().getTime());
-    setShifts(await res.json());
+    await fetchShifts();
     notify.success("Coverage request canceled.");
   };
 
@@ -157,6 +149,23 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
     newStart.setHours(originalStart.getHours(), originalStart.getMinutes(), 0, 0);
     const newEnd = new Date(newStart.getTime() + durationMs);
     handleUpdateShiftTime(shiftId, newStart.toISOString(), newEnd.toISOString(), targetShift.userId || null);
+  };
+
+  const executeMobileMove = (targetDate: Date) => {
+    if (!mobileMoveShiftId) return;
+    const targetShift = shifts.find(s => s.id === mobileMoveShiftId);
+    if (!targetShift) { setMobileMoveShiftId(null); return; }
+    
+    const originalStart = new Date(targetShift.startTime);
+    const durationMs = new Date(targetShift.endTime).getTime() - originalStart.getTime();
+    
+    const newStart = new Date(targetDate);
+    newStart.setHours(originalStart.getHours(), originalStart.getMinutes(), 0, 0);
+    const newEnd = new Date(newStart.getTime() + durationMs);
+    
+    handleUpdateShiftTime(mobileMoveShiftId, newStart.toISOString(), newEnd.toISOString(), targetShift.userId || null);
+    setMobileMoveShiftId(null);
+    notify.success("Shift Moved!");
   };
 
   const getFilteredShifts = (dateObj: Date, columnLocId?: number) => {
@@ -180,7 +189,21 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
   };
 
   return (
-    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-300 shadow-sm animate-in fade-in duration-300">
+    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-300 shadow-sm animate-in fade-in duration-300 relative">
+      
+      {/* FLOATING ACTION BAR FOR MOBILE MOVE */}
+      {mobileMoveShiftId && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] z-[100] flex items-center justify-between animate-in slide-in-from-bottom-10 fade-in border border-slate-700">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-500 p-2 rounded-full animate-pulse">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4 text-white"><path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.834.166-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243-1.59-1.59" /></svg>
+            </div>
+            <span className="text-xs font-black tracking-widest uppercase leading-tight">Tap empty slot<br/>to place shift</span>
+          </div>
+          <button onClick={() => setMobileMoveShiftId(null)} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-colors shrink-0">Cancel</button>
+        </div>
+      )}
+
       <div className="flex flex-col xl:flex-row justify-between items-center mb-6 bg-slate-100 p-3 rounded-xl border border-gray-300 gap-4 shadow-inner text-sm">
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
           <div className="flex bg-slate-200 p-1 rounded-lg border border-slate-300 shadow-sm w-full sm:w-auto">
@@ -271,7 +294,13 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
                 dayShifts.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
                 const isToday = dateObj && dateObj.getDate() === new Date().getDate() && dateObj.getMonth() === new Date().getMonth() && dateObj.getFullYear() === new Date().getFullYear();
                 return (
-                  <div key={index} className={`bg-white min-h-32 border-r border-b border-gray-300 p-2 flex flex-col relative transition-colors ${isToday ? 'ring-4 ring-inset ring-yellow-400 bg-yellow-50/50 z-10' : ''} ${(isAdmin || isManager) && dateObj ? 'hover:bg-slate-50' : ''}`} onDragOver={(e) => { if (dateObj && (isAdmin || isManager)) e.preventDefault(); }} onDrop={(e) => { if (dateObj && (isAdmin || isManager)) handleDrop(e, dateObj); }}>
+                  <div 
+                    key={index} 
+                    className={`bg-white min-h-32 border-r border-b border-gray-300 p-2 flex flex-col relative transition-colors ${isToday ? 'ring-4 ring-inset ring-yellow-400 bg-yellow-50/50 z-10' : ''} ${(isAdmin || isManager) && dateObj ? 'hover:bg-slate-50' : ''} ${mobileMoveShiftId ? 'cursor-crosshair hover:bg-blue-50 ring-inset ring-2 ring-blue-200' : ''}`} 
+                    onDragOver={(e) => { if (dateObj && (isAdmin || isManager)) e.preventDefault(); }} 
+                    onDrop={(e) => { if (dateObj && (isAdmin || isManager)) handleDrop(e, dateObj); }}
+                    onClick={() => { if (mobileMoveShiftId && dateObj && (isAdmin || isManager)) executeMobileMove(dateObj); }}
+                  >
                     {dateObj && (
                       <>
                         <div className={`text-right font-black mb-2 flex justify-between items-center ${isToday ? 'text-slate-900 text-base' : 'text-gray-400 text-sm'}`}>
@@ -283,8 +312,16 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
                             const isMyShift = shift.userId === parseInt(selectedUserId);
                             const shiftColor = getLocationColor(shift.locationId);
                             let finalBg = 'bg-white', finalBorder = shiftColor.border;
-                            if (shift.status === 'OPEN') { finalBg = 'bg-green-50'; finalBorder = 'border-green-300'; }
-                            else if (shift.status === 'COVERAGE_REQUESTED') { finalBg = 'bg-red-50 ring-2 ring-red-500 ring-inset shadow-md'; finalBorder = 'border-red-500'; }
+                            
+                            if (mobileMoveShiftId === shift.id) {
+                              finalBg = 'bg-blue-100 ring-4 ring-blue-500 animate-pulse';
+                              finalBorder = 'border-blue-500';
+                            } else if (shift.status === 'OPEN') { 
+                              finalBg = 'bg-green-50'; finalBorder = 'border-green-300'; 
+                            } else if (shift.status === 'COVERAGE_REQUESTED') { 
+                              finalBg = 'bg-red-50 ring-2 ring-red-500 ring-inset shadow-md'; finalBorder = 'border-red-500'; 
+                            }
+
                             return (
                               <div key={shift.id} draggable={isAdmin || isManager} onDragStart={(e) => { if (isAdmin || isManager) e.dataTransfer.setData('shiftId', shift.id.toString()); }} className={`p-2 rounded text-xs border-l-4 shadow-md mb-2 transition-transform ${isAdmin || isManager ? 'cursor-grab active:cursor-grabbing hover:-translate-y-0.5' : ''} ${finalBg} ${finalBorder}`}>
                                 <div className="font-bold text-slate-900 whitespace-nowrap overflow-hidden text-ellipsis mb-1 pointer-events-none">{formatTimeSafe(shift.startTime)} - {formatTimeSafe(shift.endTime)}</div>
@@ -292,7 +329,12 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
                                 {shift.status === 'COVERAGE_REQUESTED' && <div className="mt-1 mb-1 font-black text-center truncate px-1 py-1.5 rounded shadow-sm border bg-red-600 text-white text-[10px] uppercase tracking-widest animate-pulse pointer-events-none">🚨 Needs Cover</div>}
                                 <div className="mt-1 flex flex-col gap-1">
                                   {isAdmin || isManager ? (
-                                    <select value={shift.userId || ""} onChange={(e) => handleUpdateShiftTime(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} className={`w-full font-bold text-center truncate px-1 py-1.5 rounded shadow-sm border outline-none cursor-pointer text-xs ${shift.userId === null ? 'bg-green-100 text-green-900 border-green-500' : `${shiftColor.badge}`}`}><option value="">-- Open Shift --</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
+                                    <>
+                                      <select value={shift.userId || ""} onChange={(e) => handleUpdateShiftTime(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} className={`w-full font-bold text-center truncate px-1 py-1.5 rounded shadow-sm border outline-none cursor-pointer text-xs ${shift.userId === null ? 'bg-green-100 text-green-900 border-green-500' : `${shiftColor.badge}`}`}><option value="">-- Open Shift --</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
+                                      <button type="button" onClick={(e) => { e.stopPropagation(); setMobileMoveShiftId(mobileMoveShiftId === shift.id ? null : shift.id); }} className="md:hidden w-full bg-slate-900 text-white font-black text-[9px] py-1.5 rounded uppercase tracking-widest shadow-sm">
+                                        {mobileMoveShiftId === shift.id ? 'Cancel Move' : 'Move Shift'}
+                                      </button>
+                                    </>
                                   ) : (
                                     shift.status === 'OPEN' ? <div className="text-center font-bold text-slate-500 mt-1 text-[10px] uppercase tracking-widest border border-dashed border-slate-300 rounded py-1 bg-slate-50">Unassigned</div> : <div className={`font-bold text-center truncate px-1 py-1 rounded shadow-sm border pointer-events-none ${isMyShift ? 'bg-green-100 text-green-900 border-green-500' : shiftColor.badge}`}>{isMyShift ? 'Your Shift' : (shift.assignedTo?.name || 'Assigned')}</div>
                                   )}
@@ -361,7 +403,13 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
                         if (!placed) overlapCols.push([shift]);
                       });
                       return (
-                        <div key={colIndex} className="relative w-full h-full hover:bg-slate-100/30 transition-colors" onDragOver={(e) => { if (isAdmin || isManager) e.preventDefault(); }} onDrop={(e) => { if (isAdmin || isManager) handleDrop(e, col.date); }}>
+                        <div 
+                          key={colIndex} 
+                          className={`relative w-full h-full transition-colors ${mobileMoveShiftId ? 'cursor-crosshair bg-blue-50/50 hover:bg-blue-100' : 'hover:bg-slate-100/30'}`} 
+                          onDragOver={(e) => { if (isAdmin || isManager) e.preventDefault(); }} 
+                          onDrop={(e) => { if (isAdmin || isManager) handleDrop(e, col.date); }}
+                          onClick={() => { if (mobileMoveShiftId && (isAdmin || isManager)) executeMobileMove(col.date); }}
+                        >
                           {overlapCols.map((shiftList, overlapIndex) => shiftList.map(shift => {
                             const s = new Date(shift.startTime), e = new Date(shift.endTime);
                             let startHourRaw = s.getHours() + s.getMinutes() / 60, endHourRaw = e.getHours() + e.getMinutes() / 60;
@@ -370,8 +418,15 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
                             const widthPct = 100 / overlapCols.length, leftPct = overlapIndex * widthPct;
                             const isMyShift = shift.userId === parseInt(selectedUserId), shiftColor = getLocationColor(shift.locationId);
                             let finalBg = shiftColor.bg, finalBorder = shiftColor.border, finalHeaderBg = shiftColor.badge;
-                            if (shift.status === 'OPEN') { finalBg = 'bg-green-50'; finalBorder = 'border-green-400'; finalHeaderBg = 'bg-green-100 text-green-900 border-green-300'; }
-                            else if (shift.status === 'COVERAGE_REQUESTED') { finalBg = 'bg-red-50'; finalBorder = 'border-red-500'; finalHeaderBg = 'bg-red-600 text-white animate-pulse'; }
+                            
+                            if (mobileMoveShiftId === shift.id) {
+                              finalBg = 'bg-blue-100 ring-4 ring-blue-500 animate-pulse'; finalBorder = 'border-blue-500'; finalHeaderBg = 'bg-blue-600 text-white';
+                            } else if (shift.status === 'OPEN') { 
+                              finalBg = 'bg-green-50'; finalBorder = 'border-green-400'; finalHeaderBg = 'bg-green-100 text-green-900 border-green-300'; 
+                            } else if (shift.status === 'COVERAGE_REQUESTED') { 
+                              finalBg = 'bg-red-50'; finalBorder = 'border-red-500'; finalHeaderBg = 'bg-red-600 text-white animate-pulse'; 
+                            }
+
                             const isCompact = heightPos < 45;
                             return (
                               <div key={shift.id} draggable={isAdmin || isManager} onDragStart={(e) => { if (isAdmin || isManager) e.dataTransfer.setData('shiftId', shift.id.toString()); }} className="absolute p-[1px] transition-transform hover:z-20 hover:scale-[1.01]" style={{ top: `${topPos}px`, height: `${heightPos}px`, left: `${leftPct}%`, width: `${widthPct}%` }}>
@@ -381,7 +436,14 @@ export default function CalendarTab({ appState }: { appState: AppState }) {
                                     <div className={`font-bold text-slate-900 truncate ${isCompact ? 'text-[10px]' : 'text-xs md:text-sm'}`}>{formatTimeSafe(shift.startTime)} - {formatTimeSafe(shift.endTime)}</div>
                                     {!isCompact && <div className={`text-[10px] mt-0.5 font-bold truncate opacity-80 ${shiftColor.text}`}>{shift.status === 'OPEN' ? 'Unassigned' : (isMyShift ? 'Your Shift' : (shift.assignedTo?.name || 'Assigned'))}</div>}
                                   </div>
-                                  {(isAdmin || isManager) && !isCompact && <div className="px-1 pb-1 mt-auto"><select value={shift.userId || ""} onChange={(e) => handleUpdateShiftTime(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} className="w-full bg-white/50 border border-black/10 rounded outline-none text-[9px] font-bold p-0.5 cursor-pointer text-slate-800"><option value="">- Open -</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>}
+                                  {(isAdmin || isManager) && !isCompact && (
+                                    <div className="px-1 pb-1 mt-auto space-y-1">
+                                      <select value={shift.userId || ""} onChange={(e) => handleUpdateShiftTime(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} className="w-full bg-white/50 border border-black/10 rounded outline-none text-[9px] font-bold p-0.5 cursor-pointer text-slate-800"><option value="">- Open -</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
+                                      <button type="button" onClick={(e) => { e.stopPropagation(); setMobileMoveShiftId(mobileMoveShiftId === shift.id ? null : shift.id); }} className="md:hidden w-full bg-slate-900 text-white font-black text-[9px] py-1.5 rounded uppercase tracking-widest shadow-sm">
+                                        {mobileMoveShiftId === shift.id ? 'Cancel Move' : 'Move Shift'}
+                                      </button>
+                                    </div>
+                                  )}
                                   {!isMyShift && shift.status === 'COVERAGE_REQUESTED' && !isCompact && <button onClick={async () => { if(await customConfirm("Pick up shift?", "Pick Up", false)) handleClaimShift(shift.id); }} className="mx-1 mb-1 text-[8px] bg-green-600 text-white font-black py-1 rounded">CLAIM</button>}
                                   {!isMyShift && shift.status === 'OPEN' && (!isAdmin && !isManager) && !isCompact && <button onClick={async () => { if(await customConfirm("Claim open shift?", "Claim", false)) handleClaimShift(shift.id); }} className="mx-1 mb-1 text-[8px] bg-blue-600 text-white font-black py-1 rounded">CLAIM</button>}
                                 </div>

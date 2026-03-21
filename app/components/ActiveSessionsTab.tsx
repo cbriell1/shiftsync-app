@@ -32,9 +32,9 @@ export default function ActiveSessionsTab() {
 
   useEffect(() => {
     fetchSessions();
-    const interval = setInterval(fetchSessions, 10000); // Auto-refresh every 10s
+    const interval = setInterval(fetchSessions, 10000); 
     return () => clearInterval(interval);
-  }, []);
+  },[]);
 
   const revokeSession = async (token: string, name: string) => {
     if (!(await customConfirm(`This will immediately boot ${name} to the login screen. Continue?`, "Force Logout", true))) return;
@@ -55,7 +55,23 @@ export default function ActiveSessionsTab() {
     }
   };
 
-  if (isLoading) return <div className="p-10 text-center font-bold animate-pulse text-slate-400 uppercase tracking-widest">Scanning Connections...</div>;
+  // SKELETON REPLACEMENT
+  if (isLoading) return (
+    <div className="space-y-4">
+      <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex justify-between items-center animate-pulse">
+        <div className="space-y-2"><div className="h-4 w-40 bg-blue-200 rounded"></div><div className="h-3 w-64 bg-blue-200 rounded"></div></div>
+        <div className="h-6 w-16 bg-blue-200 rounded-full"></div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {[1,2,3].map(i => (
+          <div key={i} className="bg-white border border-slate-200 p-4 rounded-2xl flex items-center gap-3 animate-pulse">
+            <div className="w-10 h-10 bg-slate-200 rounded-full shrink-0"></div>
+            <div className="space-y-2 flex-1"><div className="h-4 w-24 bg-slate-200 rounded"></div><div className="h-3 w-16 bg-slate-200 rounded"></div></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">

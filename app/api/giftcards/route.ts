@@ -1,6 +1,8 @@
+// filepath: app/api/giftcards/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { auth } from '@/auth'; // <-- Added Security
 
 const issueCardSchema = z.object({
   code: z.string().min(3),
@@ -11,6 +13,9 @@ const issueCardSchema = z.object({
 
 export async function GET() {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const giftCards = await prisma.giftCard.findMany({
       include: { 
         member: {
@@ -27,6 +32,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const body = await req.json();
     const data = issueCardSchema.parse(body);
 

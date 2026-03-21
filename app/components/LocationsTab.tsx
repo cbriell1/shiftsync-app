@@ -1,11 +1,19 @@
 // filepath: app/components/LocationsTab.tsx
 "use client";
 import React, { useState } from 'react';
-import { AppState, Location } from '../lib/types';
+import { Location } from '../lib/types';
 import { notify, customConfirm } from '@/lib/ui-utils';
+import { useAppStore } from '@/lib/store';
 
-export default function LocationsTab({ appState }: { appState: AppState }) {
-  const { locations, handleCreateLocation, handleUpdateLocation, isManager, isAdmin } = appState;
+export default function LocationsTab({ appState }: any) {
+  const locations = useAppStore(state => state.locations);
+  const fetchLocations = useAppStore(state => state.fetchLocations);
+  const users = useAppStore(state => state.users);
+  const selectedUserId = useAppStore(state => state.selectedUserId);
+
+  const activeUser = users.find(u => u.id.toString() === selectedUserId);
+  const isAdmin = activeUser?.systemRoles?.includes('Administrator');
+  const isManager = activeUser?.systemRoles?.includes('Manager') || isAdmin;
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const[editingLocId, setEditingLocId] = useState<number | null>(null);
@@ -21,6 +29,18 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
       </div>
     );
   }
+
+  const handleCreateLocation = async (payload: any) => {
+    const res = await fetch('/api/locations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (res.ok) await fetchLocations();
+    return { success: res.ok };
+  };
+
+  const handleUpdateLocation = async (id: number, payload: any) => {
+    const res = await fetch('/api/locations', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...payload }) });
+    if (res.ok) await fetchLocations();
+    return { success: res.ok };
+  };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,13 +93,74 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
         </div>
         <button
           onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center justify-center gap-2 bg-slate-900 hover:bg-black text-white px-5 py-2.5 rounded-xl font-black transition-all shadow-md text-sm"
+          className="flex items-center justify-center w-full md:w-auto gap-2 bg-slate-900 hover:bg-black text-white px-5 py-2.5 rounded-xl font-black transition-all shadow-md text-sm"
         >
           <span>➕</span> Add New Location
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-300 overflow-hidden flex flex-col h-full">
+      {/* MOBILE CARD VIEW (< 768px) */}
+      <div className="md:hidden flex flex-col gap-4">
+        {locations.map((loc: Location) => {
+          const isInactive = loc.isActive === false;
+          return (
+            <div key={loc.id} className={`bg-white border rounded-xl shadow-sm overflow-hidden flex flex-col ${isInactive ? 'border-orange-300 opacity-80' : 'border-slate-200'}`}>
+              {editingLocId === loc.id ? (
+                <form onSubmit={handleEditSubmit} className="p-4 flex flex-col gap-3 bg-blue-50/50">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Name</label>
+                    <input required value={editLoc.name} onChange={(e) => setEditLoc({...editLoc, name: e.target.value})} className="w-full bg-white border border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Address</label>
+                    <input value={editLoc.address || ''} onChange={(e) => setEditLoc({...editLoc, address: e.target.value})} className="w-full bg-white border border-blue-300 rounded-lg px-3 py-2 text-sm font-bold" />
+                  </div>
+                  <label className="flex items-center gap-2 px-3 py-3 bg-white border border-blue-300 rounded-lg cursor-pointer mt-1">
+                    <input type="checkbox" checked={editLoc.sendReportEmails} onChange={(e) => setEditLoc({...editLoc, sendReportEmails: e.target.checked})} className="w-5 h-5" />
+                    <span className="text-xs font-black uppercase text-slate-700">Receive Email Reports</span>
+                  </label>
+                  <div className="flex gap-2 mt-2">
+                    <button type="submit" className="flex-1 bg-green-700 text-white font-black text-sm py-3 rounded-lg shadow-sm">Save</button>
+                    <button type="button" onClick={() => setEditingLocId(null)} className="flex-1 bg-slate-200 text-slate-800 font-black text-sm py-3 rounded-lg shadow-sm">Cancel</button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <h3 className="font-black text-lg text-slate-900 truncate pr-2">{loc.name}</h3>
+                    <span className={`shrink-0 text-[10px] font-black px-2 py-1 rounded border uppercase tracking-widest ${isInactive ? 'bg-orange-100 text-orange-800 border-orange-200' : 'bg-green-100 text-green-800 border-green-200'}`}>
+                      {isInactive ? 'Hidden' : 'Active'}
+                    </span>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Address</span>
+                      <span className="text-sm font-medium text-slate-800 truncate max-w-[200px] text-right">{loc.address || '-'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Reports</span>
+                      <button onClick={() => toggleEmailStatus(loc)} className={`text-[10px] font-black px-2 py-1 rounded border uppercase tracking-widest transition-colors ${loc.sendReportEmails ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                        {loc.sendReportEmails ? 'Emails On' : 'Emails Off'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+                    <button onClick={() => { setEditingLocId(loc.id); setEditLoc({ name: loc.name, address: loc.address || '', email: loc.email || '', phoneNumber: loc.phoneNumber || '', isActive: loc.isActive !== false, sendReportEmails: loc.sendReportEmails !== false }); }} className="flex-1 bg-white border border-slate-300 text-slate-700 py-2 rounded-lg text-xs font-black uppercase tracking-wider shadow-sm">
+                      Edit
+                    </button>
+                    <button onClick={() => toggleActiveStatus(loc)} className={`flex-1 border py-2 rounded-lg text-xs font-black uppercase tracking-wider shadow-sm ${isInactive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                      {isInactive ? 'Make Public' : 'Hide Loc'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* DESKTOP TABLE VIEW (>= 768px) */}
+      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-300 overflow-hidden h-full">
         <div className="overflow-x-auto max-h-[65vh] overflow-y-auto">
           <table className="w-full text-left text-sm text-slate-800 whitespace-nowrap">
             <thead className="bg-slate-100 text-slate-500 text-[10px] uppercase tracking-widest font-black sticky top-0 z-10 shadow-sm border-b border-slate-200">
@@ -95,7 +176,7 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
               {locations.map((loc: Location) => {
                 const isInactive = loc.isActive === false;
                 return (
-                  <tr key={loc.id} className={`hover:bg-slate-50 transition-colors group ${isInactive ? 'opacity-75 bg-slate-50' : ''}`}>
+                  <tr key={loc.id} className={`hover:bg-slate-50 transition-colors group ${isInactive ? 'opacity-75 bg-slate-50' : 'bg-white'}`}>
                     {editingLocId === loc.id ? (
                       <td colSpan={5} className="p-0">
                         <form onSubmit={handleEditSubmit} className="flex flex-wrap items-center w-full bg-blue-50/50 p-2 gap-2">
@@ -141,7 +222,7 @@ export default function LocationsTab({ appState }: { appState: AppState }) {
 
       {/* --- ADD MODAL --- */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={(e) => { if(e.target === e.currentTarget) setIsAddModalOpen(false); }}>
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl animate-in zoom-in duration-200 overflow-hidden">
             <div className="p-5 border-b bg-slate-50 flex justify-between items-center">
               <h3 className="font-black text-xl text-slate-900">Add New Facility</h3>

@@ -2,12 +2,12 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { auth } from '@/auth'; // <-- Added Security
 
 export const dynamic = 'force-dynamic';
 
 const shiftActionSchema = z.object({
   shiftId: z.coerce.number(),
-  // Safer transform: explicitly checks for null or empty strings before converting to Number
   userId: z.any().transform(v => (v === null || v === "") ? null : Number(v)).optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
@@ -16,6 +16,9 @@ const shiftActionSchema = z.object({
 
 export async function GET() {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const shifts = await prisma.shift.findMany({
       include: { location: true, assignedTo: true },
       orderBy: { startTime: 'asc' }
@@ -28,10 +31,22 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const body = await request.json();
     const { shiftId, userId, startTime, endTime, action } = shiftActionSchema.parse(body);
 
     let updateData: any = {};
+
+    // Check permissions for UPDATE action (only Managers/Admins can alter shift times globally)
+    if (action === 'UPDATE') {
+      const userRoles = (session.user as any).systemRoles ||[];
+      const isManagement = userRoles.includes('Administrator') || userRoles.includes('Manager');
+      if (!isManagement) {
+        return NextResponse.json({ error: "Forbidden. Only managers can update shift times." }, { status: 403 });
+      }
+    }
 
     switch (action) {
       case 'UNCLAIM':

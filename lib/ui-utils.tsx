@@ -1,4 +1,5 @@
 // filepath: lib/ui-utils.tsx
+import { useEffect } from 'react';
 import toast from 'react-hot-toast';
 
 export const notify = {
@@ -55,9 +56,21 @@ export const customConfirm = (message: string, confirmText = "Confirm", isDanger
         </div>
       ),
       {
-        duration: Infinity, // Wait for user interaction
+        duration: Infinity, 
         position: 'top-center',
       }
     );
   });
+};
+
+// NEW: Global hook for Escape Key handling on Modals/Dropdowns
+export const useEscapeKey = (onEscape: () => void, isOpen: boolean) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onEscape();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onEscape]);
 };

@@ -1,12 +1,16 @@
 // filepath: app/components/ReportsTab.tsx
 "use client";
 import React from 'react';
-import { AppState, Checklist, TimeCard } from '../lib/types';
+import { Checklist, TimeCard } from '../lib/types';
+import { useAppStore } from '@/lib/store';
 
-export default function ReportsTab({ appState }: { appState: AppState }) {
-  const { checklists, timeCards } = appState;
+export default function ReportsTab() {
+  // 1. Pull exactly what we need from the store
+  const checklists = useAppStore(state => state.checklists);
+  const timeCards = useAppStore(state => state.timeCards);
 
-  const sortedChecklists = [...(checklists || [])].sort((a: Checklist, b: Checklist) => {
+  // 2. Sort Logic
+  const sortedChecklists =[...(checklists || [])].sort((a: Checklist, b: Checklist) => {
     const tcA = timeCards.find((t: TimeCard) => t.id === a.timeCardId);
     const tcB = timeCards.find((t: TimeCard) => t.id === b.timeCardId);
     const dateA = new Date(tcA?.clockIn || a.date).getTime();
