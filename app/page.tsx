@@ -23,6 +23,32 @@ import FeedbackTab from './components/FeedbackTab';
 import MessagesTab from './components/MessagesTab';
 import TimeClockTab from './components/TimeClockTab';
 
+// ==================================================================
+// GLOBAL LOGOUT HANDLER (Prevents Ghost Sessions)
+// ==================================================================
+const performSecureLogout = async (sessionData: any) => {
+  if (sessionData?.sessionId) {
+    try {
+      // 1. Tell database to destroy session FIRST
+      // keepalive: true ensures the browser doesn't kill the request when signOut redirects the page
+      await fetch('/api/admin/sessions', { 
+        method: 'DELETE', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ sessionToken: sessionData.sessionId }),
+        keepalive: true 
+      });
+    } catch (e) { console.error("Cleanup error", e); }
+  }
+  
+  // 2. Add a tiny delay to guarantee the fetch request escapes the browser, then wipe local cookies
+  setTimeout(() => {
+    signOut();
+  }, 200);
+};
+
+// ==================================================================
+// SKELETON LOADERS
+// ==================================================================
 function LoginSkeleton() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 p-4 font-sans">
@@ -75,11 +101,14 @@ function DashboardSkeleton() {
   );
 }
 
+// ==================================================================
+// 1. LOGIN SCREEN COMPONENT
+// ==================================================================
 function LoginScreen({ sessionData }: { sessionData: any }) {
   const [email, setEmail] = useState("");
   const[password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [usePassword, setUsePassword] = useState(false);
+  const[usePassword, setUsePassword] = useState(false);
 
   const handlePasskeyLogin = async (action: "authenticate" | "register") => {
     setLoading(true);
@@ -110,7 +139,7 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 p-4 font-sans">
       <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md space-y-8 border-b-8 border-green-800 relative">
         {sessionData && (
-          <button onClick={() => signOut()} className="absolute top-4 right-4 text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded">
+          <button onClick={() => performSecureLogout(sessionData)} className="absolute top-4 right-4 text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded">
             Clear Session
           </button>
         )}
@@ -175,6 +204,9 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
   );
 }
 
+// ==================================================================
+// 2. MAIN DASHBOARD APP
+// ==================================================================
 function MainDashboard({ session }: { session: any }) {
   const activeTab = useAppStore(s => s.activeTab);
   const setActiveTab = useAppStore(s => s.setActiveTab);
@@ -200,7 +232,7 @@ function MainDashboard({ session }: { session: any }) {
   useEscapeKey(() => setShowChecklistModal(false), showChecklistModal);
 
   const [isMounted, setIsMounted] = useState(false);
-  const[isCollapsed, setIsCollapsed] = useState(false); 
+  const [isCollapsed, setIsCollapsed] = useState(false); 
   const[lastViewedFeedback, setLastViewedFeedback] = useState('1970-01-01T00:00:00.000Z');
   const[lastViewedMessages, setLastViewedMessages] = useState('1970-01-01T00:00:00.000Z');
 
@@ -290,7 +322,7 @@ function MainDashboard({ session }: { session: any }) {
     if (session && (activeTab === 'dashboard' || activeTab === 'timesheets')) {
       fetchManagerData(isManager, selectedUserId);
     }
-  }, [activeTab, selectedUserId, isManager]);
+  },[activeTab, selectedUserId, isManager]);
 
   const unreadFeedbackCount = useMemo(() => {
     return feedbacks.filter(fb => {
@@ -311,15 +343,6 @@ function MainDashboard({ session }: { session: any }) {
   },[messages, announcements, lastViewedMessages, selectedUserId]);
 
   const unapprovedCount = isManager ? managerData.filter(c => (!c.status || c.status === 'PENDING') && c.clockOut).length : 0;
-
-  const handleLogout = async () => {
-    if (session?.sessionId) {
-      try {
-        await fetch('/api/admin/sessions', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionToken: session.sessionId }) });
-      } catch (e) { console.error("Cleanup error", e); }
-    }
-    signOut();
-  };
 
   const toggleChecklistTask = (taskName: string) => clCompletedTasks.includes(taskName) ? setClCompletedTasks(clCompletedTasks.filter(t => t !== taskName)) : setClCompletedTasks([...clCompletedTasks, taskName]);
 
@@ -380,9 +403,9 @@ function MainDashboard({ session }: { session: any }) {
       <div className={`fixed inset-y-0 left-0 z-50 bg-slate-900 text-slate-300 transform transition-all duration-300 ease-in-out lg:static lg:translate-x-0 flex flex-col h-full border-r border-slate-800 ${sidebarOpen ? 'translate-x-0 w-72' : '-translate-x-full w-72'} ${isCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
         
         {/* Brand Header with Collapse Toggle */}
-        <div className={`p-4 md:p-6 flex ${isCollapsed ? 'flex-col items-center gap-4' : 'items-center justify-between'} border-b border-slate-800 shrink-0 transition-all`}>
+        <div className={`p-4 md:p-6 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} border-b border-slate-800 shrink-0 transition-all`}>
           <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-            <Image src="/logo.png" alt="Logo" width={32} height={32} priority className="h-8 w-auto shrink-0" />
+            <Image src="/logo.png" alt="Logo" width={32} height={32} priority className={`h-8 w-auto shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} />
             {!isCollapsed && (
               <h1 className="text-xl font-black italic uppercase tracking-widest leading-none text-white">
                 <span className="text-yellow-400">Pickles</span><br/>& Play
@@ -390,12 +413,10 @@ function MainDashboard({ session }: { session: any }) {
             )}
           </div>
           
-          {/* Mobile Close Button */}
           <button className="lg:hidden text-slate-400 hover:text-white" onClick={() => setSidebarOpen(false)}>
             <X size={24} />
           </button>
 
-          {/* Desktop Collapse Toggle */}
           <button 
             className="hidden lg:flex text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-lg transition-colors" 
             onClick={toggleSidebarCollapse}
@@ -463,6 +484,15 @@ function MainDashboard({ session }: { session: any }) {
 
         {/* Footer Actions */}
         <div className="p-4 border-t border-slate-800 shrink-0 flex flex-col gap-2">
+          
+          <button 
+            onClick={toggleSidebarCollapse} 
+            className={`hidden lg:flex items-center ${isCollapsed ? 'justify-center' : 'justify-start px-4'} gap-3 py-2.5 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg font-bold text-sm transition-colors`}
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {isCollapsed ? <ChevronRight size={18} /> : <><ChevronLeft size={18} /> Collapse Sidebar</>}
+          </button>
+
           {isRealManager && !isCollapsed && (
             <button onClick={async () => {
               const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
@@ -472,9 +502,10 @@ function MainDashboard({ session }: { session: any }) {
             </button>
           )}
 
-          <button onClick={handleLogout} title="Logout" className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start px-4'} gap-3 py-2.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-bold text-sm transition-colors`}>
+          <button onClick={() => performSecureLogout(session)} title="Logout" className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start px-4'} gap-3 py-2.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-bold text-sm transition-colors`}>
             <LogOut size={16} /> {!isCollapsed && <span>Logout</span>}
           </button>
+
         </div>
       </div>
 

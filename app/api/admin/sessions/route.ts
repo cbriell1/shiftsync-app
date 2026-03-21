@@ -59,7 +59,8 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    await prisma.session.delete({
+    // FIX: Using deleteMany prevents Prisma crash if the session was already removed
+    await prisma.session.deleteMany({
       where: { sessionToken }
     });
 
