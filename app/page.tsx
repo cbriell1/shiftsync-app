@@ -7,7 +7,7 @@ import { signIn as signInPasskey } from "next-auth/webauthn";
 import { notify, useEscapeKey } from '@/lib/ui-utils';
 import { useAppStore } from '@/lib/store';
 import { getMonday } from '@/lib/common';
-import { Menu, X, Clock, Calendar, FileText, Settings, Users, MessageSquare, MapPin, LayoutDashboard, CalendarDays, Gift, AlertCircle, LogOut, Smartphone } from 'lucide-react';
+import { Menu, X, Clock, Calendar, FileText, Settings, Users, MessageSquare, MapPin, LayoutDashboard, CalendarDays, Gift, AlertCircle, LogOut, Smartphone, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import CalendarTab from './components/CalendarTab';
 import ScheduleBuilderTab from './components/ScheduleBuilderTab';
@@ -79,7 +79,7 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
   const [email, setEmail] = useState("");
   const[password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const[usePassword, setUsePassword] = useState(false);
+  const [usePassword, setUsePassword] = useState(false);
 
   const handlePasskeyLogin = async (action: "authenticate" | "register") => {
     setLoading(true);
@@ -200,8 +200,9 @@ function MainDashboard({ session }: { session: any }) {
   useEscapeKey(() => setShowChecklistModal(false), showChecklistModal);
 
   const [isMounted, setIsMounted] = useState(false);
+  const[isCollapsed, setIsCollapsed] = useState(false); 
   const[lastViewedFeedback, setLastViewedFeedback] = useState('1970-01-01T00:00:00.000Z');
-  const [lastViewedMessages, setLastViewedMessages] = useState('1970-01-01T00:00:00.000Z');
+  const[lastViewedMessages, setLastViewedMessages] = useState('1970-01-01T00:00:00.000Z');
 
   const reportTargetCard = useAppStore(s => s.reportTargetCard);
   const setReportTargetCard = useAppStore(s => s.setReportTargetCard);
@@ -260,6 +261,9 @@ function MainDashboard({ session }: { session: any }) {
     if (isMounted && authenticatedUserId) {
       const savedTab = localStorage.getItem('lastActiveTab_' + authenticatedUserId);
       if (savedTab) setActiveTab(savedTab);
+
+      const savedCollapse = localStorage.getItem('sidebarCollapsed');
+      if (savedCollapse === 'true') setIsCollapsed(true);
 
       setLastViewedFeedback(localStorage.getItem('lastViewedFeedback_' + selectedUserId) || '1970-01-01T00:00:00.000Z');
       setLastViewedMessages(localStorage.getItem('lastViewedMessages_' + selectedUserId) || '1970-01-01T00:00:00.000Z');
@@ -328,6 +332,12 @@ function MainDashboard({ session }: { session: any }) {
     notify.success("Report Saved!");
   };
 
+  const toggleSidebarCollapse = () => {
+    const newVal = !isCollapsed;
+    setIsCollapsed(newVal);
+    localStorage.setItem('sidebarCollapsed', newVal.toString());
+  };
+
   const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV || 'development';
 
   if (!isMounted || users.length === 0) return <DashboardSkeleton />;
@@ -335,87 +345,143 @@ function MainDashboard({ session }: { session: any }) {
   const NavItem = ({ id, icon: Icon, label, badge = 0 }: any) => (
     <button
       onClick={() => { setActiveTab(id); setSidebarOpen(false); }}
-      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg font-bold text-sm transition-all ${
+      title={isCollapsed ? label : undefined}
+      className={`relative flex items-center ${isCollapsed ? 'justify-center px-0 py-3 w-12 mx-auto' : 'justify-between px-4 py-3 w-full'} rounded-lg font-bold text-sm transition-all ${
         activeTab === id 
           ? 'bg-yellow-400 text-slate-900 shadow-md' 
           : 'text-slate-300 hover:bg-slate-800 hover:text-white'
       }`}
     >
-      <div className="flex items-center gap-3"><Icon size={18} />{label}</div>
-      {badge > 0 && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black shadow-sm">{badge}</span>}
+      <div className="flex items-center gap-3">
+        <Icon size={18} className="shrink-0" />
+        {!isCollapsed && <span className="truncate">{label}</span>}
+      </div>
+      {badge > 0 && (
+        isCollapsed ? (
+          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse"></span>
+        ) : (
+          <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black shadow-sm shrink-0">
+            {badge}
+          </span>
+        )
+      )}
     </button>
   );
 
   const legacyAppStatePlaceholder = {} as any;
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans relative flex">
+    <div className="min-h-screen bg-slate-50 font-sans relative flex overflow-hidden">
+      
+      {/* Mobile Sidebar Overlay */}
       {sidebarOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
-      <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-slate-300 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:block flex flex-col h-full border-r border-slate-800 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 flex items-center justify-between border-b border-slate-800 shrink-0">
-          <div className="flex items-center gap-3">
-            <Image src="/logo.png" alt="Logo" width={32} height={32} priority className="h-8 w-auto" />
-            <h1 className="text-xl font-black italic uppercase tracking-widest leading-none text-white"><span className="text-yellow-400">Pickles</span><br/>& Play</h1>
+      {/* Responsive Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-50 bg-slate-900 text-slate-300 transform transition-all duration-300 ease-in-out lg:static lg:translate-x-0 flex flex-col h-full border-r border-slate-800 ${sidebarOpen ? 'translate-x-0 w-72' : '-translate-x-full w-72'} ${isCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
+        
+        {/* Brand Header with Collapse Toggle */}
+        <div className={`p-4 md:p-6 flex ${isCollapsed ? 'flex-col items-center gap-4' : 'items-center justify-between'} border-b border-slate-800 shrink-0 transition-all`}>
+          <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
+            <Image src="/logo.png" alt="Logo" width={32} height={32} priority className="h-8 w-auto shrink-0" />
+            {!isCollapsed && (
+              <h1 className="text-xl font-black italic uppercase tracking-widest leading-none text-white">
+                <span className="text-yellow-400">Pickles</span><br/>& Play
+              </h1>
+            )}
           </div>
-          <button className="lg:hidden text-slate-400 hover:text-white" onClick={() => setSidebarOpen(false)}><X size={24} /></button>
+          
+          {/* Mobile Close Button */}
+          <button className="lg:hidden text-slate-400 hover:text-white" onClick={() => setSidebarOpen(false)}>
+            <X size={24} />
+          </button>
+
+          {/* Desktop Collapse Toggle */}
+          <button 
+            className="hidden lg:flex text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-lg transition-colors" 
+            onClick={toggleSidebarCollapse}
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+          </button>
         </div>
 
-        <div className="p-4 border-b border-slate-800 shrink-0 bg-slate-950/50 space-y-3">
+        {/* User Switcher */}
+        <div className={`p-4 border-b border-slate-800 shrink-0 bg-slate-950/50 ${isCollapsed ? 'hidden' : 'space-y-3'}`}>
           <div>
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-1">Active Profile</label>
             <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm font-bold outline-none cursor-pointer focus:border-yellow-500">
               {safeUsers.map((u: any) => <option key={u.id} value={u.id}>{u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}</option>)}
             </select>
           </div>
-          <div className="flex flex-col gap-2">
-            {isRealManager && (
-              <button onClick={async () => {
-                const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
-                if (res?.error) notify.error("Failed: " + res.error); else if (res?.ok) notify.success("Device Linked!");
-              }} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg font-bold text-xs transition-colors">
-                <Smartphone size={14} /> Link Device Passkey
-              </button>
-            )}
-            <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-bold text-xs transition-colors"><LogOut size={14} /> Logout</button>
-          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {/* Navigation Area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 px-4">Your Workspace</p>
+            {!isCollapsed ? (
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 px-4">Your Workspace</p>
+            ) : (
+              <div className="w-8 h-px bg-slate-700 mx-auto mb-3"></div>
+            )}
             <div className="space-y-1">
               <NavItem id="clock" icon={Clock} label="Time Clock" />
               <NavItem id="calendar" icon={Calendar} label="Schedule" />
-              <NavItem id="manual" icon={FileText} label="My Time & Reports" />
+              <NavItem id="manual" icon={FileText} label="My Time" />
               {showPasses && <NavItem id="privileges" icon={Gift} label="Guest Passes" />}
               {showGiftCards && <NavItem id="giftcards" icon={Gift} label="Gift Cards" />}
             </div>
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 px-4">Team Comms</p>
+            {!isCollapsed ? (
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 px-4">Team Comms</p>
+            ) : (
+              <div className="w-8 h-px bg-slate-700 mx-auto mb-3"></div>
+            )}
             <div className="space-y-1">
               <NavItem id="messages" icon={MessageSquare} label="Messages" badge={unreadMessagesCount} />
-              <NavItem id="feedback" icon={AlertCircle} label="Dev Feedback" badge={unreadFeedbackCount} />
+              <NavItem id="feedback" icon={AlertCircle} label="Feedback" badge={unreadFeedbackCount} />
             </div>
           </div>
           {isManager && (
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-yellow-600 mb-2 px-4 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>Manager Tools</p>
+              {!isCollapsed ? (
+                <p className="text-[10px] font-black uppercase tracking-widest text-yellow-600 mb-2 px-4 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>Manager Tools</p>
+              ) : (
+                <div className="w-8 h-px bg-yellow-600/30 mx-auto mb-3"></div>
+              )}
               <div className="space-y-1">
-                {showDashboard && <NavItem id="dashboard" icon={LayoutDashboard} label="Payroll Dashboard" />}
+                {showDashboard && <NavItem id="dashboard" icon={LayoutDashboard} label="Payroll" />}
                 {showTimesheets && <NavItem id="timesheets" icon={FileText} label="Timesheets" badge={unapprovedCount} />}
-                {showBuilder && <NavItem id="builder" icon={CalendarDays} label="Schedule Builder" />}
-                {showStaff && <NavItem id="staff" icon={Users} label="Staff Directory" />}
+                {showBuilder && <NavItem id="builder" icon={CalendarDays} label="Builder" />}
+                {showStaff && <NavItem id="staff" icon={Users} label="Staff" />}
                 {showLocationsTab && <NavItem id="locations" icon={MapPin} label="Locations" />}
-                {showSetup && <NavItem id="setup" icon={Settings} label="System Setup" />}
+                {showSetup && <NavItem id="setup" icon={Settings} label="Setup" />}
               </div>
             </div>
           )}
         </div>
+
+        {/* Footer Actions */}
+        <div className="p-4 border-t border-slate-800 shrink-0 flex flex-col gap-2">
+          {isRealManager && !isCollapsed && (
+            <button onClick={async () => {
+              const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
+              if (res?.error) notify.error("Failed: " + res.error); else if (res?.ok) notify.success("Device Linked!");
+            }} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg font-bold text-xs transition-colors">
+              <Smartphone size={14} /> Link Passkey
+            </button>
+          )}
+
+          <button onClick={handleLogout} title="Logout" className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start px-4'} gap-3 py-2.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-bold text-sm transition-colors`}>
+            <LogOut size={16} /> {!isCollapsed && <span>Logout</span>}
+          </button>
+        </div>
       </div>
 
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50">
+        
+        {/* Mobile Top Header */}
         <div className="lg:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(true)} className="text-slate-600 hover:text-slate-900"><Menu size={24} /></button>
@@ -424,8 +490,9 @@ function MainDashboard({ session }: { session: any }) {
           {vercelEnv !== 'production' && <span className="bg-slate-200 text-slate-600 text-[10px] font-black uppercase px-2 py-1 rounded">Dev</span>}
         </div>
 
+        {/* Dynamic Width Content Wrapper */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto">
+          <div className={`mx-auto transition-all duration-300 w-full ${isCollapsed ? 'max-w-full' : 'max-w-7xl'}`}>
             {activeTab === 'clock' && <TimeClockTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'calendar' && <CalendarTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'builder' && <ScheduleBuilderTab appState={legacyAppStatePlaceholder} />}
@@ -441,8 +508,10 @@ function MainDashboard({ session }: { session: any }) {
             {activeTab === 'messages' && <MessagesTab appState={legacyAppStatePlaceholder} />}
           </div>
         </div>
+
       </div>
 
+      {/* Modals */}
       {showChecklistModal && (
         <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100] flex justify-center items-center p-4" onClick={(e) => { if(e.target===e.currentTarget) setShowChecklistModal(false); }}>
           <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-lg w-full animate-in zoom-in duration-200">

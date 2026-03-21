@@ -26,12 +26,12 @@ export default function TimesheetsTab({ appState }: any) {
 
   // 3. Local UI State
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-  const [expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
+  const[expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
   
-  const [editingCardId, setEditingCardId] = useState<number | null>(null);
+  const[editingCardId, setEditingCardId] = useState<number | null>(null);
   const [formUserId, setFormUserId] = useState('');
   const [formDate, setFormDate] = useState('');
-  const [formStartTime, setFormStartTime] = useState('');
+  const[formStartTime, setFormStartTime] = useState('');
   const [formEndTime, setFormEndTime] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
 
@@ -96,6 +96,10 @@ export default function TimesheetsTab({ appState }: any) {
     }, {});
   }, [managerData, manLocs]);
 
+  // Shared Input Classes for maximum visibility
+  const inputClasses = "w-full border-2 border-slate-300 rounded-xl px-4 py-3.5 text-base font-black text-slate-900 bg-white focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 outline-none shadow-sm transition-all";
+  const labelClasses = "block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1";
+
   return (
     <div className="bg-white p-4 md:p-6 rounded-2xl border border-gray-300 shadow-md animate-in fade-in duration-300">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-gray-200 pb-4 gap-4">
@@ -105,121 +109,158 @@ export default function TimesheetsTab({ appState }: any) {
         </div>
       </div>
 
-      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-300 mb-8">
-        <h2 className="text-lg font-black text-slate-900 mb-4">{editingCardId ? 'Edit Entry' : 'Manual Entry'}</h2>
-        <form onSubmit={handleManualSubmit} className="flex flex-wrap gap-4 items-end">
-          <div className="flex-1 min-w-[150px]">
-            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Staff</label>
-            <select value={formUserId} onChange={(e) => setFormUserId(e.target.value)} required className="w-full border border-gray-400 rounded-lg p-2 text-sm font-black bg-white shadow-inner">
-              <option value="">- Select -</option>
-              {activeUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+      {/* MANUAL ENTRY FORM RE-DESIGN */}
+      <div className="bg-blue-50/40 p-5 md:p-7 rounded-2xl border-2 border-blue-100 mb-10 shadow-inner">
+        <h2 className="text-lg md:text-xl font-black text-blue-950 mb-5 flex items-center gap-2">
+          {editingCardId ? (
+            <><span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span> Edit Timecard</>
+          ) : (
+            <><span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Log Missing Shift</>
+          )}
+        </h2>
+        
+        <form onSubmit={handleManualSubmit}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-4 md:gap-5 items-start">
+            
+            <div className="col-span-2 sm:col-span-4 lg:col-span-3">
+              <label className={labelClasses}>Staff Member</label>
+              <select value={formUserId} onChange={(e) => setFormUserId(e.target.value)} required className={inputClasses}>
+                <option value="" className="text-slate-500 font-medium">-- Select Name --</option>
+                {activeUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </div>
+            
+            <div className="col-span-2 sm:col-span-4 lg:col-span-3">
+              <label className={labelClasses}>Facility</label>
+              <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} required className={inputClasses}>
+                <option value="" className="text-slate-500 font-medium">-- Select Location --</option>
+                {locations.filter(l => l.isActive !== false || (editingCardId && l.id.toString() === selectedLocation)).map(loc => (
+                  <option key={loc.id} value={loc.id}>{loc.name} {loc.isActive === false && '(Archived)'}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="col-span-2 sm:col-span-4 lg:col-span-2">
+              <label className={labelClasses}>Date</label>
+              <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} required className={inputClasses} />
+            </div>
+            
+            <div className="col-span-1 sm:col-span-2 lg:col-span-2">
+              <label className={labelClasses}>Clock In</label>
+              <input type="time" value={formStartTime} onChange={(e) => setFormStartTime(e.target.value)} required className={inputClasses} />
+            </div>
+            
+            <div className="col-span-1 sm:col-span-2 lg:col-span-2">
+              <label className={labelClasses}>Clock Out</label>
+              <input type="time" value={formEndTime} onChange={(e) => setFormEndTime(e.target.value)} className={inputClasses} />
+            </div>
           </div>
-          <div className="flex-1 min-w-[150px]">
-            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Date</label>
-            <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} required className="w-full border border-gray-400 rounded-lg p-2 text-sm font-black bg-white shadow-inner" />
-          </div>
-          <div className="flex-1 min-w-[110px]">
-            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">In</label>
-            <input type="time" value={formStartTime} onChange={(e) => setFormStartTime(e.target.value)} required className="w-full border border-gray-400 rounded-lg p-2 text-sm font-black bg-white shadow-inner" />
-          </div>
-          <div className="flex-1 min-w-[110px]">
-            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Out</label>
-            <input type="time" value={formEndTime} onChange={(e) => setFormEndTime(e.target.value)} className="w-full border border-gray-400 rounded-lg p-2 text-sm font-black bg-white shadow-inner" />
-          </div>
-          <div className="flex-1 min-w-[150px]">
-            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Facility</label>
-            <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} required className="w-full border border-gray-400 rounded-lg p-2 text-sm font-black bg-white shadow-inner">
-              <option value="">- Select -</option>
-              {locations.filter(l => l.isActive !== false || (editingCardId && l.id.toString() === selectedLocation)).map(loc => (
-                <option key={loc.id} value={loc.id}>{loc.name} {loc.isActive === false && '(Archived)'}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-2">
-            <button type="submit" className="bg-slate-900 text-white font-black py-2.5 px-6 rounded-lg shadow-md hover:bg-black transition-colors">{editingCardId ? 'Update' : 'Save'}</button>
-            {editingCardId && <button type="button" onClick={() => { setEditingCardId(null); setFormUserId(''); setFormDate(''); setFormStartTime(''); setFormEndTime(''); setSelectedLocation(''); }} className="bg-slate-200 text-slate-800 font-bold py-2.5 px-6 rounded-lg transition-colors">Cancel</button>}
+
+          <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-5 border-t border-blue-200/60">
+            <button type="submit" className="w-full sm:w-auto bg-slate-900 text-white font-black py-3.5 px-8 rounded-xl shadow-lg hover:bg-black hover:-translate-y-0.5 transition-all text-base uppercase tracking-widest">
+              {editingCardId ? 'Save Changes' : 'Log Timecard'}
+            </button>
+            {editingCardId && (
+              <button 
+                type="button" 
+                onClick={() => { setEditingCardId(null); setFormUserId(''); setFormDate(''); setFormStartTime(''); setFormEndTime(''); setSelectedLocation(''); }} 
+                className="w-full sm:w-auto bg-white border-2 border-slate-300 text-slate-700 font-black py-3.5 px-8 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-colors text-base uppercase tracking-widest shadow-sm"
+              >
+                Cancel Edit
+              </button>
+            )}
           </div>
         </form>
       </div>
       
+      {/* TIMECARD ACCORDION VIEW */}
       <div className="space-y-4">
         {Object.keys(groupedCards).sort().map(locName => {
           const locKey = `loc-${locName}`;
           const empGroups = groupedCards[locName];
           return (
-            <div key={locName} className="bg-white border border-slate-300 rounded-2xl overflow-hidden shadow-sm">
-              <button onClick={() => toggleGroup(locKey)} className="w-full bg-slate-800 text-white p-4 flex justify-between items-center hover:bg-slate-700 transition">
-                <span className="text-xl font-black uppercase tracking-wide">{locName}</span>
+            <div key={locName} className="bg-white border-2 border-slate-300 rounded-2xl overflow-hidden shadow-sm">
+              <button onClick={() => toggleGroup(locKey)} className="w-full bg-slate-800 text-white p-5 flex justify-between items-center hover:bg-slate-700 transition">
+                <span className="text-xl font-black uppercase tracking-widest">{locName}</span>
                 <svg className={`h-6 w-6 transition-transform ${expandedGroups[locKey] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
               </button>
 
               {expandedGroups[locKey] && (
-                <div className="p-3 bg-slate-50 space-y-4">
+                <div className="p-3 md:p-5 bg-slate-100 space-y-4">
                   {Object.keys(empGroups).sort().map(empName => {
                     const empKey = `emp-${locName}-${empName}`;
                     const cards = empGroups[empName];
                     return (
-                      <div key={empName} className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                        <button onClick={() => toggleGroup(empKey)} className="w-full bg-blue-50 text-blue-900 p-3 flex justify-between items-center border-b border-blue-100">
-                          <span className="font-black uppercase tracking-widest">{empName}</span>
-                          <svg className={`h-5 w-5 transition-transform ${expandedGroups[empKey] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      <div key={empName} className="bg-white border border-slate-200 rounded-xl shadow-md overflow-hidden">
+                        <button onClick={() => toggleGroup(empKey)} className="w-full bg-blue-50 text-blue-950 p-4 flex justify-between items-center border-b-2 border-blue-100 hover:bg-blue-100/50 transition-colors">
+                          <span className="font-black text-lg tracking-tight">{empName}</span>
+                          <svg className={`h-5 w-5 text-blue-700 transition-transform ${expandedGroups[empKey] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
                         </button>
                         
                         {expandedGroups[empKey] && (
-                          <div className="p-3 space-y-4 bg-white">
+                          <div className="p-3 md:p-5 space-y-4 bg-white">
                             {cards.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map(card => {
                               const report = checklists.find(c => c.timeCardId === card.id);
                               return (
-                                <div key={card.id} className="flex flex-col border-2 border-slate-200 rounded-xl overflow-hidden">
-                                  <div className="flex flex-col md:flex-row justify-between items-center p-4 gap-4 bg-white">
-                                    <div className="flex items-center gap-4">
-                                      <span className="font-black text-slate-800">{formatDateSafe(card.clockIn)}</span>
-                                      <div className="flex items-center gap-2 text-sm font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-lg">
+                                <div key={card.id} className="flex flex-col border-2 border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 transition-colors">
+                                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 gap-4 bg-white">
+                                    
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-5">
+                                      <span className="font-black text-lg text-slate-800">{formatDateSafe(card.clockIn)}</span>
+                                      
+                                      <div className="flex items-center gap-3 text-sm font-black text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg shadow-inner">
                                         <span className="text-green-700">{formatTimeSafe(card.clockIn)}</span>
-                                        <span>&rarr;</span>
-                                        <span className={!card.clockOut ? 'text-red-600 animate-pulse' : 'text-slate-800'}>{!card.clockOut ? 'Active' : formatTimeSafe(card.clockOut!)}</span>
+                                        <span className="text-slate-400">&rarr;</span>
+                                        <span className={!card.clockOut ? 'text-red-600 animate-pulse' : 'text-slate-800'}>
+                                          {!card.clockOut ? 'Active' : formatTimeSafe(card.clockOut!)}
+                                        </span>
                                       </div>
-                                      <span className="text-sm font-black text-blue-700">{card.totalHours?.toFixed(2)}h</span>
+                                      
+                                      <span className="text-sm font-black text-white bg-blue-600 px-3 py-1.5 rounded-lg shadow-sm">
+                                        {card.totalHours?.toFixed(2)}h
+                                      </span>
                                     </div>
-                                    <div className="flex gap-2">
-                                      <button onClick={() => handleEditClick(card)} className="px-4 py-1.5 text-xs bg-orange-50 text-orange-900 border border-orange-200 font-black rounded-lg uppercase">Edit</button>
-                                      <button onClick={() => handleDeleteClick(card.id)} className="px-4 py-1.5 text-xs bg-slate-100 text-slate-700 border border-slate-300 font-black rounded-lg uppercase">Delete</button>
+
+                                    <div className="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
+                                      <button onClick={() => handleEditClick(card)} className="flex-1 md:flex-none px-5 py-2 text-xs bg-white text-blue-700 border-2 border-blue-200 hover:bg-blue-50 font-black rounded-lg uppercase tracking-widest transition-colors">Edit</button>
+                                      <button onClick={() => handleDeleteClick(card.id)} className="flex-1 md:flex-none px-5 py-2 text-xs bg-white text-red-600 border-2 border-red-200 hover:bg-red-50 font-black rounded-lg uppercase tracking-widest transition-colors">Delete</button>
                                     </div>
                                   </div>
 
                                   {report && (
-                                    <div className="border-t border-slate-200 bg-slate-50">
-                                      <button onClick={() => toggleReport(card.id)} className="w-full flex items-center justify-between p-3 text-[10px] font-black text-slate-600 hover:bg-slate-100 uppercase tracking-widest">
-                                        <span>Shift Report Attached</span>
-                                        <svg className={`h-4 w-4 transition-transform ${expandedReports[card.id] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                    <div className="border-t-2 border-slate-200 bg-slate-50">
+                                      <button onClick={() => toggleReport(card.id)} className="w-full flex items-center justify-between p-3.5 text-xs font-black text-slate-600 hover:bg-slate-100 hover:text-slate-900 uppercase tracking-widest transition-colors">
+                                        <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-500"></span> Shift Report Attached</span>
+                                        <svg className={`h-4 w-4 transition-transform ${expandedReports[card.id] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
                                       </button>
                                       
                                       {expandedReports[card.id] && (
-                                        <div className="p-4 pt-0 space-y-3">
+                                        <div className="p-4 pt-0 space-y-4">
                                           {report.previousShiftNotes && (
-                                            <div className="bg-pink-50 border border-pink-200 p-3 rounded-lg shadow-inner">
-                                              <span className="text-[10px] font-black uppercase text-pink-700 block mb-1">Leftover Issues from Previous Shift:</span>
-                                              <p className="text-xs font-bold text-pink-900 italic">"{report.previousShiftNotes}"</p>
+                                            <div className="bg-pink-50 border-2 border-pink-200 p-4 rounded-xl shadow-inner">
+                                              <span className="text-[10px] font-black uppercase tracking-widest text-pink-700 block mb-1.5">Carry-Over from Previous Shift:</span>
+                                              <p className="text-sm font-bold text-pink-900 italic">"{report.previousShiftNotes}"</p>
                                             </div>
                                           )}
 
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                                             <div>
-                                              <span className="text-[10px] font-black uppercase text-green-700 mb-2 block">Completed</span>
-                                              <ul className="text-[10px] font-bold text-slate-700 pl-4 list-disc">
+                                              <span className="text-[10px] font-black uppercase tracking-widest text-green-700 mb-2.5 flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Completed</span>
+                                              <ul className="text-xs font-bold text-slate-700 pl-4 space-y-1 list-disc">
                                                 {report.completedTasks.map(t => <li key={t}>{t}</li>)}
+                                                {report.completedTasks.length === 0 && <li className="italic text-slate-400 list-none -ml-4">None</li>}
                                               </ul>
                                             </div>
                                             <div>
-                                              <span className="text-[10px] font-black uppercase text-red-700 mb-2 block">Missed</span>
-                                              <ul className="text-[10px] font-bold text-slate-700 pl-4 list-disc">
+                                              <span className="text-[10px] font-black uppercase tracking-widest text-red-700 mb-2.5 flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span> Missed</span>
+                                              <ul className="text-xs font-bold text-slate-700 pl-4 space-y-1 list-disc">
                                                 {report.missedTasks.map(t => <li key={t}>{t}</li>)}
+                                                {report.missedTasks.length === 0 && <li className="italic text-slate-400 list-none -ml-4">None</li>}
                                               </ul>
                                             </div>
                                           </div>
                                           {report.notes && (
-                                            <div className="bg-white p-3 border-l-4 border-slate-400 rounded-r-lg text-xs text-slate-800 font-bold shadow-sm italic">
+                                            <div className="bg-white p-4 border-l-4 border-blue-500 rounded-r-xl text-sm text-slate-800 font-bold shadow-sm italic">
                                               "{report.notes}"
                                             </div>
                                           )}
