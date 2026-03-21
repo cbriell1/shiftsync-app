@@ -1,24 +1,25 @@
 // filepath: app/kiosk/page.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image'; // <-- Imported Next.js Image
 import { notify } from '@/lib/ui-utils';
 
 export default function KioskPage() {
-  const[isMounted, setIsMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   
-  const[users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
-  const[openCards, setOpenCards] = useState<any[]>([]);
+  const [openCards, setOpenCards] = useState<any[]>([]);
   
   // Selection State
   const [selectedUserId, setSelectedUserId] = useState('');
-  const[selectedLocationId, setSelectedLocationId] = useState('');
+  const [selectedLocationId, setSelectedLocationId] = useState('');
   
   // Security PIN State
-  const [pinCode, setPinCode] = useState('');
+  const[pinCode, setPinCode] = useState('');
   const [pinError, setPinError] = useState('');
 
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const[currentTime, setCurrentTime] = useState(new Date());
 
   // Keep the big clock ticking
   useEffect(() => {
@@ -116,7 +117,15 @@ export default function KioskPage() {
         
         {/* Branding Header */}
         <div className="bg-slate-100 p-8 flex flex-col items-center border-b border-gray-200">
-          <img src="/logo.png" alt="Pickles & Play Logo" className="h-24 w-auto object-contain mb-4 drop-shadow-md" onError={(e) => e.currentTarget.style.display = 'none'} />
+          {/* OPTIMIZED IMAGE */}
+          <Image 
+            src="/logo.png" 
+            alt="Pickles & Play Logo" 
+            width={120} 
+            height={96}
+            priority
+            className="h-24 w-auto object-contain mb-4 drop-shadow-md" 
+          />
           <h1 className="text-4xl font-black tracking-widest text-slate-900 uppercase italic">
             <span className="text-yellow-500">Pickles</span> & Play
           </h1>

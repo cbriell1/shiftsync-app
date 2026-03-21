@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { auth } from '@/auth'; // <-- Added Security
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +25,9 @@ const memberActionSchema = z.discriminatedUnion("action",[
 
 export async function GET() {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const members = await prisma.member.findMany({
       include: { usages: true },
       orderBy: { lastName: 'asc' }
@@ -36,6 +40,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const body = await request.json();
     const data = memberPostSchema.parse(body);
 
@@ -59,6 +66,9 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const body = await request.json();
     const data = memberActionSchema.parse(body);
 

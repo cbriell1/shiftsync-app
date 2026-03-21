@@ -1,6 +1,8 @@
+// filepath: app/api/manager/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { auth } from '@/auth'; // <-- Added Security
 
 const managerSchema = z.object({
   periods: z.array(z.object({
@@ -12,6 +14,9 @@ const managerSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const body = await request.json();
     const { periods, userIds } = managerSchema.parse(body);
 

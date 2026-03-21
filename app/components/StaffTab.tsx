@@ -1,21 +1,32 @@
 // filepath: app/components/StaffTab.tsx
 "use client";
 import React, { useState } from 'react';
-import { AppState, User } from '../lib/types';
+import { User } from '../lib/types';
 import { notify, customConfirm } from '@/lib/ui-utils';
+import { useAppStore } from '@/lib/store';
+import { AVAILABLE_ROLES } from '@/lib/common';
 import ActiveSessionsTab from './ActiveSessionsTab';
 
-export default function StaffTab({ appState }: { appState: AppState }) {
-  const { 
-    users, locations, handleUpdateUser, handleRoleToggle, handleAddUser,
-    handleMergeUsers, AVAILABLE_ROLES, isAdmin, isManager 
-  } = appState;
+export default function StaffTab({ appState }: any) {
+  // 1. Store Subscriptions
+  const users = useAppStore(state => state.users);
+  const locations = useAppStore(state => state.locations);
+  const selectedUserId = useAppStore(state => state.selectedUserId);
+  const fetchUsers = useAppStore(state => state.fetchUsers);
+  const fetchTimeCards = useAppStore(state => state.fetchTimeCards);
+  const fetchShifts = useAppStore(state => state.fetchShifts);
 
-  const [staffView, setStaffView] = useState<'DIRECTORY' | 'SESSIONS'>('DIRECTORY');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const[newStaff, setNewStaff] = useState({ name: '', pinCode: '', courtReserveId: '', phoneNumber: '', email: '' });
-  const [mergeModalOpen, setMergeModalOpen] = useState(false);
-  const[mergeSourceId, setMergeSourceId] = useState('');
+  // 2. Compute Roles
+  const activeUser = users.find(u => u.id.toString() === selectedUserId);
+  const isAdmin = activeUser?.systemRoles?.includes('Administrator');
+  const isManager = activeUser?.systemRoles?.includes('Manager') || isAdmin;
+
+  // 3. Local UI State
+  const[staffView, setStaffView] = useState<'DIRECTORY' | 'SESSIONS'>('DIRECTORY');
+  const[isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newStaff, setNewStaff] = useState({ name: '', pinCode: '', courtReserveId: '', phoneNumber: '', email: '' });
+  const[mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [mergeSourceId, setMergeSourceId] = useState('');
   const [mergeTargetId, setMergeTargetId] = useState('');
   const[isMerging, setIsMerging] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,8 +35,41 @@ export default function StaffTab({ appState }: { appState: AppState }) {
   const [showArchived, setShowArchived] = useState(false);
   const [groupBy, setGroupBy] = useState<'NONE' | 'LOCATION' | 'ROLE'>('NONE');
 
+  if (!isAdmin && !isManager) return <div className="p-8 text-center bg-white rounded-2xl border border-gray-200"><h2 className="text-xl font-black text-slate-900 uppercase">Access Denied</h2></div>;
+
+  // 4. API Handlers
+  const handleAddUser = async (userData: any) => {
+    const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(userData) });
+    if (res.ok) { await fetchUsers(); notify.success("User added successfully!"); } 
+    else { const err = await res.json(); notify.error(`Failed to add user: ${err.error || 'Unknown error'}`); }
+  };
+
+  const handleUpdateUser = async (targetUserId: number, updates: any) => {
+    await fetch('/api/users', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: targetUserId, ...updates }) });
+    await fetchUsers();
+  };
+
+  const handleRoleToggle = async (targetUserId: number, roleName: string) => {
+    const targetUser = users.find(u => u.id === targetUserId);
+    if (!targetUser) return;
+    let currentRoles = targetUser.systemRoles ? [...targetUser.systemRoles] :[];
+    if (currentRoles.includes(roleName)) currentRoles = currentRoles.filter(r => r !== roleName);
+    else currentRoles.push(roleName);
+    await handleUpdateUser(targetUserId, { roles: currentRoles });
+  };
+
+  const handleMergeUsers = async (oldId: number, newId: number) => {
+    const res = await fetch('/api/users', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'MERGE', oldId, newId }) });
+    if (res.ok) { 
+      notify.success("Users merged successfully!"); 
+      await fetchUsers(); await fetchTimeCards(selectedUserId); await fetchShifts(); 
+    } else { 
+      const err = await res.json(); notify.error(`Merge failed: ${err.error || 'Unknown error'}`); 
+    }
+  };
+
   const toggleLocation = async (user: User, locationId: number) => {
-    const currentLocs = user.locationIds ?[...user.locationIds] :[];
+    const currentLocs = user.locationIds ? [...user.locationIds] :[];
     let newLocs = currentLocs.includes(locationId) ? currentLocs.filter(id => id !== locationId) : [...currentLocs, locationId];
     await handleUpdateUser(user.id, { locationIds: newLocs });
   };
@@ -49,8 +93,6 @@ export default function StaffTab({ appState }: { appState: AppState }) {
     setMergeModalOpen(false);
   };
 
-  if (!isAdmin && !isManager) return <div className="p-8 text-center bg-white rounded-2xl border border-gray-200"><h2 className="text-xl font-black text-slate-900 uppercase">Access Denied</h2></div>;
-
   const processedUsers = users.filter(u => {
     const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) || (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesLoc = filterLocation === 'ALL' || u.locationIds?.includes(parseInt(filterLocation));
@@ -62,8 +104,6 @@ export default function StaffTab({ appState }: { appState: AppState }) {
   const renderUserRow = (user: User) => {
     const isInactive = user.isActive === false;
     const isManagement = user.systemRoles?.includes('Administrator') || user.systemRoles?.includes('Manager');
-    
-    // Formatting the Last Login Date
     let lastLoginDisplay = 'Never';
     if (user.lastLoginAt) {
       const loginDate = new Date(user.lastLoginAt);
@@ -78,17 +118,10 @@ export default function StaffTab({ appState }: { appState: AppState }) {
             <h3 className="text-sm font-black truncate text-slate-900">{user.name}</h3>
             <div className="flex items-center gap-2">
                <span className="text-[9px] font-bold text-slate-400">ID:{user.id}</span>
-               <input 
-                 type="text" maxLength={4} defaultValue={user.pinCode || ''} 
-                 onBlur={(e) => handleUpdateUser(user.id, { pinCode: e.target.value })}
-                 className="w-10 bg-slate-100 border border-slate-300 rounded text-[9px] font-black text-center text-slate-950 focus:bg-white focus:border-blue-500 outline-none"
-                 placeholder="PIN"
-               />
+               <input type="text" maxLength={4} defaultValue={user.pinCode || ''} onBlur={(e) => handleUpdateUser(user.id, { pinCode: e.target.value })} className="w-10 bg-slate-100 border border-slate-300 rounded text-[9px] font-black text-center text-slate-950 focus:bg-white focus:border-blue-500 outline-none" placeholder="PIN" />
             </div>
-            {/* NEW: Last Login Display */}
             <div className="text-[9px] font-bold text-slate-500 mt-1 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
-              Last Login: {lastLoginDisplay}
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span> Last Login: {lastLoginDisplay}
             </div>
           </div>
         </div>
@@ -145,13 +178,7 @@ export default function StaffTab({ appState }: { appState: AppState }) {
       ) : (
         <>
           <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm flex flex-col md:flex-row gap-3 items-center">
-            <input 
-              type="text" 
-              placeholder="Search name or email..." 
-              value={searchQuery} 
-              onChange={(e) => setSearchQuery(e.target.value)} 
-              className="flex-1 min-w-[200px] px-3 py-2 border border-slate-400 rounded-lg text-xs font-black text-slate-950 bg-slate-50 focus:bg-white outline-none placeholder:text-slate-500" 
-            />
+            <input type="text" placeholder="Search name or email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="flex-1 min-w-[200px] px-3 py-2 border border-slate-400 rounded-lg text-xs font-black text-slate-950 bg-slate-50 focus:bg-white outline-none placeholder:text-slate-500" />
             <select value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)} className="border border-slate-400 rounded-lg py-2 px-3 text-xs font-black text-slate-950 bg-slate-50 outline-none cursor-pointer">
               <option value="ALL">All Locations</option>
               {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
@@ -166,7 +193,6 @@ export default function StaffTab({ appState }: { appState: AppState }) {
               <span className="text-[10px] font-black uppercase text-slate-700">Show Archived</span>
             </label>
           </div>
-
           <div className="pt-2 flex flex-col gap-2">
             {processedUsers.length === 0 ? <div className="py-12 text-center bg-white border border-dashed rounded-2xl italic font-black text-slate-400 uppercase tracking-widest">No staff match filters.</div> : processedUsers.map(renderUserRow)}
           </div>

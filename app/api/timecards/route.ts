@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { auth } from '@/auth'; // <-- Added Security
 
 export const dynamic = 'force-dynamic';
 
@@ -18,15 +19,24 @@ const getQuerySchema = z.object({
   userId: z.coerce.number().optional()
 });
 
-// Helper function to calculate duration in hours
 const calculateTotalHours = (clockIn: string, clockOut?: string | null) => {
   if (!clockOut) return null;
   const msDiff = new Date(clockOut).getTime() - new Date(clockIn).getTime();
   return parseFloat((msDiff / (1000 * 60 * 60)).toFixed(2));
 };
 
+async function verifyManagementAccess() {
+  const session = await auth();
+  if (!session?.user) return false;
+  const userRoles = (session.user as any).systemRoles ||[];
+  return userRoles.includes('Administrator') || userRoles.includes('Manager');
+}
+
 export async function GET(req: Request) {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { searchParams } = new URL(req.url);
     const parsed = getQuerySchema.safeParse({ 
       userId: searchParams.get('userId') || undefined 
@@ -45,7 +55,7 @@ export async function GET(req: Request) {
         checklists: true 
       },
       orderBy: { clockIn: 'desc' },
-      take: 100 // Prevent payload limit crashes by capping history to last 100 shifts
+      take: 100 
     });
     
     return NextResponse.json(timeCards);
@@ -56,6 +66,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const body = await req.json();
     const data = timeCardSchema.parse(body);
 
@@ -77,6 +90,9 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const body = await req.json();
     const data = timeCardSchema.parse(body);
 
@@ -105,10 +121,13 @@ export async function PUT(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    if (!(await verifyManagementAccess())) {
+      return NextResponse.json({ error: "Forbidden. Management access required to delete timecards." }, { status: 403 });
+    }
+
     const data = await req.json();
     const id = z.coerce.number().parse(data.id);
     
-    // Safety: Delete children first
     await prisma.checklist.deleteMany({
       where: { timeCardId: id }
     });

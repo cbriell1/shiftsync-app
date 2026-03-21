@@ -1,29 +1,44 @@
 // filepath: app/components/TimesheetsTab.tsx
 "use client";
 import React, { useState, useMemo } from 'react';
-import { AppState, TimeCard } from '../lib/types';
+import { TimeCard } from '../lib/types';
+import { useAppStore } from '@/lib/store';
+import { formatDateSafe, formatTimeSafe } from '@/lib/common';
 
-export default function TimesheetsTab({ appState }: { appState: AppState }) {
-  const {
-    managerData, activeUsers, locations, manLocs, 
-    formatDateSafe, formatTimeSafe, checklists
-  } = appState;
+export default function TimesheetsTab({ appState }: any) {
+  // 1. Store Subscriptions
+  const managerData = useAppStore(state => state.managerData);
+  const users = useAppStore(state => state.users);
+  const locations = useAppStore(state => state.locations);
+  const manLocs = useAppStore(state => state.manLocs);
+  const checklists = useAppStore(state => state.checklists);
+  const selectedUserId = useAppStore(state => state.selectedUserId);
 
+  const fetchManagerData = useAppStore(state => state.fetchManagerData);
+  const fetchTimeCards = useAppStore(state => state.fetchTimeCards);
+
+  // 2. Compute Roles
+  const activeUserObj = users.find(u => u.id.toString() === selectedUserId);
+  const isAdmin = activeUserObj?.systemRoles?.includes('Administrator');
+  const isManager = activeUserObj?.systemRoles?.includes('Manager') || isAdmin;
+
+  const activeUsers = users.filter(u => u.isActive !== false);
+
+  // 3. Local UI State
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
   
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
-  const[formUserId, setFormUserId] = useState('');
+  const [formUserId, setFormUserId] = useState('');
   const [formDate, setFormDate] = useState('');
-  const[formStartTime, setFormStartTime] = useState('');
+  const [formStartTime, setFormStartTime] = useState('');
   const [formEndTime, setFormEndTime] = useState('');
-  const[selectedLocation, setSelectedLocation] = useState('');
-
-  const triggerSync = () => window.dispatchEvent(new Event('focus'));
+  const [selectedLocation, setSelectedLocation] = useState('');
 
   const toggleGroup = (key: string) => setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
   const toggleReport = (id: number) => setExpandedReports(prev => ({ ...prev,[id]: !prev[id] }));
 
+  // 4. API Handlers
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formUserId) return alert("Select an employee!");
@@ -36,6 +51,7 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
       clockOutDateTime = new Date(`${formDate}T${formEndTime}`);
       if (clockOutDateTime < clockInDateTime) clockOutDateTime.setDate(clockOutDateTime.getDate() + 1);
     }
+    
     const body: any = { userId: formUserId, locationId: selectedLocation, clockIn: clockInDateTime.toISOString(), clockOut: clockOutDateTime?.toISOString() || null };
     if (editingCardId) body.id = editingCardId;
 
@@ -43,7 +59,8 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
       const res = await fetch('/api/timecards', { method: editingCardId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (res.ok) {
         setEditingCardId(null); setFormStartTime(''); setFormEndTime(''); setFormUserId(''); setFormDate(''); setSelectedLocation('');
-        triggerSync(); 
+        await fetchManagerData(isManager, selectedUserId); 
+        await fetchTimeCards(selectedUserId);
       }
     } catch (err) { console.error(err); }
   };
@@ -63,7 +80,8 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
   const handleDeleteClick = async (cardId: number) => {
     if(!confirm("Delete this timecard?")) return;
     await fetch('/api/timecards', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: cardId }) });
-    triggerSync();
+    await fetchManagerData(isManager, selectedUserId);
+    await fetchTimeCards(selectedUserId);
   };
 
   const groupedCards = useMemo(() => {
@@ -80,7 +98,6 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
 
   return (
     <div className="bg-white p-4 md:p-6 rounded-2xl border border-gray-300 shadow-md animate-in fade-in duration-300">
-      
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-gray-200 pb-4 gap-4">
         <div>
           <h2 className="text-lg md:text-2xl font-black text-slate-900">Timesheets & Auditing</h2>
@@ -180,7 +197,6 @@ export default function TimesheetsTab({ appState }: { appState: AppState }) {
                                       
                                       {expandedReports[card.id] && (
                                         <div className="p-4 pt-0 space-y-3">
-                                          {/* NEW: Display Previous Shift Notes in an alert style box */}
                                           {report.previousShiftNotes && (
                                             <div className="bg-pink-50 border border-pink-200 p-3 rounded-lg shadow-inner">
                                               <span className="text-[10px] font-black uppercase text-pink-700 block mb-1">Leftover Issues from Previous Shift:</span>

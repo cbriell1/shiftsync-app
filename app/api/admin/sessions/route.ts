@@ -9,12 +9,20 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const session = await auth();
   
-  // Security: Only Chris (or Admins) can see active sessions
-  if (session?.user?.email !== 'cbriell1@yahoo.com' && !(session?.user as any).systemRoles?.includes('Administrator')) {
+  // Security: Only Admins or Managers can see the Live Sessions Tab
+  const isAdmin = session?.user?.email === 'cbriell1@yahoo.com' || (session?.user as any).systemRoles?.includes('Administrator');
+  const isManager = (session?.user as any).systemRoles?.includes('Manager');
+  
+  if (!isAdmin && !isManager) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   try {
+    // HOUSEKEEPING: Automatically delete sessions that have naturally expired (>30 days old)
+    await prisma.session.deleteMany({
+      where: { expires: { lt: new Date() } }
+    });
+
     const activeSessions = await prisma.session.findMany({
       include: {
         user: {
@@ -35,17 +43,22 @@ export async function GET() {
   }
 }
 
-// DELETE: Force a user out by destroying their session record
+// DELETE: Force a user out OR allow a user to logout themselves
 export async function DELETE(req: Request) {
-  const session = await auth();
-  
-  if (session?.user?.email !== 'cbriell1@yahoo.com' && !(session?.user as any).systemRoles?.includes('Administrator')) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  const authSession = await auth();
+  if (!authSession) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const { sessionToken } = await req.json();
     
+    // Security: You can delete a session if you are an Admin, OR if it's your own session
+    const isAdmin = authSession?.user?.email === 'cbriell1@yahoo.com' || (authSession?.user as any).systemRoles?.includes('Administrator');
+    const isOwnSession = (authSession as any).sessionId === sessionToken;
+
+    if (!isAdmin && !isOwnSession) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     await prisma.session.delete({
       where: { sessionToken }
     });

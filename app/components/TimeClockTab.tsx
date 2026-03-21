@@ -1,23 +1,35 @@
 // filepath: app/components/TimeClockTab.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
-import { AppState } from '../lib/types';
 import { notify } from '@/lib/ui-utils';
+import { useAppStore } from '@/lib/store';
+import { formatTimeSafe } from '@/lib/common';
 
-export default function TimeClockTab({ appState }: { appState: AppState }) {
-  const { 
-    activeUserTimeCards, 
-    visibleLocations, 
-    selectedUserId, 
-    fetchTimeCards, 
-    formatTimeSafe, 
-    locations,
-    shifts // <-- Pulled in shifts to check today's schedule
-  } = appState;
+export default function TimeClockTab({ appState }: any) {
+  // 1. Pull data from the global store
+  const selectedUserId = useAppStore(state => state.selectedUserId);
+  const locations = useAppStore(state => state.locations);
+  const timeCards = useAppStore(state => state.timeCards);
+  const shifts = useAppStore(state => state.shifts);
+  const users = useAppStore(state => state.users);
+  const fetchTimeCards = useAppStore(state => state.fetchTimeCards);
   
+  // 2. Local State
   const [currentTime, setCurrentTime] = useState(new Date());
-  const[selectedLocId, setSelectedLocId] = useState('');
+  const [selectedLocId, setSelectedLocId] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // 3. Derived Data (Only calculated for this specific user)
+  const activeUser = users.find(u => u.id.toString() === selectedUserId);
+  const isAdmin = activeUser?.systemRoles?.includes('Administrator');
+  const allowedLocationIds = activeUser?.locationIds?.map(id => typeof id === 'string' ? parseInt(id, 10) : id) ||[];
+  
+  const visibleLocations = isAdmin 
+    ? locations.filter(l => l.isActive !== false)
+    : locations.filter(loc => allowedLocationIds.includes(loc.id) && loc.isActive !== false);
+
+  const activeUserTimeCards = timeCards.filter(c => c.userId.toString() === selectedUserId);
+  const activeCard = activeUserTimeCards.find(c => !c.clockOut);
 
   // Keep the clock ticking
   useEffect(() => {
@@ -25,42 +37,28 @@ export default function TimeClockTab({ appState }: { appState: AppState }) {
     return () => clearInterval(timer);
   },[]);
 
-  // SMART DEFAULT: Pre-select location based on today's shift, or fallback to first available
+  // SMART DEFAULT: Pre-select location based on today's shift
   useEffect(() => {
     if (!selectedLocId && visibleLocations.length > 0) {
       const today = new Date();
-      
-      // Find all shifts for this user that happen today
       const myShiftsToday = shifts.filter(s => {
-        if (s.userId !== parseInt(selectedUserId)) return false;
-        
+        if (s.userId?.toString() !== selectedUserId) return false;
         const sd = new Date(s.startTime);
-        return sd.getDate() === today.getDate() &&
-               sd.getMonth() === today.getMonth() &&
-               sd.getFullYear() === today.getFullYear();
+        return sd.getDate() === today.getDate() && sd.getMonth() === today.getMonth() && sd.getFullYear() === today.getFullYear();
       });
 
-      // Sort them by time so we get the earliest shift first
       myShiftsToday.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
-      // If they have a shift today, default to that location
       if (myShiftsToday.length > 0) {
         const shiftLocId = myShiftsToday[0].locationId.toString();
-        
-        // Safety check to ensure they actually have access to see this location
         if (visibleLocations.some(l => l.id.toString() === shiftLocId)) {
           setSelectedLocId(shiftLocId);
           return;
         }
       }
-      
-      // Fallback: If no shifts today, just pick the first available location
       setSelectedLocId(visibleLocations[0].id.toString());
     }
   }, [visibleLocations, selectedLocId, shifts, selectedUserId]);
-
-  // Find if there is an active timecard for the user (clockOut is null)
-  const activeCard = activeUserTimeCards.find(c => !c.clockOut);
 
   const handleClockIn = async () => {
     if (!selectedLocId) return notify.error("Please select a location");
@@ -75,7 +73,7 @@ export default function TimeClockTab({ appState }: { appState: AppState }) {
       
       if (res.ok) {
         notify.success("Clocked In Successfully!");
-        fetchTimeCards(); // Refresh data globally
+        await fetchTimeCards(selectedUserId); // Refresh data globally
       } else {
         const data = await res.json();
         notify.error(data.error || "Failed to clock in");
@@ -100,7 +98,7 @@ export default function TimeClockTab({ appState }: { appState: AppState }) {
       
       if (res.ok) {
         notify.success("Clocked Out Successfully!");
-        fetchTimeCards(); // Refresh data globally
+        await fetchTimeCards(selectedUserId); // Refresh data globally
       } else {
         const data = await res.json();
         notify.error(data.error || "Failed to clock out");
@@ -116,14 +114,12 @@ export default function TimeClockTab({ appState }: { appState: AppState }) {
     <div className="flex flex-col items-center justify-center min-h-[70vh] animate-in fade-in duration-500">
       <div className="bg-white p-8 md:p-12 rounded-[32px] shadow-2xl border border-slate-200 w-full max-w-lg text-center relative overflow-hidden">
         
-        {/* Decorative Top Accent */}
         <div className={`absolute top-0 left-0 right-0 h-3 ${activeCard ? 'bg-red-500' : 'bg-green-600'}`} />
 
         <h2 className="text-xl font-black text-slate-800 tracking-tight uppercase mb-6">
           My Time Clock
         </h2>
 
-        {/* Live Digital Clock */}
         <div className="mb-10 bg-slate-50 py-6 rounded-2xl border border-slate-200 shadow-inner">
           <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-1">
             {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric'})}

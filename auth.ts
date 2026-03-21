@@ -117,15 +117,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         const inputEmail = String(credentials?.email || "").toLowerCase().trim();
         const inputPassword = String(credentials?.password || "").trim();
-        const serverSecret = process.env.AUTH_SECRET;
+        
+        const emergencyPassword = process.env.EMERGENCY_PASSWORD;
 
-        // LOUD DEBUGGING LOGS
-        if (!serverSecret) {
-          console.error("🚨 CRITICAL ERROR: AUTH_SECRET is completely missing in this Vercel environment!");
+        if (!emergencyPassword) {
+          console.error("🚨 CRITICAL ERROR: EMERGENCY_PASSWORD missing in environment!");
           return null;
         }
 
-        if (inputEmail === "cbriell1@yahoo.com" && inputPassword === serverSecret) {
+        if (inputEmail === "cbriell1@yahoo.com" && inputPassword === emergencyPassword) {
            let user = await prisma.user.findFirst({ where: { email: "cbriell1@yahoo.com" } });
            
            if (!user) {
@@ -142,7 +142,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
            }
            return { ...user, id: user.id.toString() };
         } else {
-           console.error(`🚨 LOGIN DENIED: Email Match: ${inputEmail === "cbriell1@yahoo.com"} | Password Match: ${inputPassword === serverSecret}`);
+           console.error(`🚨 LOGIN DENIED: Invalid Emergency Credentials.`);
            return null;
         }
       }
@@ -157,7 +157,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         
         const sessionToken = crypto.randomUUID();
         const expires = new Date();
-        expires.setDate(expires.getDate() + 30);
+        expires.setDate(expires.getDate() + 30); // Sessions last 30 days maximum
         
         await prisma.$transaction([
           prisma.session.create({
@@ -202,6 +202,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id as string;
         (session.user as any).role = token.role;
         (session.user as any).systemRoles = token.systemRoles;
+        
+        // FIX: Inject the Database Session ID into the frontend session object
+        (session as any).sessionId = token.sessionId; 
       }
       return session;
     }

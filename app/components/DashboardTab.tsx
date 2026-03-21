@@ -1,19 +1,93 @@
 // filepath: app/components/DashboardTab.tsx
 "use client";
 import React, { useMemo } from 'react';
-import { AppState } from '../lib/types';
+import { useAppStore } from '@/lib/store';
+import { formatDateSafe, generatePeriods } from '@/lib/common';
 
-export default function DashboardTab({ appState }: { appState: AppState }) {
-  const {
-    isManager, handleExportCSV, periods, manPeriods, toggleManPeriod, 
-    locations, manLocs, toggleManLoc, users, manEmps, toggleManEmp, 
-    hiddenWarnings, matrixRows, activeManPeriods, managerData, formatDateSafe
-  } = appState;
+export default function DashboardTab({ appState }: any) {
+  // Store Subscriptions
+  const managerData = useAppStore(state => state.managerData);
+  const locations = useAppStore(state => state.locations);
+  const users = useAppStore(state => state.users);
+  
+  const manPeriods = useAppStore(state => state.manPeriods);
+  const manLocs = useAppStore(state => state.manLocs);
+  const manEmps = useAppStore(state => state.manEmps);
+  const setManPeriods = useAppStore(state => state.setManPeriods);
+  const setManLocs = useAppStore(state => state.setManLocs);
+  const setManEmps = useAppStore(state => state.setManEmps);
+  const selectedUserId = useAppStore(state => state.selectedUserId);
 
-  // OPTIMIZATION: Only calculate suspicious cards when the underlying data changes
+  // Compute Roles
+  const activeUser = users.find(u => u.id.toString() === selectedUserId);
+  const isAdmin = activeUser?.systemRoles?.includes('Administrator');
+  const isManager = activeUser?.systemRoles?.includes('Manager') || isAdmin;
+  
+  const allowedLocationIds = activeUser?.locationIds?.map(id => typeof id === 'string' ? parseInt(id, 10) : id) ||[];
+  const visibleLocations = isAdmin 
+    ? locations 
+    : locations.filter(loc => allowedLocationIds.includes(loc.id));
+
+  // Filter Toggles
+  const toggleManPeriod = (idx: number) => manPeriods.includes(idx) ? setManPeriods(manPeriods.filter(x => x !== idx)) : setManPeriods([...manPeriods, idx]);
+  const toggleManLoc = (id: number) => manLocs.includes(id) ? setManLocs(manLocs.filter(x => x !== id)) : setManLocs([...manLocs, id]);
+  const toggleManEmp = (id: number) => manEmps.includes(id) ? setManEmps(manEmps.filter(x => x !== id)) : setManEmps([...manEmps, id]);
+
+  const periods = useMemo(() => generatePeriods(),[]);
+
+  // Complex Computations (Isolated here)
+  const { matrixRows, hiddenWarnings, activeManPeriods } = useMemo(() => {
+    const activePeriods = manPeriods.map(idx => periods[idx]);
+    const matrixMap = new Map();
+    const hiddenMap = new Map();
+
+    (Array.isArray(managerData) ? managerData :[]).forEach(card => {
+      if (!visibleLocations.some(l => l.id === card.locationId)) return;
+      if (manLocs.length > 0 && !manLocs.includes(card.locationId)) {
+        if (!hiddenMap.has(card.user?.name)) hiddenMap.set(card.user?.name, new Set());
+        hiddenMap.get(card.user?.name).add(card.location?.name); 
+        return;
+      }
+      const key = `${card.locationId}_${card.userId}`;
+      if (!matrixMap.has(key)) matrixMap.set(key, { locName: card.location?.name, empName: card.user?.name, periodTotals: new Map(), totalRowHours: 0 });
+      const row = matrixMap.get(key);
+      
+      activePeriods.forEach(p => {
+        const cDate = new Date(card.clockIn); 
+        if (cDate >= new Date(p.start) && cDate <= new Date(new Date(p.end).setHours(23,59,59))) {
+          row.periodTotals.set(p.label, (row.periodTotals.get(p.label) || 0) + (card.totalHours || 0));
+          row.totalRowHours += (card.totalHours || 0);
+        }
+      });
+    });
+
+    return {
+      activeManPeriods: activePeriods,
+      matrixRows: Array.from(matrixMap.values()),
+      hiddenWarnings: Array.from(hiddenMap.entries()).map(([k, v]) => `${k} (${Array.from(v).join(', ')})`)
+    };
+  }, [managerData, manPeriods, periods, visibleLocations, manLocs]);
+
   const suspiciousCards = useMemo(() => {
     return managerData.filter(c => c.totalHours && (c.totalHours > 10 || c.totalHours < 1));
   }, [managerData]);
+
+  // Actions
+  const handleExportCSV = () => { 
+    let csv = "Pay Period,Location,Employee,Hours\n"; 
+    matrixRows.forEach((row: any) => { 
+      activeManPeriods.forEach((p: any) => { 
+        const h = row.periodTotals.get(p.label); 
+        if (h > 0) csv += `"${p.label}","${row.locName}","${row.empName}",${h.toFixed(2)}\n`; 
+      }); 
+    }); 
+    const blob = new Blob([csv], { type: 'text/csv' }); 
+    const url = URL.createObjectURL(blob); 
+    const link = document.createElement("a"); 
+    link.href = url; 
+    link.download = "Payroll.csv"; 
+    link.click(); 
+  };
 
   return (
     <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-300 shadow-md animate-in fade-in duration-300">
