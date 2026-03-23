@@ -9,13 +9,7 @@ const nextConfig: NextConfig = {
   eslint: {
     // Ignore linting errors during build
     ignoreDuringBuilds: true,
-  },
-  // Ensure heavy Node.js packages aren't incorrectly bundled by Turbopack
-  serverExternalPackages:[
-    "@prisma/client", 
-    "@auth/prisma-adapter",
-    "@simplewebauthn/server"
-  ],
+  }
 };
 
 export default nextConfig;
