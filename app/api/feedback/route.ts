@@ -1,7 +1,12 @@
+// filepath: app/api/feedback/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sendNewFeedbackEmail } from '@/lib/email';
+import { auth } from '@/auth'; // <-- Added Security
+
+// FIX: Explicitly tell Turbopack not to pre-render this file
+export const dynamic = 'force-dynamic';
 
 const feedbackSchema = z.object({
   userId: z.coerce.number(),
@@ -11,6 +16,10 @@ const feedbackSchema = z.object({
 
 export async function GET() {
   try {
+    // FIX: Require authentication
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const feedbacks = await prisma.feedback.findMany({
       include: { user: true },
       orderBy: { createdAt: 'desc' },
@@ -23,8 +32,13 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    // FIX: Require authentication
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const body = await request.json();
     const data = feedbackSchema.parse(body);
+    
     const newFeedback = await prisma.feedback.create({
       data: {
         userId: data.userId,
@@ -34,10 +48,8 @@ export async function POST(request: Request) {
       },
     });
 
-    // Get the user info to include their name in the email
     const user = await prisma.user.findUnique({ where: { id: data.userId } });
     
-    // Trigger the email asynchronously (so it doesn't slow down the UI loading screen)
     sendNewFeedbackEmail(newFeedback, user).catch(console.error);
 
     return NextResponse.json(newFeedback, { status: 201 });
