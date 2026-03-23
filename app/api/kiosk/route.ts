@@ -19,7 +19,6 @@ const kioskSchema = z.discriminatedUnion("action",[
   })
 ]);
 
-// FIX: Added (req: Request)
 export async function GET(req: Request) {
   const openCards = await prisma.timeCard.findMany({
     where: { clockOut: null },
@@ -37,7 +36,15 @@ export async function POST(request: Request) {
       const user = await prisma.user.findUnique({ where: { id: data.userId } });
       if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
       
+      // ERROR TRIPWIRE: If the PIN is wrong, log it immediately!
       if ((user.pinCode || '1234') !== data.pinCode) {
+        await prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'ERROR',
+            details: `Failed KIOSK Clock-In attempt. Invalid PIN entered at location ID: ${data.locationId}`
+          }
+        });
         return NextResponse.json({ error: "Invalid PIN" }, { status: 401 });
       }
 
@@ -54,7 +61,15 @@ export async function POST(request: Request) {
       });
       if (!tc || !tc.user) return NextResponse.json({ error: "Record not found" }, { status: 404 });
 
+      // ERROR TRIPWIRE: Catch bad clock-out PINs too!
       if ((tc.user.pinCode || '1234') !== data.pinCode) {
+        await prisma.auditLog.create({
+          data: {
+            userId: tc.user.id,
+            action: 'ERROR',
+            details: `Failed KIOSK Clock-Out attempt. Invalid PIN entered.`
+          }
+        });
         return NextResponse.json({ error: "Invalid PIN" }, { status: 401 });
       }
       

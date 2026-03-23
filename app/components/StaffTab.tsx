@@ -22,26 +22,30 @@ export default function StaffTab({ appState }: any) {
   const isManager = activeUser?.systemRoles?.includes('Manager') || isAdmin;
 
   const [staffView, setStaffView] = useState<'DIRECTORY' | 'SESSIONS' | 'LOGS'>('DIRECTORY');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const[isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newStaff, setNewStaff] = useState({ name: '', pinCode: '', courtReserveId: '', phoneNumber: '', email: '' });
-  const [mergeModalOpen, setMergeModalOpen] = useState(false);
+  const[mergeModalOpen, setMergeModalOpen] = useState(false);
   const [mergeSourceId, setMergeSourceId] = useState('');
   const[mergeTargetId, setMergeTargetId] = useState('');
   const [isMerging, setIsMerging] = useState(false);
+  
+  // Directory Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterLocation, setFilterLocation] = useState<string>('ALL');
+  const[filterLocation, setFilterLocation] = useState<string>('ALL');
   const [filterRole, setFilterRole] = useState<string>('ALL');
-  const[showArchived, setShowArchived] = useState(false);
-  const [groupBy, setGroupBy] = useState<'NONE' | 'LOCATION' | 'ROLE'>('NONE');
+  const [showArchived, setShowArchived] = useState(false);
+  const[groupBy, setGroupBy] = useState<'NONE' | 'LOCATION' | 'ROLE'>('NONE');
 
-  // Fetch logs whenever the Logs tab is opened
+  // NEW: Log Filters
+  const [logDateFilter, setLogDateFilter] = useState('');
+  const [logUserFilter, setLogUserFilter] = useState('ALL');
+
   useEffect(() => {
     if (staffView === 'LOGS' && isAdmin) {
       fetchAuditLogs();
     }
   }, [staffView, isAdmin]);
 
-  // Fallback: If a non-admin somehow gets stuck on a restricted tab, boot them to directory
   useEffect(() => {
     if (!isAdmin && (staffView === 'LOGS' || staffView === 'SESSIONS')) {
       setStaffView('DIRECTORY');
@@ -113,33 +117,56 @@ export default function StaffTab({ appState }: any) {
     return matchesSearch && matchesLoc && matchesRole && matchesActive;
   }).sort((a, b) => a.name.localeCompare(b.name));
 
+  // NEW: Filtered Logs logic
+  const filteredLogs = auditLogs.filter((log: AuditLog) => {
+    let matchesDate = true;
+    if (logDateFilter) {
+      // en-CA formats Date to standard YYYY-MM-DD which perfectly matches HTML5 date inputs
+      const logLocal = new Date(log.createdAt).toLocaleDateString('en-CA');
+      matchesDate = logLocal === logDateFilter;
+    }
+    
+    let matchesUser = true;
+    if (logUserFilter === 'SYSTEM') {
+      matchesUser = log.userId === null;
+    } else if (logUserFilter !== 'ALL') {
+      matchesUser = log.userId?.toString() === logUserFilter;
+    }
+    
+    return matchesDate && matchesUser;
+  });
+
   const renderUserRow = (user: User) => {
     const isInactive = user.isActive === false;
     const isManagement = user.systemRoles?.includes('Administrator') || user.systemRoles?.includes('Manager');
+    
     let lastLoginDisplay = 'Never';
     if (user.lastLoginAt) {
       const loginDate = new Date(user.lastLoginAt);
-      lastLoginDisplay = `${loginDate.toLocaleDateString()} ${loginDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      lastLoginDisplay = `${loginDate.toLocaleDateString()} @ ${loginDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     }
 
     return (
       <div key={user.id} className={`bg-white border border-slate-200 rounded-xl p-3 flex flex-col xl:flex-row gap-3 items-start xl:items-center shadow-sm hover:shadow transition-all group relative ${isInactive ? 'opacity-60 grayscale' : ''}`}>
-        <div className="flex w-full xl:w-[18%] items-center gap-3">
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-black text-lg shadow-inner ${isInactive ? 'bg-slate-400' : 'bg-slate-900'}`}>{user.name.charAt(0)}</div>
+        <div className="flex w-full xl:w-[22%] items-center gap-3">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-black text-lg shadow-inner shrink-0 ${isInactive ? 'bg-slate-400' : 'bg-slate-900'}`}>{user.name.charAt(0)}</div>
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-black truncate text-slate-900">{user.name}</h3>
-            <div className="flex items-center gap-2">
-               <span className="text-[9px] font-bold text-slate-400">ID:{user.id}</span>
-               <input type="text" maxLength={4} defaultValue={user.pinCode || ''} onBlur={(e) => handleUpdateUser(user.id, { pinCode: e.target.value })} className="w-10 bg-slate-100 border border-slate-300 rounded text-[9px] font-black text-center text-slate-950 focus:bg-white focus:border-blue-500 outline-none" placeholder="PIN" />
+            
+            {/* FIX: Bright, unmistakable Last Login Badge */}
+            <div className={`mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded border shadow-sm ${user.lastLoginAt ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${user.lastLoginAt ? 'bg-green-500' : 'bg-slate-400'}`}></span> 
+              <span className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">Login: {lastLoginDisplay}</span>
             </div>
-            <div className="text-[9px] font-bold text-slate-500 mt-1 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span> Last Login: {lastLoginDisplay}
-            </div>
+
           </div>
         </div>
-        <div className="w-full xl:w-[22%] flex flex-col gap-1.5 border-t xl:border-t-0 xl:border-l pt-2 xl:pt-0 xl:pl-4">
+        <div className="w-full xl:w-[18%] flex flex-col gap-2 border-t xl:border-t-0 xl:border-l pt-2 xl:pt-0 xl:pl-4">
+          <div className="flex items-center gap-2">
+             <span className="text-[9px] font-bold text-slate-400">ID:{user.id}</span>
+             <input type="text" maxLength={4} defaultValue={user.pinCode || ''} onBlur={(e) => handleUpdateUser(user.id, { pinCode: e.target.value })} className="w-12 bg-slate-100 border border-slate-300 rounded text-[9px] font-black text-center text-slate-950 focus:bg-white focus:border-blue-500 outline-none" placeholder="PIN" />
+          </div>
           <input type="email" defaultValue={user.email || ''} onBlur={(e) => handleUpdateUser(user.id, { email: e.target.value })} className="w-full bg-slate-50 border border-slate-400 rounded p-1.5 text-[10px] font-black text-slate-950 focus:bg-white focus:border-blue-500 outline-none" placeholder="Email" />
-          <input type="tel" defaultValue={user.phoneNumber || ''} onBlur={(e) => handleUpdateUser(user.id, { phoneNumber: e.target.value })} className="w-full bg-slate-50 border border-slate-400 rounded p-1.5 text-[10px] font-black text-slate-950 focus:bg-white focus:border-blue-500 outline-none" placeholder="Phone" />
         </div>
         <div className="w-full xl:w-[20%] border-t xl:border-t-0 xl:border-l pt-2 xl:pt-0 xl:pl-4">
           <div className="flex flex-wrap gap-1">
@@ -170,7 +197,7 @@ export default function StaffTab({ appState }: any) {
   const getLogBadge = (action: string) => {
     switch(action.toUpperCase()) {
       case 'LOGIN': return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'ERROR': return 'bg-red-100 text-red-800 border-red-300';
+      case 'ERROR': return 'bg-red-100 text-red-800 border-red-300 animate-pulse';
       case 'WARNING': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       default: return 'bg-slate-100 text-slate-600 border-slate-300';
     }
@@ -183,7 +210,6 @@ export default function StaffTab({ appState }: any) {
           <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic">Staff Management</h2>
           <div className="flex bg-slate-200 p-1 rounded-lg mt-2 w-max shadow-inner border border-slate-300">
             <button onClick={() => setStaffView('DIRECTORY')} className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-md transition-all ${staffView === 'DIRECTORY' ? 'bg-white shadow text-slate-900 border border-slate-300' : 'text-slate-500'}`}>Staff Directory</button>
-            {/* FIX: Only show Sessions and Logs buttons to Administrators */}
             {isAdmin && (
               <>
                 <button onClick={() => setStaffView('SESSIONS')} className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-md transition-all ${staffView === 'SESSIONS' ? 'bg-white shadow text-slate-900 border border-slate-300' : 'text-slate-500'}`}>Live Sessions</button>
@@ -203,10 +229,28 @@ export default function StaffTab({ appState }: any) {
       {staffView === 'SESSIONS' && isAdmin ? (
         <ActiveSessionsTab />
       ) : staffView === 'LOGS' && isAdmin ? (
+        // --- SYSTEM LOGS VIEW WITH FILTERS ---
         <div className="bg-white rounded-2xl shadow-sm border border-slate-300 overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
             <h3 className="font-black text-slate-800">Recent Activity & Errors</h3>
-            <button onClick={fetchAuditLogs} className="text-xs font-black text-blue-600 uppercase hover:underline">Refresh</button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <input 
+                type="date" 
+                value={logDateFilter} 
+                onChange={(e) => setLogDateFilter(e.target.value)} 
+                className="border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 shadow-inner"
+              />
+              <select 
+                value={logUserFilter} 
+                onChange={(e) => setLogUserFilter(e.target.value)}
+                className="border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 cursor-pointer shadow-inner"
+              >
+                <option value="ALL">All Users</option>
+                <option value="SYSTEM">System Actions Only</option>
+                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+              <button onClick={() => { setLogDateFilter(''); setLogUserFilter('ALL'); fetchAuditLogs(); }} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-colors">Clear & Refresh</button>
+            </div>
           </div>
           <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
             <table className="w-full text-left text-sm whitespace-nowrap">
@@ -219,10 +263,10 @@ export default function StaffTab({ appState }: any) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {auditLogs.length === 0 ? (
-                  <tr><td colSpan={4} className="p-8 text-center text-slate-500 font-bold italic">No logs recorded yet.</td></tr>
+                {filteredLogs.length === 0 ? (
+                  <tr><td colSpan={4} className="p-8 text-center text-slate-500 font-bold italic">No logs match your filters.</td></tr>
                 ) : (
-                  auditLogs.map((log: AuditLog) => (
+                  filteredLogs.map((log: AuditLog) => (
                     <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-3 text-xs font-bold text-slate-600">
                         {new Date(log.createdAt).toLocaleString()}
@@ -246,6 +290,7 @@ export default function StaffTab({ appState }: any) {
           </div>
         </div>
       ) : (
+        // --- DIRECTORY VIEW ---
         <>
           <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm flex flex-col md:flex-row gap-3 items-center">
             <input type="text" placeholder="Search name or email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="flex-1 min-w-[200px] px-3 py-2 border border-slate-400 rounded-lg text-xs font-black text-slate-950 bg-slate-50 focus:bg-white outline-none placeholder:text-slate-500" />
