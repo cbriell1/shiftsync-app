@@ -7,6 +7,12 @@ import { prisma } from "@/lib/prisma"
 
 const baseAdapter = PrismaAdapter(prisma);
 
+// FIX: Safe token generator in case Vercel's build container isolates the global crypto object
+const generateSessionToken = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+};
+
 const customAdapter = {
   ...baseAdapter,
   
@@ -105,7 +111,6 @@ const customAdapter = {
 };
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  // FIX: Provide a dummy secret during the build process so Vercel doesn't crash on import
   secret: process.env.AUTH_SECRET || "fallback_secret_for_build_time_only_12345",
   adapter: customAdapter,
   providers:[
@@ -157,7 +162,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id.toString();
         
-        const sessionToken = crypto.randomUUID();
+        const sessionToken = generateSessionToken();
         const expires = new Date();
         expires.setDate(expires.getDate() + 30);
         
