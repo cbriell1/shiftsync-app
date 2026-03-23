@@ -6,7 +6,6 @@ import { useAppStore } from '@/lib/store';
 import { formatDateSafe, formatTimeSafe } from '@/lib/common';
 
 export default function TimesheetsTab({ appState }: any) {
-  // 1. Store Subscriptions
   const managerData = useAppStore(state => state.managerData);
   const users = useAppStore(state => state.users);
   const locations = useAppStore(state => state.locations);
@@ -17,15 +16,13 @@ export default function TimesheetsTab({ appState }: any) {
   const fetchManagerData = useAppStore(state => state.fetchManagerData);
   const fetchTimeCards = useAppStore(state => state.fetchTimeCards);
 
-  // 2. Compute Roles
   const activeUserObj = users.find(u => u.id.toString() === selectedUserId);
   const isAdmin = activeUserObj?.systemRoles?.includes('Administrator');
   const isManager = activeUserObj?.systemRoles?.includes('Manager') || isAdmin;
 
   const activeUsers = users.filter(u => u.isActive !== false);
 
-  // 3. Local UI State
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const[expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const[expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
   
   const[editingCardId, setEditingCardId] = useState<number | null>(null);
@@ -38,7 +35,6 @@ export default function TimesheetsTab({ appState }: any) {
   const toggleGroup = (key: string) => setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
   const toggleReport = (id: number) => setExpandedReports(prev => ({ ...prev,[id]: !prev[id] }));
 
-  // 4. API Handlers
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formUserId) return alert("Select an employee!");
@@ -65,12 +61,21 @@ export default function TimesheetsTab({ appState }: any) {
     } catch (err) { console.error(err); }
   };
 
+  // FIX: Using local formatting to safely extract exactly "HH:mm"
   const handleEditClick = (card: TimeCard) => {
     const inD = new Date(card.clockIn);
     setFormDate(inD.toISOString().split('T')[0]);
-    setFormStartTime(inD.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }));
-    if (card.clockOut) setFormEndTime(new Date(card.clockOut).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }));
+    
+    const getLocalTime = (d: Date) => {
+      const h = d.getHours().toString().padStart(2, '0');
+      const m = d.getMinutes().toString().padStart(2, '0');
+      return `${h}:${m}`;
+    };
+
+    setFormStartTime(getLocalTime(inD));
+    if (card.clockOut) setFormEndTime(getLocalTime(new Date(card.clockOut)));
     else setFormEndTime('');
+    
     setSelectedLocation(card.locationId.toString());
     setFormUserId(card.userId.toString());
     setEditingCardId(card.id);
@@ -96,7 +101,6 @@ export default function TimesheetsTab({ appState }: any) {
     }, {});
   }, [managerData, manLocs]);
 
-  // Shared Input Classes for maximum visibility
   const inputClasses = "w-full border-2 border-slate-300 rounded-xl px-4 py-3.5 text-base font-black text-slate-900 bg-white focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 outline-none shadow-sm transition-all";
   const labelClasses = "block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1";
 
@@ -109,7 +113,6 @@ export default function TimesheetsTab({ appState }: any) {
         </div>
       </div>
 
-      {/* MANUAL ENTRY FORM RE-DESIGN */}
       <div className="bg-blue-50/40 p-5 md:p-7 rounded-2xl border-2 border-blue-100 mb-10 shadow-inner">
         <h2 className="text-lg md:text-xl font-black text-blue-950 mb-5 flex items-center gap-2">
           {editingCardId ? (
@@ -147,12 +150,14 @@ export default function TimesheetsTab({ appState }: any) {
             
             <div className="col-span-1 sm:col-span-2 lg:col-span-2">
               <label className={labelClasses}>Clock In</label>
-              <input type="time" value={formStartTime} onChange={(e) => setFormStartTime(e.target.value)} required className={inputClasses} />
+              {/* FIX: Explicit step added */}
+              <input type="time" step="60" value={formStartTime} onChange={(e) => setFormStartTime(e.target.value)} required className={inputClasses} />
             </div>
             
             <div className="col-span-1 sm:col-span-2 lg:col-span-2">
               <label className={labelClasses}>Clock Out</label>
-              <input type="time" value={formEndTime} onChange={(e) => setFormEndTime(e.target.value)} className={inputClasses} />
+              {/* FIX: Explicit step added */}
+              <input type="time" step="60" value={formEndTime} onChange={(e) => setFormEndTime(e.target.value)} className={inputClasses} />
             </div>
           </div>
 
@@ -173,7 +178,6 @@ export default function TimesheetsTab({ appState }: any) {
         </form>
       </div>
       
-      {/* TIMECARD ACCORDION VIEW */}
       <div className="space-y-4">
         {Object.keys(groupedCards).sort().map(locName => {
           const locKey = `loc-${locName}`;
