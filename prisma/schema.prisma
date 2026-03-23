@@ -38,7 +38,7 @@ model User {
   systemRoles         String[]   @default(["Front Desk"]) 
   isActive            Boolean    @default(true)
   receiveReportEmails Boolean    @default(true) 
-  lastLoginAt         DateTime?  // NEW: Track when they last authenticated
+  lastLoginAt         DateTime?  
   
   locationIds    Int[]      @default([])
 
@@ -48,7 +48,6 @@ model User {
   courtReserveId String?
   phoneNumber    String?
   
-  // NextAuth standard fields
   email          String?    @unique
   emailVerified  DateTime?
   image          String?
@@ -61,8 +60,8 @@ model User {
   
   messages       Message[]
   announcements  Announcement[]
+  auditLogs      AuditLog[]      // NEW: Relation to Audit Logs
 
-  // NextAuth Relations
   accounts       Account[]
   sessions       Session[]
   Authenticator  Authenticator[]
@@ -128,7 +127,7 @@ model Shift {
   endTime     DateTime
   status      String     @default("OPEN") 
   locationId  Int
-  location    Location   @relation(fields: [ locationId ], references:[ id ])
+  location    Location   @relation(fields:[ locationId ], references:[ id ])
   userId      Int?
   assignedTo  User?      @relation(fields: [ userId ], references:[ id ])
 
@@ -281,4 +280,18 @@ model Announcement {
 
   @@index([createdAt])
   @@index([authorId])
+}
+
+// NEW: Audit & Error Logging Table
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String   // e.g., "LOGIN", "ERROR", "SHIFT_CREATED"
+  details   String   // Text description of the action or error stack trace
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
 }

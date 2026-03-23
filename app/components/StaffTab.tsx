@@ -1,43 +1,55 @@
 // filepath: app/components/StaffTab.tsx
 "use client";
-import React, { useState } from 'react';
-import { User } from '../lib/types';
+import React, { useState, useEffect } from 'react';
+import { User, AuditLog } from '../lib/types';
 import { notify, customConfirm } from '@/lib/ui-utils';
 import { useAppStore } from '@/lib/store';
 import { AVAILABLE_ROLES } from '@/lib/common';
 import ActiveSessionsTab from './ActiveSessionsTab';
 
 export default function StaffTab({ appState }: any) {
-  // 1. Store Subscriptions
   const users = useAppStore(state => state.users);
   const locations = useAppStore(state => state.locations);
+  const auditLogs = useAppStore(state => state.auditLogs);
   const selectedUserId = useAppStore(state => state.selectedUserId);
   const fetchUsers = useAppStore(state => state.fetchUsers);
   const fetchTimeCards = useAppStore(state => state.fetchTimeCards);
   const fetchShifts = useAppStore(state => state.fetchShifts);
+  const fetchAuditLogs = useAppStore(state => state.fetchAuditLogs);
 
-  // 2. Compute Roles
   const activeUser = users.find(u => u.id.toString() === selectedUserId);
   const isAdmin = activeUser?.systemRoles?.includes('Administrator');
   const isManager = activeUser?.systemRoles?.includes('Manager') || isAdmin;
 
-  // 3. Local UI State
-  const[staffView, setStaffView] = useState<'DIRECTORY' | 'SESSIONS'>('DIRECTORY');
-  const[isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [staffView, setStaffView] = useState<'DIRECTORY' | 'SESSIONS' | 'LOGS'>('DIRECTORY');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newStaff, setNewStaff] = useState({ name: '', pinCode: '', courtReserveId: '', phoneNumber: '', email: '' });
-  const[mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const [mergeSourceId, setMergeSourceId] = useState('');
-  const [mergeTargetId, setMergeTargetId] = useState('');
-  const[isMerging, setIsMerging] = useState(false);
+  const[mergeTargetId, setMergeTargetId] = useState('');
+  const [isMerging, setIsMerging] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const[filterLocation, setFilterLocation] = useState<string>('ALL');
+  const [filterLocation, setFilterLocation] = useState<string>('ALL');
   const [filterRole, setFilterRole] = useState<string>('ALL');
-  const [showArchived, setShowArchived] = useState(false);
+  const[showArchived, setShowArchived] = useState(false);
   const [groupBy, setGroupBy] = useState<'NONE' | 'LOCATION' | 'ROLE'>('NONE');
+
+  // Fetch logs whenever the Logs tab is opened
+  useEffect(() => {
+    if (staffView === 'LOGS' && isAdmin) {
+      fetchAuditLogs();
+    }
+  }, [staffView, isAdmin]);
+
+  // Fallback: If a non-admin somehow gets stuck on a restricted tab, boot them to directory
+  useEffect(() => {
+    if (!isAdmin && (staffView === 'LOGS' || staffView === 'SESSIONS')) {
+      setStaffView('DIRECTORY');
+    }
+  }, [isAdmin, staffView]);
 
   if (!isAdmin && !isManager) return <div className="p-8 text-center bg-white rounded-2xl border border-gray-200"><h2 className="text-xl font-black text-slate-900 uppercase">Access Denied</h2></div>;
 
-  // 4. API Handlers
   const handleAddUser = async (userData: any) => {
     const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(userData) });
     if (res.ok) { await fetchUsers(); notify.success("User added successfully!"); } 
@@ -69,7 +81,7 @@ export default function StaffTab({ appState }: any) {
   };
 
   const toggleLocation = async (user: User, locationId: number) => {
-    const currentLocs = user.locationIds ? [...user.locationIds] :[];
+    const currentLocs = user.locationIds ?[...user.locationIds] :[];
     let newLocs = currentLocs.includes(locationId) ? currentLocs.filter(id => id !== locationId) : [...currentLocs, locationId];
     await handleUpdateUser(user.id, { locationIds: newLocs });
   };
@@ -155,6 +167,15 @@ export default function StaffTab({ appState }: any) {
     );
   };
 
+  const getLogBadge = (action: string) => {
+    switch(action.toUpperCase()) {
+      case 'LOGIN': return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'ERROR': return 'bg-red-100 text-red-800 border-red-300';
+      case 'WARNING': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      default: return 'bg-slate-100 text-slate-600 border-slate-300';
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -162,19 +183,68 @@ export default function StaffTab({ appState }: any) {
           <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic">Staff Management</h2>
           <div className="flex bg-slate-200 p-1 rounded-lg mt-2 w-max shadow-inner border border-slate-300">
             <button onClick={() => setStaffView('DIRECTORY')} className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-md transition-all ${staffView === 'DIRECTORY' ? 'bg-white shadow text-slate-900 border border-slate-300' : 'text-slate-500'}`}>Staff Directory</button>
-            <button onClick={() => setStaffView('SESSIONS')} className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-md transition-all ${staffView === 'SESSIONS' ? 'bg-white shadow text-blue-700 border border-slate-300' : 'text-slate-500'}`}>Live Sessions</button>
+            {/* FIX: Only show Sessions and Logs buttons to Administrators */}
+            {isAdmin && (
+              <>
+                <button onClick={() => setStaffView('SESSIONS')} className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-md transition-all ${staffView === 'SESSIONS' ? 'bg-white shadow text-slate-900 border border-slate-300' : 'text-slate-500'}`}>Live Sessions</button>
+                <button onClick={() => setStaffView('LOGS')} className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-md transition-all ${staffView === 'LOGS' ? 'bg-white shadow text-blue-700 border border-slate-300' : 'text-slate-500'}`}>System Logs</button>
+              </>
+            )}
           </div>
         </div>
         {staffView === 'DIRECTORY' && (
           <div className="flex gap-2">
             {isAdmin && <button onClick={() => setMergeModalOpen(true)} className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-xl font-black text-sm shadow-md transition-all">🔗 Merge Duplicates</button>}
-            <button onClick={() => setIsAddModalOpen(true)} className="bg-slate-900 hover:bg-black text-white px-5 py-2.5 rounded-xl font-black text-sm shadow-md transition-all">➕ Add Staff</button>
+            {isAdmin && <button onClick={() => setIsAddModalOpen(true)} className="bg-slate-900 hover:bg-black text-white px-5 py-2.5 rounded-xl font-black text-sm shadow-md transition-all">➕ Add Staff</button>}
           </div>
         )}
       </div>
 
-      {staffView === 'SESSIONS' ? (
+      {staffView === 'SESSIONS' && isAdmin ? (
         <ActiveSessionsTab />
+      ) : staffView === 'LOGS' && isAdmin ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-300 overflow-hidden">
+          <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+            <h3 className="font-black text-slate-800">Recent Activity & Errors</h3>
+            <button onClick={fetchAuditLogs} className="text-xs font-black text-blue-600 uppercase hover:underline">Refresh</button>
+          </div>
+          <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-slate-100 border-b border-slate-300 text-slate-600 text-[10px] uppercase font-black sticky top-0 z-10 shadow-sm">
+                <tr>
+                  <th className="p-3 w-48">Date / Time</th>
+                  <th className="p-3 w-48">User</th>
+                  <th className="p-3 w-32">Action</th>
+                  <th className="p-3">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {auditLogs.length === 0 ? (
+                  <tr><td colSpan={4} className="p-8 text-center text-slate-500 font-bold italic">No logs recorded yet.</td></tr>
+                ) : (
+                  auditLogs.map((log: AuditLog) => (
+                    <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-3 text-xs font-bold text-slate-600">
+                        {new Date(log.createdAt).toLocaleString()}
+                      </td>
+                      <td className="p-3 text-xs font-black text-slate-800">
+                        {log.user ? log.user.name : <span className="text-slate-400 italic">System</span>}
+                      </td>
+                      <td className="p-3">
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border shadow-sm ${getLogBadge(log.action)}`}>
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="p-3 text-xs font-medium text-slate-700 whitespace-normal min-w-[300px]">
+                        {log.details}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
         <>
           <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm flex flex-col md:flex-row gap-3 items-center">
@@ -199,8 +269,8 @@ export default function StaffTab({ appState }: any) {
         </>
       )}
 
-      {/* --- ADD MODAL --- */}
-      {isAddModalOpen && (
+      {/* ADD MODAL */}
+      {isAddModalOpen && isAdmin && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in duration-200 border border-slate-300">
             <div className="p-5 border-b bg-slate-50 flex justify-between items-center"><h3 className="font-black text-xl text-slate-900">Add New Staff</h3><button onClick={() => setIsAddModalOpen(false)} className="text-2xl font-black text-slate-400 hover:text-red-500 transition-colors">&times;</button></div>
@@ -213,8 +283,8 @@ export default function StaffTab({ appState }: any) {
         </div>
       )}
 
-      {/* --- MERGE MODAL --- */}
-      {mergeModalOpen && (
+      {/* MERGE MODAL */}
+      {mergeModalOpen && isAdmin && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl animate-in zoom-in duration-200 overflow-hidden border border-slate-300">
             <div className="p-5 border-b bg-orange-50 flex justify-between items-center text-orange-900"><h3 className="font-black text-xl">🔗 Merge Duplicates</h3><button onClick={() => setMergeModalOpen(false)} className="text-2xl font-black hover:text-red-600 transition-colors">&times;</button></div>

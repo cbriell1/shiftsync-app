@@ -29,8 +29,6 @@ import TimeClockTab from './components/TimeClockTab';
 const performSecureLogout = async (sessionData: any) => {
   if (sessionData?.sessionId) {
     try {
-      // 1. Tell database to destroy session FIRST
-      // keepalive: true ensures the browser doesn't kill the request when signOut redirects the page
       await fetch('/api/admin/sessions', { 
         method: 'DELETE', 
         headers: { 'Content-Type': 'application/json' }, 
@@ -40,7 +38,6 @@ const performSecureLogout = async (sessionData: any) => {
     } catch (e) { console.error("Cleanup error", e); }
   }
   
-  // 2. Add a tiny delay to guarantee the fetch request escapes the browser, then wipe local cookies
   setTimeout(() => {
     signOut();
   }, 200);
@@ -106,9 +103,9 @@ function DashboardSkeleton() {
 // ==================================================================
 function LoginScreen({ sessionData }: { sessionData: any }) {
   const [email, setEmail] = useState("");
-  const[password, setPassword] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const[usePassword, setUsePassword] = useState(false);
+  const [usePassword, setUsePassword] = useState(false);
 
   const handlePasskeyLogin = async (action: "authenticate" | "register") => {
     setLoading(true);
@@ -151,6 +148,7 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
             height={80} 
             priority
             className="h-20 w-auto mx-auto mb-4" 
+            style={{ width: 'auto', height: 'auto' }}
           />
           <h2 className="text-3xl font-black text-slate-900 italic tracking-tight uppercase"><span className="text-yellow-500">Pickles</span> & Play</h2>
           <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-2">Manager Access</p>
@@ -405,7 +403,7 @@ function MainDashboard({ session }: { session: any }) {
         {/* Brand Header with Collapse Toggle */}
         <div className={`p-4 md:p-6 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} border-b border-slate-800 shrink-0 transition-all`}>
           <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-            <Image src="/logo.png" alt="Logo" width={32} height={32} priority className={`h-8 w-auto shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} />
+            <Image src="/logo.png" alt="Logo" width={32} height={32} priority className={`h-8 w-auto shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} style={{ width: 'auto', height: 'auto' }} />
             {!isCollapsed && (
               <h1 className="text-xl font-black italic uppercase tracking-widest leading-none text-white">
                 <span className="text-yellow-400">Pickles</span><br/>& Play
@@ -426,13 +424,27 @@ function MainDashboard({ session }: { session: any }) {
           </button>
         </div>
 
-        {/* User Switcher */}
-        <div className={`p-4 border-b border-slate-800 shrink-0 bg-slate-950/50 ${isCollapsed ? 'hidden' : 'space-y-3'}`}>
+        {/* User Switcher and Integrated Buttons */}
+        <div className={`p-4 border-b border-slate-800 shrink-0 bg-slate-950/50 ${isCollapsed ? 'hidden' : 'space-y-4'}`}>
           <div>
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-1">Active Profile</label>
             <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm font-bold outline-none cursor-pointer focus:border-yellow-500">
               {safeUsers.map((u: any) => <option key={u.id} value={u.id}>{u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}</option>)}
             </select>
+          </div>
+          
+          <div className="flex flex-col gap-2">
+            {isRealManager && (
+              <button onClick={async () => {
+                const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
+                if (res?.error) notify.error("Failed: " + res.error); else if (res?.ok) notify.success("Device Linked!");
+              }} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg font-bold text-xs transition-colors">
+                <Smartphone size={14} /> Link Device Passkey
+              </button>
+            )}
+            <button onClick={() => performSecureLogout(session)} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-bold text-xs transition-colors">
+              <LogOut size={14} /> Logout
+            </button>
           </div>
         </div>
 
@@ -480,32 +492,6 @@ function MainDashboard({ session }: { session: any }) {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-800 shrink-0 flex flex-col gap-2">
-          
-          <button 
-            onClick={toggleSidebarCollapse} 
-            className={`hidden lg:flex items-center ${isCollapsed ? 'justify-center' : 'justify-start px-4'} gap-3 py-2.5 text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg font-bold text-sm transition-colors`}
-            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
-            {isCollapsed ? <ChevronRight size={18} /> : <><ChevronLeft size={18} /> Collapse Sidebar</>}
-          </button>
-
-          {isRealManager && !isCollapsed && (
-            <button onClick={async () => {
-              const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
-              if (res?.error) notify.error("Failed: " + res.error); else if (res?.ok) notify.success("Device Linked!");
-            }} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg font-bold text-xs transition-colors">
-              <Smartphone size={14} /> Link Passkey
-            </button>
-          )}
-
-          <button onClick={() => performSecureLogout(session)} title="Logout" className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start px-4'} gap-3 py-2.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-bold text-sm transition-colors`}>
-            <LogOut size={16} /> {!isCollapsed && <span>Logout</span>}
-          </button>
-
         </div>
       </div>
 

@@ -1,13 +1,12 @@
 // filepath: app/components/TimeCardTab.tsx
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { TimeCard, User, Location, ShiftTemplate, Checklist } from '../lib/types';
+import { TimeCard, ShiftTemplate, Checklist } from '../lib/types';
 import { notify } from '@/lib/ui-utils';
 import { useAppStore } from '@/lib/store';
 import { formatTimeSafe, formatDateSafe } from '@/lib/common';
 
-const TimeCardRow = ({ card }: { card: TimeCard }) => {
-  // 1. Store Subscriptions (Inside Row to stay decoupled)
+const TimeCardItem = ({ card, viewMode }: { card: TimeCard, viewMode: 'mobile' | 'desktop' }) => {
   const users = useAppStore(state => state.users);
   const locations = useAppStore(state => state.locations);
   const templates = useAppStore(state => state.templates);
@@ -27,7 +26,7 @@ const TimeCardRow = ({ card }: { card: TimeCard }) => {
   const day = tcDate.getDay();
   const mins = tcDate.getHours() * 60 + tcDate.getMinutes();
 
-  const todayTpls = templates?.filter(t => t.locationId === card.locationId && t.dayOfWeek === day) ||[];
+  const todayTpls = templates?.filter(t => t.locationId === card.locationId && t.dayOfWeek === day) || [];
   if (todayTpls.length === 1) {
     bestTpl = todayTpls[0];
   } else if (todayTpls.length > 1) {
@@ -42,8 +41,8 @@ const TimeCardRow = ({ card }: { card: TimeCard }) => {
 
   const assignedTasks = bestTpl ? (bestTpl.checklistTasks || []) : [];
   
-  const [isExpanded, setIsExpanded] = useState(isActive); 
-  const [completedTasks, setCompletedTasks] = useState<string[]>(activeReport ? activeReport.completedTasks ||[] : []);
+  const[isExpanded, setIsExpanded] = useState(isActive); 
+  const [completedTasks, setCompletedTasks] = useState<string[]>(activeReport ? activeReport.completedTasks || [] : []);
   const [notes, setNotes] = useState(activeReport ? activeReport.notes || '' : '');
   const [prevNotes, setPrevNotes] = useState(activeReport ? activeReport.previousShiftNotes || '' : '');
   const [reportId, setReportId] = useState<number | null>(activeReport?.id || null);
@@ -62,7 +61,7 @@ const TimeCardRow = ({ card }: { card: TimeCard }) => {
       setNotes(prev => prev !== (sourceReport.notes || '') ? sourceReport.notes || '' : prev);
       setPrevNotes(prev => prev !== (sourceReport.previousShiftNotes || '') ? sourceReport.previousShiftNotes || '' : prev);
     }
-  }, [globalReport, activeReport]);
+  },[globalReport, activeReport]);
 
   const progressPct = assignedTasks.length > 0 ? Math.round((completedTasks.length / assignedTasks.length) * 100) : (completedTasks.length > 0 ? 100 : 0);
 
@@ -104,100 +103,166 @@ const TimeCardRow = ({ card }: { card: TimeCard }) => {
     });
   };
 
-  return (
-    <div className={`relative bg-white rounded-2xl p-5 shadow-md border transition-all ${isActive ? 'border-l-[8px] border-l-blue-600 border-blue-200' : 'border-slate-300'}`}>
-      <div className="flex justify-between items-start mb-5">
+  const ReportUI = () => (
+    <div className="p-4 md:p-6 bg-slate-50 space-y-6">
+      <div>
+        <h4 className="text-xs font-black text-slate-700 uppercase mb-3">Facility Checklist</h4>
+        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+          {assignedTasks.map((t, idx) => (
+            <label key={idx} className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${completedTasks.includes(t) ? 'bg-green-50 border-green-300' : 'bg-white border-slate-300 hover:border-blue-400'}`}>
+              <input type="checkbox" checked={completedTasks.includes(t)} onChange={() => toggleTask(t)} className="w-5 h-5 rounded shrink-0" />
+              <span className={`text-sm font-bold ${completedTasks.includes(t) ? 'text-green-900 line-through opacity-70' : 'text-slate-900'}`}>{t}</span>
+            </label>
+          ))}
+          {assignedTasks.length === 0 && <p className="text-sm font-bold text-slate-500 italic">No tasks assigned.</p>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <h3 className="text-xl md:text-2xl font-black text-slate-900 leading-none mb-2">{formatDateSafe(card.clockIn)}</h3>
-          <span className="text-[11px] font-black text-blue-900 bg-blue-100 border px-3 py-1 rounded shadow-sm uppercase">{activeUser?.name || 'Unknown'}</span>
+          <h4 className="text-xs font-black text-pink-700 uppercase mb-2">Previous Shift Carry-Over</h4>
+          <textarea 
+            value={prevNotes} 
+            onChange={(e) => { lastLocalUpdate.current = Date.now(); setPrevNotes(e.target.value); }} 
+            onBlur={() => saveInlineReport(completedTasks, notes, prevNotes)} 
+            placeholder="Did the previous shift leave items unfinished?" 
+            className="w-full border-2 border-slate-300 rounded-xl p-3 text-sm font-bold text-slate-900 bg-white focus:border-pink-500 outline-none resize-none shadow-inner placeholder:text-slate-400" 
+            rows={4}
+          ></textarea>
         </div>
-        {isActive && <div className="text-xs font-black tracking-widest text-blue-800 bg-blue-50 px-4 py-2 rounded-full border border-blue-300 animate-pulse">ACTIVE</div>}
+        <div>
+          <h4 className="text-xs font-black text-slate-700 uppercase mb-2">Your Shift Notes</h4>
+          <textarea 
+            value={notes} 
+            onChange={(e) => { lastLocalUpdate.current = Date.now(); setNotes(e.target.value); }} 
+            onBlur={() => saveInlineReport(completedTasks, notes, prevNotes)} 
+            placeholder="Report any issues or pass-downs..." 
+            className="w-full border-2 border-slate-300 rounded-xl p-3 text-sm font-bold text-slate-900 bg-white focus:border-blue-500 outline-none resize-none shadow-inner placeholder:text-slate-400" 
+            rows={4}
+          ></textarea>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
-        <div className="bg-slate-50 p-4 rounded-xl border flex items-center justify-between shadow-inner">
-          <div className="flex flex-col"><span className="text-[10px] font-black text-slate-600 uppercase">In</span><span className="text-sm md:text-base font-black text-slate-900">{formatTimeSafe(card.clockIn)}</span></div>
-          <div className="flex flex-col items-end"><span className="text-[10px] font-black text-slate-600 uppercase">Out</span><span className={`text-sm md:text-base font-black ${isActive ? 'text-blue-700 italic' : 'text-slate-900'}`}>{isActive ? 'Working...' : formatTimeSafe(card.clockOut!)}</span></div>
-        </div>
-        <div className="bg-slate-50 p-4 rounded-xl border flex items-center gap-3 shadow-inner">
-          <div className="flex flex-col"><span className="text-[10px] font-black text-slate-600 uppercase">Location</span><span className="text-sm md:text-base font-bold text-slate-900 truncate">{locations?.find(l => l.id === card.locationId)?.name || 'Unknown'}</span></div>
-        </div>
-      </div>
+      <button onClick={() => saveInlineReport(completedTasks, notes, prevNotes)} disabled={isSaving} className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-xl shadow-md transition text-sm tracking-wide">
+        {isSaving ? 'Saving...' : (savedOnce ? 'Report Saved ✓' : 'Save Shift Report')}
+      </button>
+    </div>
+  );
 
-      <div className="mt-2 border-2 border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-        <button onClick={() => setIsExpanded(!isExpanded)} className="w-full bg-white hover:bg-slate-50 p-4 flex justify-between items-center transition-colors">
-          <div className="flex items-center gap-3">
-            <span className="block font-black text-slate-900 uppercase">Shift Report</span>
-            <span className="text-xs font-bold text-slate-600">{progressPct}% Complete</span>
+  // MOBILE RENDER
+  if (viewMode === 'mobile') {
+    return (
+      <div className="md:hidden bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-4 flex flex-col relative overflow-hidden">
+        <div className={`absolute top-0 left-0 w-1.5 h-full ${isActive ? 'bg-blue-500 animate-pulse' : 'bg-slate-300'}`} />
+        
+        <div className="flex justify-between items-start mb-4 pl-2 border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="text-lg font-black text-slate-900 leading-none mb-1">{formatDateSafe(card.clockIn)}</h3>
+            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{locations?.find(l => l.id === card.locationId)?.name || 'Unknown'}</span>
           </div>
-          <svg className={`h-6 w-6 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+          {isActive && <div className="text-[10px] font-black tracking-widest text-blue-800 bg-blue-50 px-3 py-1 rounded border border-blue-300 animate-pulse">ACTIVE</div>}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mb-4 pl-2">
+          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col items-center justify-center">
+            <span className="text-[9px] font-black text-slate-500 uppercase">In</span>
+            <span className="text-sm font-bold text-green-700">{formatTimeSafe(card.clockIn)}</span>
+          </div>
+          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col items-center justify-center">
+            <span className="text-[9px] font-black text-slate-500 uppercase">Out</span>
+            <span className={`text-sm font-bold ${isActive ? 'text-red-500 animate-pulse' : 'text-slate-700'}`}>{isActive ? 'Active' : formatTimeSafe(card.clockOut!)}</span>
+          </div>
+        </div>
+        
+        <button onClick={() => setIsExpanded(!isExpanded)} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-xs py-3 rounded-lg flex items-center justify-between px-4 transition-colors">
+          <span>Shift Report ({progressPct}%)</span>
+          <svg className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
         </button>
 
-        {isExpanded && (
-          <div className="p-4 md:p-6 border-t-2 border-slate-200 bg-slate-50 space-y-6">
-            <div>
-              <h4 className="text-xs font-black text-slate-700 uppercase mb-3">Facility Checklist</h4>
-              <div className="space-y-2">
-                {assignedTasks.map((t, idx) => (
-                  <label key={idx} className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${completedTasks.includes(t) ? 'bg-green-50 border-green-300' : 'bg-white border-slate-300 hover:border-blue-400'}`}>
-                    <input type="checkbox" checked={completedTasks.includes(t)} onChange={() => toggleTask(t)} className="w-5 h-5 rounded" />
-                    <span className={`text-sm font-bold ${completedTasks.includes(t) ? 'text-green-900 line-through opacity-70' : 'text-slate-900'}`}>{t}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-xs font-black text-pink-700 uppercase mb-2">Previous Shift Carry-Over</h4>
-                <textarea 
-                  value={prevNotes} 
-                  onChange={(e) => { lastLocalUpdate.current = Date.now(); setPrevNotes(e.target.value); }} 
-                  onBlur={() => saveInlineReport(completedTasks, notes, prevNotes)} 
-                  placeholder="Did the previous shift leave items unfinished? Document them here..." 
-                  className="w-full border-2 border-slate-400 rounded-xl p-3 text-sm font-black text-slate-950 bg-white focus:border-pink-500 outline-none resize-none shadow-inner placeholder:text-slate-400" 
-                  rows={4}
-                ></textarea>
-              </div>
-              <div>
-                <h4 className="text-xs font-black text-slate-700 uppercase mb-2">Your Shift Notes</h4>
-                <textarea 
-                  value={notes} 
-                  onChange={(e) => { lastLocalUpdate.current = Date.now(); setNotes(e.target.value); }} 
-                  onBlur={() => saveInlineReport(completedTasks, notes, prevNotes)} 
-                  placeholder="Report any issues or pass-downs for the manager..." 
-                  className="w-full border-2 border-slate-400 rounded-xl p-3 text-sm font-black text-slate-950 bg-white focus:border-blue-500 outline-none resize-none shadow-inner placeholder:text-slate-400" 
-                  rows={4}
-                ></textarea>
-              </div>
-            </div>
-
-            <button onClick={() => saveInlineReport(completedTasks, notes, prevNotes)} disabled={isSaving} className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-xl shadow-md transition">{isSaving ? 'Saving...' : (savedOnce ? 'Report Saved ✓' : 'Save Shift Report')}</button>
-          </div>
-        )}
+        {isExpanded && <div className="mt-2 border-t border-slate-200 pt-2"><ReportUI /></div>}
       </div>
-    </div>
+    );
+  }
+
+  // DESKTOP RENDER
+  return (
+    <>
+      <tr onClick={() => setIsExpanded(!isExpanded)} className={`hidden md:table-row border-b border-slate-200 hover:bg-blue-50 transition cursor-pointer ${isActive ? 'bg-blue-50/30' : 'bg-white'}`}>
+        <td className="p-4 font-black text-slate-900">{formatDateSafe(card.clockIn)}</td>
+        <td className="p-4 font-bold text-slate-700">{locations?.find(l => l.id === card.locationId)?.name || 'Unknown'}</td>
+        <td className="p-4 font-bold text-green-700">{formatTimeSafe(card.clockIn)}</td>
+        <td className="p-4 font-bold text-slate-700">{isActive ? <span className="text-red-500 animate-pulse uppercase tracking-widest text-[10px] font-black border border-red-200 bg-red-50 px-2 py-1 rounded">Active</span> : formatTimeSafe(card.clockOut!)}</td>
+        <td className="p-4 font-black text-blue-700 text-right">{card.totalHours ? card.totalHours.toFixed(2) + 'h' : '-'}</td>
+        <td className="p-4 text-center">
+          <span className={`text-[10px] font-black uppercase px-2 py-1 rounded border shadow-sm ${progressPct === 100 ? 'bg-green-100 text-green-800 border-green-300' : 'bg-slate-100 text-slate-600 border-slate-300'}`}>
+            {progressPct}% Done
+          </span>
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr className="hidden md:table-row bg-slate-50 border-b border-slate-300 shadow-inner">
+          <td colSpan={6} className="p-0">
+            <div className="border-x-4 border-blue-500">
+              <ReportUI />
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 };
 
 export default function TimeCardTab({ appState }: any) {
-  // 1. Store Subscriptions
   const timeCards = useAppStore(state => state.timeCards);
   const selectedUserId = useAppStore(state => state.selectedUserId);
 
   const activeUserTimeCards = timeCards.filter(c => c.userId.toString() === selectedUserId);
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <h2 className="text-xl md:text-2xl font-black text-slate-900 mb-5">Your Time & Shift Reports</h2>
-      {activeUserTimeCards.length === 0 ? (
-        <div className="bg-white p-8 rounded-2xl border-2 text-center"><p className="text-slate-600 font-bold">No recent time cards found.</p></div>
-      ) : (
-        <div className="space-y-6">
-          {[...activeUserTimeCards].sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map(card => (
-            <TimeCardRow key={card.id} card={card} />
-          ))}
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic">My Timesheet History</h2>
+          <p className="text-slate-600 font-bold text-xs uppercase tracking-widest mt-0.5">Review past punches and submit shift reports.</p>
         </div>
+      </div>
+
+      {activeUserTimeCards.length === 0 ? (
+        <div className="bg-white p-12 rounded-2xl border border-dashed border-slate-300 text-center shadow-sm">
+          <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">No recent time cards found.</p>
+        </div>
+      ) : (
+        <>
+          {/* MOBILE LIST VIEW (< 768px) */}
+          <div className="md:hidden flex flex-col">
+            {[...activeUserTimeCards].sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map(card => (
+              <TimeCardItem key={card.id} card={card} viewMode="mobile" />
+            ))}
+          </div>
+
+          {/* DESKTOP TABLE VIEW (>= 768px) */}
+          <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-300 overflow-hidden">
+            <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-slate-100 text-slate-500 text-[10px] uppercase tracking-widest font-black sticky top-0 z-10 shadow-sm border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Facility</th>
+                    <th className="px-4 py-3">Clock In</th>
+                    <th className="px-4 py-3">Clock Out</th>
+                    <th className="px-4 py-3 text-right">Hours</th>
+                    <th className="px-4 py-3 text-center">Shift Report</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {[...activeUserTimeCards].sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map(card => (
+                    <TimeCardItem key={card.id} card={card} viewMode="desktop" />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

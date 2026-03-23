@@ -1,11 +1,11 @@
 // filepath: app/components/DashboardTab.tsx
 "use client";
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAppStore } from '@/lib/store';
-import { formatDateSafe, generatePeriods } from '@/lib/common';
+import { formatDateSafe, formatTimeSafe, generatePeriods } from '@/lib/common';
+import { TimeCard } from '../lib/types';
 
 export default function DashboardTab({ appState }: any) {
-  // Store Subscriptions
   const managerData = useAppStore(state => state.managerData);
   const locations = useAppStore(state => state.locations);
   const users = useAppStore(state => state.users);
@@ -18,24 +18,22 @@ export default function DashboardTab({ appState }: any) {
   const setManEmps = useAppStore(state => state.setManEmps);
   const selectedUserId = useAppStore(state => state.selectedUserId);
 
-  // Compute Roles
   const activeUser = users.find(u => u.id.toString() === selectedUserId);
   const isAdmin = activeUser?.systemRoles?.includes('Administrator');
   const isManager = activeUser?.systemRoles?.includes('Manager') || isAdmin;
   
   const allowedLocationIds = activeUser?.locationIds?.map(id => typeof id === 'string' ? parseInt(id, 10) : id) ||[];
-  const visibleLocations = isAdmin 
-    ? locations 
-    : locations.filter(loc => allowedLocationIds.includes(loc.id));
+  const visibleLocations = isAdmin ? locations : locations.filter(loc => allowedLocationIds.includes(loc.id));
 
-  // Filter Toggles
+  // State to track which matrix rows are expanded for drill-down
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+
   const toggleManPeriod = (idx: number) => manPeriods.includes(idx) ? setManPeriods(manPeriods.filter(x => x !== idx)) : setManPeriods([...manPeriods, idx]);
   const toggleManLoc = (id: number) => manLocs.includes(id) ? setManLocs(manLocs.filter(x => x !== id)) : setManLocs([...manLocs, id]);
   const toggleManEmp = (id: number) => manEmps.includes(id) ? setManEmps(manEmps.filter(x => x !== id)) : setManEmps([...manEmps, id]);
 
   const periods = useMemo(() => generatePeriods(),[]);
 
-  // Complex Computations (Isolated here)
   const { matrixRows, hiddenWarnings, activeManPeriods } = useMemo(() => {
     const activePeriods = manPeriods.map(idx => periods[idx]);
     const matrixMap = new Map();
@@ -43,22 +41,40 @@ export default function DashboardTab({ appState }: any) {
 
     (Array.isArray(managerData) ? managerData :[]).forEach(card => {
       if (!visibleLocations.some(l => l.id === card.locationId)) return;
+      
       if (manLocs.length > 0 && !manLocs.includes(card.locationId)) {
         if (!hiddenMap.has(card.user?.name)) hiddenMap.set(card.user?.name, new Set());
         hiddenMap.get(card.user?.name).add(card.location?.name); 
         return;
       }
-      const key = `${card.locationId}_${card.userId}`;
-      if (!matrixMap.has(key)) matrixMap.set(key, { locName: card.location?.name, empName: card.user?.name, periodTotals: new Map(), totalRowHours: 0 });
-      const row = matrixMap.get(key);
       
+      const key = `${card.locationId}_${card.userId}`;
+      if (!matrixMap.has(key)) {
+        matrixMap.set(key, { 
+          locName: card.location?.name, 
+          empName: card.user?.name, 
+          periodTotals: new Map(), 
+          totalRowHours: 0,
+          cards:[] // <-- Storing the raw timecards for the drill-down
+        });
+      }
+      
+      const row = matrixMap.get(key);
+      let inActivePeriod = false;
+
       activePeriods.forEach(p => {
         const cDate = new Date(card.clockIn); 
         if (cDate >= new Date(p.start) && cDate <= new Date(new Date(p.end).setHours(23,59,59))) {
           row.periodTotals.set(p.label, (row.periodTotals.get(p.label) || 0) + (card.totalHours || 0));
           row.totalRowHours += (card.totalHours || 0);
+          inActivePeriod = true;
         }
       });
+
+      // If it belongs to one of the selected pay periods, attach it to the row
+      if (inActivePeriod) {
+        row.cards.push(card);
+      }
     });
 
     return {
@@ -72,7 +88,6 @@ export default function DashboardTab({ appState }: any) {
     return managerData.filter(c => c.totalHours && (c.totalHours > 10 || c.totalHours < 1));
   }, [managerData]);
 
-  // Actions
   const handleExportCSV = () => { 
     let csv = "Pay Period,Location,Employee,Hours\n"; 
     matrixRows.forEach((row: any) => { 
@@ -87,6 +102,10 @@ export default function DashboardTab({ appState }: any) {
     link.href = url; 
     link.download = "Payroll.csv"; 
     link.click(); 
+  };
+
+  const toggleRow = (idx: number) => {
+    setExpandedRows(prev => ({ ...prev, [idx]: !prev[idx] }));
   };
 
   return (
@@ -228,24 +247,64 @@ export default function DashboardTab({ appState }: any) {
                 const empObj = users.find(u => u.name === row.empName);
                 const isArchivedEmp = empObj && empObj.isActive === false;
 
+                const isExpanded = expandedRows[idx];
+
                 return (
-                  <tr key={idx} className="border-b border-gray-200 hover:bg-slate-50 transition whitespace-nowrap">
-                    <td className="p-3 font-bold text-gray-700 border-r border-gray-200">
-                      {row.locName} {isArchivedLoc && <span className="text-[10px] text-red-500 uppercase tracking-widest block">Archived</span>}
-                    </td>
-                    <td className="p-3 font-black text-slate-900 border-r border-gray-200">
-                      {row.empName} {isArchivedEmp && <span className="text-[10px] text-red-500 uppercase tracking-widest block">Archived Staff</span>}
-                    </td>
-                    {activeManPeriods.map((p: any) => {
-                      const val = row.periodTotals.get(p.label);
-                      return (
-                        <td key={p.label} className={`p-3 font-bold text-center border-r border-gray-200 ${val > 0 ? 'text-green-800 bg-green-50' : 'text-gray-400'}`}>
-                          {val > 0 ? val.toFixed(2) + 'h' : '-'}
+                  <React.Fragment key={idx}>
+                    <tr onClick={() => toggleRow(idx)} className="border-b border-gray-200 hover:bg-blue-50 transition whitespace-nowrap cursor-pointer group">
+                      <td className="p-3 font-bold text-gray-700 border-r border-gray-200">
+                        <div className="flex items-center justify-between">
+                          <span>{row.locName} {isArchivedLoc && <span className="text-[10px] text-red-500 uppercase tracking-widest block">Archived</span>}</span>
+                          <svg className={`h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                        </div>
+                      </td>
+                      <td className="p-3 font-black text-slate-900 border-r border-gray-200">
+                        {row.empName} {isArchivedEmp && <span className="text-[10px] text-red-500 uppercase tracking-widest block">Archived Staff</span>}
+                      </td>
+                      {activeManPeriods.map((p: any) => {
+                        const val = row.periodTotals.get(p.label);
+                        return (
+                          <td key={p.label} className={`p-3 font-bold text-center border-r border-gray-200 ${val > 0 ? 'text-green-800 bg-green-50' : 'text-gray-400'}`}>
+                            {val > 0 ? val.toFixed(2) + 'h' : '-'}
+                          </td>
+                        );
+                      })}
+                      <td className="p-3 font-black text-blue-900 bg-blue-50 text-center border-l-2 border-blue-200">{row.totalRowHours.toFixed(2)}h</td>
+                    </tr>
+
+                    {/* NEW: DRILL DOWN TABLE */}
+                    {isExpanded && (
+                      <tr className="bg-slate-100 border-b border-slate-300 shadow-inner">
+                        <td colSpan={activeManPeriods.length + 3} className="p-4 md:p-6">
+                          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full lg:w-3/4 mx-auto">
+                            <table className="w-full text-left text-xs md:text-sm">
+                              <thead className="bg-slate-50 text-slate-500 uppercase font-black tracking-widest border-b border-slate-200">
+                                <tr>
+                                  <th className="p-3">Date</th>
+                                  <th className="p-3">Location</th>
+                                  <th className="p-3">Clock In</th>
+                                  <th className="p-3">Clock Out</th>
+                                  <th className="p-3 text-right">Hours</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {row.cards.sort((a: TimeCard, b: TimeCard) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map((card: TimeCard) => (
+                                  <tr key={card.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="p-3 font-bold text-slate-800">{formatDateSafe(card.clockIn)}</td>
+                                    <td className="p-3 font-bold text-slate-600">{card.location?.name || row.locName}</td>
+                                    <td className="p-3 font-bold text-green-700">{formatTimeSafe(card.clockIn)}</td>
+                                    <td className="p-3 font-bold text-slate-700">{card.clockOut ? formatTimeSafe(card.clockOut) : <span className="text-red-500 animate-pulse uppercase tracking-widest text-[10px] font-black border border-red-200 bg-red-50 px-2 py-1 rounded">Active</span>}</td>
+                                    <td className="p-3 font-black text-blue-700 text-right">{card.totalHours ? card.totalHours.toFixed(2) + 'h' : '-'}</td>
+                                  </tr>
+                                ))}
+                                {row.cards.length === 0 && <tr><td colSpan={5} className="p-4 text-center italic font-bold text-slate-500">No individual timecards found for this period.</td></tr>}
+                              </tbody>
+                            </table>
+                          </div>
                         </td>
-                      );
-                    })}
-                    <td className="p-3 font-black text-blue-900 bg-blue-50 text-center border-l-2 border-blue-200">{row.totalRowHours.toFixed(2)}h</td>
-                  </tr>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })
             )}

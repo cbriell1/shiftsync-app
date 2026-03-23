@@ -7,7 +7,6 @@ import { prisma } from "@/lib/prisma"
 
 const baseAdapter = PrismaAdapter(prisma);
 
-// FIX: Safe token generator in case Vercel's build container isolates the global crypto object
 const generateSessionToken = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
@@ -166,6 +165,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const expires = new Date();
         expires.setDate(expires.getDate() + 30);
         
+        // FIX: Added AuditLog to the login transaction!
         await prisma.$transaction([
           prisma.session.create({
             data: { sessionToken, userId: Number(user.id), expires }
@@ -173,6 +173,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           prisma.user.update({
             where: { id: Number(user.id) },
             data: { lastLoginAt: new Date() }
+          }),
+          prisma.auditLog.create({
+            data: {
+              userId: Number(user.id),
+              action: "LOGIN",
+              details: "User authenticated successfully"
+            }
           })
         ]);
         

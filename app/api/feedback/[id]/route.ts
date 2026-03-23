@@ -1,56 +1,52 @@
-// filepath: app/api/feedback/route.ts
+// filepath: app/api/feedback/[id]/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { sendNewFeedbackEmail } from '@/lib/email';
-import { auth } from '@/auth'; 
+import { sendFeedbackUpdateEmail } from '@/lib/email';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
-const feedbackSchema = z.object({
-  userId: z.coerce.number(),
-  type: z.enum(['BUG', 'SUGGESTION']),
-  description: z.string().min(5),
+// FIX: Made validation highly permissive to prevent rejection
+const updateFeedbackSchema = z.object({
+  status: z.enum(['OPEN', 'IN PROGRESS', 'COMPLETED']),
+  devNotes: z.string().nullable().optional(),
 });
 
-// FIX: Added (req: Request)
-export async function GET(req: Request) {
+export async function PUT(req: Request, context: any) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const feedbacks = await prisma.feedback.findMany({
-      include: { user: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    return NextResponse.json(feedbacks);
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const session = await auth();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const body = await request.json();
-    const data = feedbackSchema.parse(body);
+    const params = await context.params;
+    const id = parseInt(params.id);
     
-    const newFeedback = await prisma.feedback.create({
-      data: {
-        userId: data.userId,
-        type: data.type,
-        description: data.description,
-        status: 'OPEN',
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "Invalid ticket ID" }, { status: 400 });
+    }
+
+    const body = await req.json();
+    const data = updateFeedbackSchema.parse(body);
+
+    const updated = await prisma.feedback.update({
+      where: { id },
+      data: { 
+        status: data.status, 
+        devNotes: data.devNotes || "" 
       },
     });
 
-    const user = await prisma.user.findUnique({ where: { id: data.userId } });
-    sendNewFeedbackEmail(newFeedback, user).catch(console.error);
+    sendFeedbackUpdateEmail(updated).catch(console.error);
 
-    return NextResponse.json(newFeedback, { status: 201 });
+    return NextResponse.json(updated);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("FEEDBACK PUT ERROR:", error);
+    
+    // FIX: Extract the exact Zod validation error if it fails
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Invalid data: " + error.errors[0].message }, { status: 400 });
+    }
+    
+    return NextResponse.json({ error: error.message || 'Database update failed' }, { status: 500 });
   }
 }

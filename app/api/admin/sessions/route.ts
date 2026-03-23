@@ -5,14 +5,13 @@ import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
-// FIX: Added (req: Request) to force dynamic compilation
 export async function GET(req: Request) {
   const session = await auth();
   
+  // FIX: Only Administrators can view the Live Sessions API route now
   const isAdmin = session?.user?.email === 'cbriell1@yahoo.com' || (session?.user as any).systemRoles?.includes('Administrator');
-  const isManager = (session?.user as any).systemRoles?.includes('Manager');
   
-  if (!isAdmin && !isManager) {
+  if (!isAdmin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

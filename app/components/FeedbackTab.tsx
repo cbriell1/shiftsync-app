@@ -10,16 +10,16 @@ export default function FeedbackTab({ appState }: any) {
   const fetchFeedbacks = useAppStore(state => state.fetchFeedbacks);
   const users = useAppStore(state => state.users);
   const selectedUserId = useAppStore(state => state.selectedUserId);
-  const isFeedbacksLoading = useAppStore(state => state.isFeedbacksLoading); // <-- Loading State Added
+  const isFeedbacksLoading = useAppStore(state => state.isFeedbacksLoading);
 
   const [editingId, setEditingId] = useState<number | null>(null);
-  const[editStatus, setEditStatus] = useState<Feedback['status']>('OPEN');
-  const [editNotes, setEditNotes] = useState<string>('');
+  const [editStatus, setEditStatus] = useState<Feedback['status']>('OPEN');
+  const[editNotes, setEditNotes] = useState<string>('');
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const[newType, setNewType] = useState<'BUG' | 'SUGGESTION'>('BUG');
-  const[newDesc, setNewDesc] = useState('');
+  const [newType, setNewType] = useState<'BUG' | 'SUGGESTION'>('BUG');
+  const [newDesc, setNewDesc] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [highlightBaseline, setHighlightBaseline] = useState<string>('1970-01-01T00:00:00.000Z');
@@ -71,14 +71,19 @@ export default function FeedbackTab({ appState }: any) {
         body: JSON.stringify({ status: editStatus, devNotes: editNotes })
       });
 
-      if (!response.ok) throw new Error("Failed to save");
+      // FIX: Extract the EXACT error message from the server and throw it
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Failed to save");
+      }
 
       notify.success("Ticket Updated!");
       await fetchFeedbacks(); 
       setEditingId(null);
       setEditNotes('');
-    } catch (error) {
-      notify.error("Failed to save changes.");
+    } catch (error: any) {
+      // FIX: Display the exact error reason in the red toast
+      notify.error(error.message || "Failed to save changes.");
     } finally {
       setIsSaving(false);
     }
@@ -121,7 +126,6 @@ export default function FeedbackTab({ appState }: any) {
                 <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md text-[10px] font-black border border-slate-300">{filteredFeedbacks.length}</span>
               </div>
               
-              {/* SKELETON REPLACEMENT */}
               {isFeedbacksLoading ? (
                 <>
                   {[1,2].map(i => (
