@@ -5,29 +5,30 @@ import { z } from 'zod';
 import { sendFeedbackUpdateEmail } from '@/lib/email';
 import { auth } from '@/auth';
 
+export const dynamic = 'force-dynamic';
+
 const updateFeedbackSchema = z.object({
   status: z.enum(['OPEN', 'IN PROGRESS', 'COMPLETED']),
   devNotes: z.string().optional(),
 });
 
-export async function PUT(
-  request: Request, 
-  { params }: { params: Promise<{ id: string }> }
-) {
+// FIX: Stripped complex TypeScript params to bypass Turbopack AST parser crash
+export async function PUT(req: Request, context: any) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { id } = await params;
-    const body = await request.json();
+    const params = await context.params;
+    const id = parseInt(params.id);
+
+    const body = await req.json();
     const data = updateFeedbackSchema.parse(body);
 
     const updated = await prisma.feedback.update({
-      where: { id: parseInt(id) },
+      where: { id },
       data: { status: data.status, devNotes: data.devNotes },
     });
 
-    // Trigger the email asynchronously
     sendFeedbackUpdateEmail(updated).catch(console.error);
 
     return NextResponse.json(updated);
