@@ -6,10 +6,13 @@ const nextConfig: NextConfig = {
     // This allows the build to finish even if there are small type errors
     ignoreBuildErrors: true,
   },
-  eslint: {
-    // Ignore linting errors during build
-    ignoreDuringBuilds: true,
-  }
+  // FIX: Force Next.js to aggressively bundle the ESM WebAuthn packages 
+  // so the Node.js externalRequire step doesn't crash on Vercel
+  transpilePackages:[
+    "@simplewebauthn/server", 
+    "@simplewebauthn/browser", 
+    "next-auth"
+  ],
 };
 
 export default nextConfig;
