@@ -2,18 +2,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // FIX: Forces Vercel to explicitly trace and bundle the Prisma database engine
+  output: "standalone",
   typescript: {
-    // This allows the build to finish even if there are small type errors
     ignoreBuildErrors: true,
   },
-  eslint: {
-    // Ignore linting errors during build
-    ignoreDuringBuilds: true,
-  },
-  // FIX: Protect Prisma's physical database engine from the Turbopack bundler
-  serverExternalPackages: [
+  // FIX: Protects our heavy backend modules from the Turbopack compiler
+  serverExternalPackages:[
     "@prisma/client",
-    "@auth/prisma-adapter"
+    "@auth/prisma-adapter",
+    "@simplewebauthn/server"
   ]
 };
 
