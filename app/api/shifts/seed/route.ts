@@ -1,6 +1,10 @@
+// filepath: app/api/shifts/seed/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+
+// FIX: Stop Turbopack from pre-rendering
+export const dynamic = 'force-dynamic';
 
 const generateSchema = z.object({
   locationId: z.coerce.number().optional().nullable(),
@@ -13,14 +17,12 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const { locationId, month, year } = generateSchema.parse(body);
 
-    // 1. Determine which locations we are generating for
     const targetLocations = locationId 
       ? await prisma.location.findMany({ where: { id: locationId } })
       : await prisma.location.findMany();
 
     const allTemplates = await prisma.shiftTemplate.findMany();
     
-    // 2. Define the Pay Period (28th of previous month to 27th of current month)
     const periodStart = new Date(year, month - 1, 28);
     const periodEnd = new Date(year, month, 27, 23, 59, 59);
     
@@ -32,8 +34,6 @@ export async function POST(request: Request) {
 
       while (currentDate <= periodEnd) {
         const currentDayOfWeek = currentDate.getDay();
-        
-        // Filter templates that apply to this specific day of the week
         const dailyTemplates = locTemplates.filter(t => t.dayOfWeek === currentDayOfWeek);
         
         for (const t of dailyTemplates) {
@@ -46,7 +46,6 @@ export async function POST(request: Request) {
           const endTime = new Date(currentDate);
           endTime.setHours(eHour, eMin, 0, 0);
 
-          // Avoid creating duplicates for the exact same time/location
           const existingShift = await prisma.shift.findFirst({
             where: { 
               locationId: loc.id, 

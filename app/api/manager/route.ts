@@ -2,7 +2,10 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/auth'; // <-- Added Security
+import { auth } from '@/auth'; 
+
+// FIX: Stop Turbopack from pre-rendering
+export const dynamic = 'force-dynamic';
 
 const managerSchema = z.object({
   periods: z.array(z.object({

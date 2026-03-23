@@ -1,5 +1,9 @@
+// filepath: app/api/timecards/seed/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+
+// FIX: Stop Turbopack from pre-rendering
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   const actualWorkedData =[
@@ -23,7 +27,6 @@ export async function POST(request: Request) {
   ];
 
   try {
-    // 1. Ensure the default location exists
     let loc = await prisma.location.findFirst({ where: { name: 'PnP Garner' } });
     if (!loc) {
       loc = await prisma.location.create({ data: { name: 'PnP Garner' } });
@@ -34,10 +37,8 @@ export async function POST(request: Request) {
     let existedCount = 0;
 
     for (const item of actualWorkedData) {
-      // 2. Safely find the user, ignoring case and accidental spaces
       let matchedUser = users.find(u => u.name.trim().toLowerCase() === item.u.trim().toLowerCase());
       
-      // If the user doesn't exist in the DB anymore, force create them
       if (!matchedUser) {
         matchedUser = await prisma.user.create({
           data: {
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
             locationIds: [loc.id]
           }
         });
-        users.push(matchedUser); // Add to local array so subsequent loops find them
+        users.push(matchedUser); 
       }
 
       const clockInTime = new Date(item.yr, item.mo, item.dt, item.s, 0, 0, 0);
@@ -56,7 +57,6 @@ export async function POST(request: Request) {
       const msDiff = clockOutTime.getTime() - clockInTime.getTime();
       const totalHours = parseFloat((msDiff / (1000 * 60 * 60)).toFixed(2));
 
-      // 3. Check if this exact timecard is already attached to this user
       const existing = await prisma.timeCard.findFirst({
         where: { 
           userId: matchedUser.id, 
@@ -80,7 +80,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4. Return a highly detailed response back to the button
     return NextResponse.json({ 
       count: `${importedCount} newly imported. (${existedCount} skipped because they were already in the database.)` 
     });
