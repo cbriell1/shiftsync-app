@@ -2,7 +2,10 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/auth'; // <-- Added Security
+import { auth } from '@/auth'; 
+
+// FIX: Stop Turbopack from pre-rendering
+export const dynamic = 'force-dynamic';
 
 const userCreateSchema = z.object({
   name: z.string().min(1),
@@ -29,7 +32,6 @@ const userMergeSchema = z.object({
   newId: z.coerce.number(),
 });
 
-// Middleware helper to check Admin/Manager role
 async function verifyManagementAccess() {
   const session = await auth();
   if (!session?.user) return false;
@@ -39,7 +41,6 @@ async function verifyManagementAccess() {
 
 export async function GET() {
   try {
-    // Require at least a valid session to view the directory
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -48,7 +49,7 @@ export async function GET() {
     });
     return NextResponse.json(users);
   } catch (error: any) {
-    console.error("CRITICAL API ERROR [GET /api/users]:", error.message);
+    console.error("CRITICAL API ERROR[GET /api/users]:", error.message);
     return NextResponse.json({ 
       error: "Database error fetching users.",
       details: error.message 
@@ -102,7 +103,7 @@ export async function PUT(request: Request) {
       await prisma.checklist.updateMany({ where: { userId: oldId }, data: { userId: newId } });
       await prisma.feedback.updateMany({ where: { userId: oldId }, data: { userId: newId } });
       await prisma.message.updateMany({ where: { senderId: oldId }, data: { senderId: newId } });
-      await prisma.announcement.updateMany({ where: { authorId: oldId }, data: { authorId: newId } }); // Fixed schema typo
+      await prisma.announcement.updateMany({ where: { authorId: oldId }, data: { authorId: newId } });
       await prisma.account.updateMany({ where: { userId: oldId }, data: { userId: newId } });
       await prisma.session.updateMany({ where: { userId: oldId }, data: { userId: newId } });
       await prisma.authenticator.updateMany({ where: { userId: oldId }, data: { userId: newId } });
@@ -127,7 +128,7 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updatedUser);
   } catch (error: any) {
-    console.error("CRITICAL API ERROR [PUT /api/users]:", error.message);
+    console.error("CRITICAL API ERROR[PUT /api/users]:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

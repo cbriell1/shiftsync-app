@@ -2,7 +2,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
-import { auth } from '@/auth'; // <-- Added Security
+import { auth } from '@/auth';
+
+// FIX: Stop Turbopack from pre-rendering
+export const dynamic = 'force-dynamic';
 
 const issueCardSchema = z.object({
   code: z.string().min(3),
