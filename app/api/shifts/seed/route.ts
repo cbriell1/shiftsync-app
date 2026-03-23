@@ -1,84 +1,84 @@
-// filepath: app/api/shifts/seed/route.ts
+// filepath: app/api/shifts/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { auth } from '@/auth'; 
 
-// FIX: Stop Turbopack from pre-rendering
 export const dynamic = 'force-dynamic';
 
-const generateSchema = z.object({
-  locationId: z.coerce.number().optional().nullable(),
-  month: z.coerce.number().min(0).max(11),
-  year: z.coerce.number().min(2024).max(2100),
+const shiftActionSchema = z.object({
+  shiftId: z.coerce.number(),
+  userId: z.any().transform(v => (v === null || v === "") ? null : Number(v)).optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  action: z.enum(['CLAIM', 'UNCLAIM', 'REQUEST_COVER', 'CANCEL_COVER', 'UPDATE'])
 });
+
+// FIX: Added (req: Request)
+export async function GET(req: Request) {
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const shifts = await prisma.shift.findMany({
+      include: { location: true, assignedTo: true },
+      orderBy: { startTime: 'asc' }
+    });
+    return NextResponse.json(shifts);
+  } catch (error: any) {
+    return NextResponse.json({ error: "Failed to fetch shifts" }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const { locationId, month, year } = generateSchema.parse(body);
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const targetLocations = locationId 
-      ? await prisma.location.findMany({ where: { id: locationId } })
-      : await prisma.location.findMany();
+    const body = await request.json();
+    const { shiftId, userId, startTime, endTime, action } = shiftActionSchema.parse(body);
 
-    const allTemplates = await prisma.shiftTemplate.findMany();
-    
-    const periodStart = new Date(year, month - 1, 28);
-    const periodEnd = new Date(year, month, 27, 23, 59, 59);
-    
-    let createdCount = 0;
+    let updateData: any = {};
 
-    for (const loc of targetLocations) {
-      const locTemplates = allTemplates.filter(t => t.locationId === loc.id);
-      const currentDate = new Date(periodStart);
-
-      while (currentDate <= periodEnd) {
-        const currentDayOfWeek = currentDate.getDay();
-        const dailyTemplates = locTemplates.filter(t => t.dayOfWeek === currentDayOfWeek);
-        
-        for (const t of dailyTemplates) {
-          const [sHour, sMin] = t.startTime.split(':').map(Number);
-          const [eHour, eMin] = t.endTime.split(':').map(Number);
-
-          const startTime = new Date(currentDate);
-          startTime.setHours(sHour, sMin, 0, 0);
-
-          const endTime = new Date(currentDate);
-          endTime.setHours(eHour, eMin, 0, 0);
-
-          const existingShift = await prisma.shift.findFirst({
-            where: { 
-              locationId: loc.id, 
-              startTime: startTime, 
-              endTime: endTime 
-            }
-          });
-
-          if (!existingShift) {
-            await prisma.shift.create({
-              data: { 
-                locationId: loc.id, 
-                startTime: startTime, 
-                endTime: endTime, 
-                status: t.userId ? 'CLAIMED' : 'OPEN',
-                userId: t.userId || null
-              }
-            });
-            createdCount++;
-          }
-        }
-        currentDate.setDate(currentDate.getDate() + 1);
+    if (action === 'UPDATE') {
+      const userRoles = (session.user as any).systemRoles ||[];
+      const isManagement = userRoles.includes('Administrator') || userRoles.includes('Manager');
+      if (!isManagement) {
+        return NextResponse.json({ error: "Forbidden. Only managers can update shift times." }, { status: 403 });
       }
     }
 
-    return NextResponse.json({ 
-      message: "Schedule generated successfully", 
-      count: createdCount 
-    });
-  } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid month or year provided" }, { status: 400 });
+    switch (action) {
+      case 'UNCLAIM':
+        updateData = { status: 'OPEN', userId: null };
+        break;
+      case 'REQUEST_COVER':
+        updateData = { status: 'COVERAGE_REQUESTED' };
+        break;
+      case 'CANCEL_COVER':
+        updateData = { status: 'CLAIMED' };
+        break;
+      case 'CLAIM':
+        if (!userId) return NextResponse.json({ error: "User ID required" }, { status: 400 });
+        updateData = { status: 'CLAIMED', userId };
+        break;
+      case 'UPDATE':
+        if (userId !== undefined) {
+          updateData.userId = userId;
+          updateData.status = userId === null ? 'OPEN' : 'CLAIMED';
+        }
+        if (startTime) updateData.startTime = new Date(startTime);
+        if (endTime) updateData.endTime = new Date(endTime);
+        break;
     }
+
+    const updated = await prisma.shift.update({
+      where: { id: shiftId },
+      data: updateData
+    });
+    return NextResponse.json(updated);
+  } catch (error: any) {
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -2,7 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/auth'; // <-- Added Security
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +23,8 @@ const memberActionSchema = z.discriminatedUnion("action",[
   z.object({ action: z.literal("LOG_PASS_USAGE"), memberId: z.coerce.number(), dateUsed: z.string(), amount: z.coerce.number(), initials: z.string() })
 ]);
 
-export async function GET() {
+// FIX: Added (req: Request)
+export async function GET(req: Request) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

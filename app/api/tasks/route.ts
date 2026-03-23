@@ -2,10 +2,10 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
-// Validation schemas
 const createTaskSchema = z.object({
   name: z.string().min(2, "Task name must be at least 2 characters long").max(100),
 });
@@ -19,8 +19,19 @@ const deleteTaskSchema = z.object({
   id: z.coerce.number(),
 });
 
-export async function GET() {
+async function verifyAccess() {
+  const session = await auth();
+  if (!session?.user) return false;
+  const userRoles = (session.user as any).systemRoles ||[];
+  return userRoles.includes('Administrator') || userRoles.includes('Manager');
+}
+
+// FIX: Added (req: Request)
+export async function GET(req: Request) {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const tasks = await prisma.globalTask.findMany({ 
       orderBy: { name: 'asc' } 
     });
@@ -32,6 +43,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    if (!(await verifyAccess())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const body = await request.json();
     const { name } = createTaskSchema.parse(body);
 
@@ -41,34 +54,28 @@ export async function POST(request: Request) {
     
     return NextResponse.json(newTask);
   } catch (error: any) {
-    // Handle Prisma unique constraint error (P2002)
-    if (error.code === 'P2002') {
-      return NextResponse.json({ error: "This task already exists" }, { status: 400 });
-    }
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
+    if (error.code === 'P2002') return NextResponse.json({ error: "This task already exists" }, { status: 400 });
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
     return NextResponse.json({ error: "Server error creating task" }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request) {
   try {
+    if (!(await verifyAccess())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const body = await request.json();
     const { id, name } = editTaskSchema.parse(body);
     const trimmedName = name.trim();
 
-    // Find the old task name first so we can cascade the update
     const existingTask = await prisma.globalTask.findUnique({ where: { id } });
     if (!existingTask) return NextResponse.json({ error: "Task not found" }, { status: 404 });
 
-    // Update the master task
     const updatedTask = await prisma.globalTask.update({
       where: { id },
       data: { name: trimmedName }
     });
 
-    // Cascading update: Find any template using the old task name and replace it with the new one
     if (existingTask.name !== trimmedName) {
       const templates = await prisma.shiftTemplate.findMany();
       for (const tpl of templates) {
@@ -84,30 +91,23 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updatedTask);
   } catch (error: any) {
-    if (error.code === 'P2002') {
-      return NextResponse.json({ error: "A task with this name already exists" }, { status: 400 });
-    }
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
+    if (error.code === 'P2002') return NextResponse.json({ error: "A task with this name already exists" }, { status: 400 });
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
     return NextResponse.json({ error: "Server error updating task" }, { status: 500 });
   }
 }
 
 export async function DELETE(request: Request) {
   try {
+    if (!(await verifyAccess())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const body = await request.json();
     const { id } = deleteTaskSchema.parse(body);
 
-    await prisma.globalTask.delete({ 
-      where: { id } 
-    });
-
+    await prisma.globalTask.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid task ID" }, { status: 400 });
-    }
-    return NextResponse.json({ error: "Could not delete task. It might still be linked to active templates." }, { status: 500 });
+    if (error instanceof z.ZodError) return NextResponse.json({ error: "Invalid task ID" }, { status: 400 });
+    return NextResponse.json({ error: "Could not delete task." }, { status: 500 });
   }
 }

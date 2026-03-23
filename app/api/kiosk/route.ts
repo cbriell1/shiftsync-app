@@ -1,10 +1,11 @@
+// filepath: app/api/kiosk/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-const kioskSchema = z.discriminatedUnion("action", [
+const kioskSchema = z.discriminatedUnion("action",[
   z.object({
     action: z.literal("CLOCK_IN"),
     userId: z.coerce.number(),
@@ -18,7 +19,8 @@ const kioskSchema = z.discriminatedUnion("action", [
   })
 ]);
 
-export async function GET() {
+// FIX: Added (req: Request)
+export async function GET(req: Request) {
   const openCards = await prisma.timeCard.findMany({
     where: { clockOut: null },
     include: { user: true, location: true }

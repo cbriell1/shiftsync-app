@@ -1,38 +1,56 @@
-// filepath: app/api/feedback/[id]/route.ts
+// filepath: app/api/feedback/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { sendFeedbackUpdateEmail } from '@/lib/email';
-import { auth } from '@/auth';
+import { sendNewFeedbackEmail } from '@/lib/email';
+import { auth } from '@/auth'; 
 
 export const dynamic = 'force-dynamic';
 
-const updateFeedbackSchema = z.object({
-  status: z.enum(['OPEN', 'IN PROGRESS', 'COMPLETED']),
-  devNotes: z.string().optional(),
+const feedbackSchema = z.object({
+  userId: z.coerce.number(),
+  type: z.enum(['BUG', 'SUGGESTION']),
+  description: z.string().min(5),
 });
 
-// FIX: Stripped complex TypeScript params to bypass Turbopack AST parser crash
-export async function PUT(req: Request, context: any) {
+// FIX: Added (req: Request)
+export async function GET(req: Request) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const params = await context.params;
-    const id = parseInt(params.id);
+    const feedbacks = await prisma.feedback.findMany({
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return NextResponse.json(feedbacks);
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
+  }
+}
 
-    const body = await req.json();
-    const data = updateFeedbackSchema.parse(body);
+export async function POST(request: Request) {
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const updated = await prisma.feedback.update({
-      where: { id },
-      data: { status: data.status, devNotes: data.devNotes },
+    const body = await request.json();
+    const data = feedbackSchema.parse(body);
+    
+    const newFeedback = await prisma.feedback.create({
+      data: {
+        userId: data.userId,
+        type: data.type,
+        description: data.description,
+        status: 'OPEN',
+      },
     });
 
-    sendFeedbackUpdateEmail(updated).catch(console.error);
+    const user = await prisma.user.findUnique({ where: { id: data.userId } });
+    sendNewFeedbackEmail(newFeedback, user).catch(console.error);
 
-    return NextResponse.json(updated);
+    return NextResponse.json(newFeedback, { status: 201 });
   } catch (error: any) {
-    return NextResponse.json({ error: 'Update failed' }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }

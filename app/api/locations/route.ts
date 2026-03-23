@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ const createLocationSchema = z.object({
   email: z.string().nullable().optional(),
   phoneNumber: z.string().nullable().optional(),
   isActive: z.boolean().optional().default(true),
-  sendReportEmails: z.boolean().optional().default(true), // NEW
+  sendReportEmails: z.boolean().optional().default(true),
 });
 
 const updateLocationSchema = z.object({
@@ -21,11 +22,23 @@ const updateLocationSchema = z.object({
   email: z.string().nullable().optional(),
   phoneNumber: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
-  sendReportEmails: z.boolean().optional(), // NEW
+  sendReportEmails: z.boolean().optional(),
 });
 
-export async function GET() {
+async function verifyAccess() {
+  const session = await auth();
+  if (!session?.user) return false;
+  
+  const userRoles = (session.user as any).systemRoles ||[];
+  return userRoles.includes('Administrator') || userRoles.includes('Manager');
+}
+
+// FIX: Added (req: Request)
+export async function GET(req: Request) {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const locations = await prisma.location.findMany({
       orderBy: { name: 'asc' } 
     });
@@ -37,6 +50,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    if (!(await verifyAccess())) {
+      return NextResponse.json({ error: "Forbidden. Admin/Manager access required." }, { status: 403 });
+    }
+
     const body = await request.json();
     const data = createLocationSchema.parse(body);
 
@@ -60,6 +77,10 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    if (!(await verifyAccess())) {
+      return NextResponse.json({ error: "Forbidden. Admin/Manager access required." }, { status: 403 });
+    }
+
     const body = await request.json();
     const data = updateLocationSchema.parse(body);
 
@@ -71,7 +92,7 @@ export async function PUT(request: Request) {
         ...(data.email !== undefined && { email: data.email }),
         ...(data.phoneNumber !== undefined && { phoneNumber: data.phoneNumber }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
-        ...(data.sendReportEmails !== undefined && { sendReportEmails: data.sendReportEmails }), // NEW
+        ...(data.sendReportEmails !== undefined && { sendReportEmails: data.sendReportEmails }),
       }
     });
 

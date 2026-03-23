@@ -4,7 +4,6 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/auth'; 
 
-// FIX: Stop Turbopack from pre-rendering
 export const dynamic = 'force-dynamic';
 
 const userCreateSchema = z.object({
@@ -39,7 +38,8 @@ async function verifyManagementAccess() {
   return userRoles.includes('Administrator') || userRoles.includes('Manager');
 }
 
-export async function GET() {
+// FIX: Added (req: Request)
+export async function GET(req: Request) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -49,19 +49,13 @@ export async function GET() {
     });
     return NextResponse.json(users);
   } catch (error: any) {
-    console.error("CRITICAL API ERROR[GET /api/users]:", error.message);
-    return NextResponse.json({ 
-      error: "Database error fetching users.",
-      details: error.message 
-    }, { status: 500 });
+    return NextResponse.json({ error: "Database error fetching users.", details: error.message }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    if (!(await verifyManagementAccess())) {
-      return NextResponse.json({ error: "Forbidden. Management access required." }, { status: 403 });
-    }
+    if (!(await verifyManagementAccess())) return NextResponse.json({ error: "Forbidden. Management access required." }, { status: 403 });
 
     const body = await request.json();
     const data = userCreateSchema.parse(body);
@@ -83,16 +77,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json(newUser);
   } catch (error: any) {
-    console.error("CRITICAL API ERROR [POST /api/users]:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request) {
   try {
-    if (!(await verifyManagementAccess())) {
-      return NextResponse.json({ error: "Forbidden. Management access required." }, { status: 403 });
-    }
+    if (!(await verifyManagementAccess())) return NextResponse.json({ error: "Forbidden. Management access required." }, { status: 403 });
 
     const body = await request.json();
     
@@ -128,7 +119,6 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updatedUser);
   } catch (error: any) {
-    console.error("CRITICAL API ERROR[PUT /api/users]:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -16,7 +16,8 @@ const checklistSchema = z.object({
   missedTasks: z.array(z.string()).default([]),
 });
 
-export async function GET() {
+// FIX: Added (req: Request)
+export async function GET(req: Request) {
   try {
     const lists = await prisma.checklist.findMany({
       include: { user: true, location: true, timeCard: true }, 
@@ -70,7 +71,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(finalChecklist);
   } catch (error: any) {
-    console.error("Checklist POST Error:", error);
     return NextResponse.json({ error: "Failed to save checklist" }, { status: 500 });
   }
 }
@@ -94,7 +94,6 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updatedChecklist);
   } catch (error: any) {
-    console.error("Checklist PUT Error:", error);
     return NextResponse.json({ error: "Failed to update checklist" }, { status: 500 });
   }
 }

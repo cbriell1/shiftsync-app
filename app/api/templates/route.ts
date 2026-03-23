@@ -2,13 +2,14 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
 const templateSchema = z.object({
   id: z.coerce.number().nullable().optional(),
   locationIds: z.array(z.coerce.number()).optional(),
-  daysOfWeek: z.array(z.any()).optional(), // Accepts numbers or strings safely
+  daysOfWeek: z.array(z.any()).optional(),
   startTime: z.string(),
   endTime: z.string(),
   startDate: z.string().nullable().optional(),
@@ -17,8 +18,19 @@ const templateSchema = z.object({
   userId: z.coerce.number().nullable().optional(),
 });
 
-export async function GET() {
+async function verifyAccess() {
+  const session = await auth();
+  if (!session?.user) return false;
+  const userRoles = (session.user as any).systemRoles ||[];
+  return userRoles.includes('Administrator') || userRoles.includes('Manager');
+}
+
+// FIX: Added (req: Request)
+export async function GET(req: Request) {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const templates = await prisma.shiftTemplate.findMany({
       include: { location: true, user: true }
     });
@@ -30,9 +42,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    if (!(await verifyAccess())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const body = await req.json();
     const data = templateSchema.parse(body);
-    const created = [];
+    const created =[];
 
     if (!data.locationIds || data.locationIds.length === 0) throw new Error("Missing locations");
     if (!data.daysOfWeek || data.daysOfWeek.length === 0) throw new Error("Missing days");
@@ -45,7 +59,7 @@ export async function POST(req: Request) {
         if (!isNaN(parsedNum)) {
           dayInt = parsedNum;
         } else {
-          dayInt = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].indexOf(String(day).toLowerCase().substring(0, 3));
+          dayInt =['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].indexOf(String(day).toLowerCase().substring(0, 3));
         }
         
         if (dayInt < 0 || dayInt > 6) continue;
@@ -58,7 +72,7 @@ export async function POST(req: Request) {
             endTime: data.endTime,
             startDate: data.startDate || null,
             endDate: data.endDate || null,
-            checklistTasks: data.checklistTasks || [],
+            checklistTasks: data.checklistTasks ||[],
             userId: data.userId || null
           }
         });
@@ -67,13 +81,14 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ success: true, count: created.length });
   } catch (error: any) {
-    console.error("Template POST Error:", error);
     return NextResponse.json({ error: error.message || "Invalid Template Data" }, { status: 400 });
   }
 }
 
 export async function PUT(req: Request) {
   try {
+    if (!(await verifyAccess())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const body = await req.json();
     const data = templateSchema.parse(body);
     
@@ -83,7 +98,7 @@ export async function PUT(req: Request) {
     if (data.daysOfWeek && data.daysOfWeek.length > 0) {
       const day = data.daysOfWeek[0];
       const parsedNum = parseInt(String(day), 10);
-      dayInt = !isNaN(parsedNum) ? parsedNum : ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].indexOf(String(day).toLowerCase().substring(0, 3));
+      dayInt = !isNaN(parsedNum) ? parsedNum :['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].indexOf(String(day).toLowerCase().substring(0, 3));
     }
 
     const updated = await prisma.shiftTemplate.update({
@@ -95,19 +110,20 @@ export async function PUT(req: Request) {
         endTime: data.endTime,
         startDate: data.startDate || null,
         endDate: data.endDate || null,
-        checklistTasks: data.checklistTasks || [],
+        checklistTasks: data.checklistTasks ||[],
         userId: data.userId || null
       }
     });
     return NextResponse.json(updated);
   } catch (error: any) {
-    console.error("Template PUT Error:", error);
     return NextResponse.json({ error: error.message || "Invalid Template Data" }, { status: 400 });
   }
 }
 
 export async function DELETE(req: Request) {
   try {
+    if (!(await verifyAccess())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const { id } = await req.json();
     await prisma.shiftTemplate.delete({ where: { id: parseInt(id) } });
     return NextResponse.json({ success: true });
