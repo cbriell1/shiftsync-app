@@ -2,26 +2,26 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
-import { auth } from '@/auth'; // <-- Added Security
-
-// FIX: Tells Next.js not to pre-render this dynamic route during build
-export const dynamic = 'force-dynamic';
+import { auth } from '@/auth';
 
 const redemptionSchema = z.object({
   redemptionAmount: z.coerce.number().positive()
 });
 
-export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
+export async function PUT(
+  req: Request, 
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const params = await props.params;
-    const id = parseInt(params.id);
+    const { id } = await params;
+    const parsedId = parseInt(id);
     const body = await req.json();
     const { redemptionAmount } = redemptionSchema.parse(body);
 
-    const card = await prisma.giftCard.findUnique({ where: { id } });
+    const card = await prisma.giftCard.findUnique({ where: { id: parsedId } });
     if (!card) return NextResponse.json({ error: 'Card not found' }, { status: 404 });
 
     // Precise decimal math to prevent floating point errors
@@ -34,7 +34,7 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
     }
 
     const updatedCard = await prisma.giftCard.update({
-      where: { id },
+      where: { id: parsedId },
       data: { remainingBalance: newBalance },
       include: { 
         member: { select: { firstName: true, lastName: true } }
