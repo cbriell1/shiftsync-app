@@ -1,6 +1,11 @@
+// filepath: app/api/giftcards/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { auth } from '@/auth'; // <-- Added Security
+
+// FIX: Tells Next.js not to pre-render this dynamic route during build
+export const dynamic = 'force-dynamic';
 
 const redemptionSchema = z.object({
   redemptionAmount: z.coerce.number().positive()
@@ -8,6 +13,9 @@ const redemptionSchema = z.object({
 
 export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
   try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const params = await props.params;
     const id = parseInt(params.id);
     const body = await req.json();

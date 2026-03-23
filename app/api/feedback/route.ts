@@ -1,47 +1,37 @@
+// filepath: app/api/feedback/[id]/route.ts
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { sendNewFeedbackEmail } from '@/lib/email';
+import { sendFeedbackUpdateEmail } from '@/lib/email';
+import { auth } from '@/auth'; // <-- Added Security
 
-const feedbackSchema = z.object({
-  userId: z.coerce.number(),
-  type: z.enum(['BUG', 'SUGGESTION']),
-  description: z.string().min(5),
+// FIX: Tells Next.js not to pre-render this dynamic route during build
+export const dynamic = 'force-dynamic';
+
+const updateFeedbackSchema = z.object({
+  status: z.enum(['OPEN', 'IN PROGRESS', 'COMPLETED']),
+  devNotes: z.string().optional(),
 });
 
-export async function GET() {
+export async function PUT(request: Request, props: { params: Promise<{ id: string }> }) {
   try {
-    const feedbacks = await prisma.feedback.findMany({
-      include: { user: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    return NextResponse.json(feedbacks);
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
-  }
-}
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-export async function POST(request: Request) {
-  try {
+    const { id } = await props.params;
     const body = await request.json();
-    const data = feedbackSchema.parse(body);
-    const newFeedback = await prisma.feedback.create({
-      data: {
-        userId: data.userId,
-        type: data.type,
-        description: data.description,
-        status: 'OPEN',
-      },
+    const data = updateFeedbackSchema.parse(body);
+
+    const updated = await prisma.feedback.update({
+      where: { id: parseInt(id) },
+      data: { status: data.status, devNotes: data.devNotes },
     });
 
-    // Get the user info to include their name in the email
-    const user = await prisma.user.findUnique({ where: { id: data.userId } });
-    
-    // Trigger the email asynchronously (so it doesn't slow down the UI loading screen)
-    sendNewFeedbackEmail(newFeedback, user).catch(console.error);
+    // Trigger the email asynchronously
+    sendFeedbackUpdateEmail(updated).catch(console.error);
 
-    return NextResponse.json(newFeedback, { status: 201 });
+    return NextResponse.json(updated);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: 'Update failed' }, { status: 500 });
   }
 }
