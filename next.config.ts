@@ -1,13 +1,5 @@
 // filepath: next.config.ts
 import type { NextConfig } from "next";
-import withPWAInit from "@ducanh2912/next-pwa";
-
-const withPWA = withPWAInit({
-  dest: "public",
-  disable: process.env.NODE_ENV === "development", // Disable PWA in dev mode
-  register: true,
-  skipWaiting: true,
-});
 
 const nextConfig: NextConfig = {
   typescript: {
@@ -18,13 +10,12 @@ const nextConfig: NextConfig = {
     // Ignore linting errors during build
     ignoreDuringBuilds: true,
   },
-  // FIX: Explicitly declare turbopack object to resolve the PWA Webpack conflict
-  turbopack: {},
-  // FIX: Only exclude Prisma binaries to prevent worker compilation crashes
+  // Ensure heavy Node.js packages aren't incorrectly bundled by Turbopack
   serverExternalPackages:[
     "@prisma/client", 
-    "@auth/prisma-adapter"
+    "@auth/prisma-adapter",
+    "@simplewebauthn/server"
   ],
 };
 
-export default withPWA(nextConfig);
+export default nextConfig;
