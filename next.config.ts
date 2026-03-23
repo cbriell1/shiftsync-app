@@ -11,18 +11,19 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   typescript: {
+    // This allows the build to finish even if there are small type errors
     ignoreBuildErrors: true,
   },
   eslint: {
+    // Ignore linting errors during build
     ignoreDuringBuilds: true,
   },
-  // FIX: Force Turbopack to completely ignore these heavy backend modules during the build
+  // FIX: Explicitly declare turbopack object to resolve the PWA Webpack conflict
+  turbopack: {},
+  // FIX: Only exclude Prisma binaries to prevent worker compilation crashes
   serverExternalPackages:[
     "@prisma/client", 
-    "@auth/prisma-adapter", 
-    "next-auth", 
-    "@simplewebauthn/server",
-    "@simplewebauthn/browser"
+    "@auth/prisma-adapter"
   ],
 };
 
