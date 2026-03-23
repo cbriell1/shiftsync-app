@@ -105,6 +105,8 @@ const customAdapter = {
 };
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  // FIX: Provide a dummy secret during the build process so Vercel doesn't crash on import
+  secret: process.env.AUTH_SECRET || "fallback_secret_for_build_time_only_12345",
   adapter: customAdapter,
   providers:[
     Passkey(),
@@ -157,7 +159,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         
         const sessionToken = crypto.randomUUID();
         const expires = new Date();
-        expires.setDate(expires.getDate() + 30); // Sessions last 30 days maximum
+        expires.setDate(expires.getDate() + 30);
         
         await prisma.$transaction([
           prisma.session.create({
@@ -202,8 +204,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id as string;
         (session.user as any).role = token.role;
         (session.user as any).systemRoles = token.systemRoles;
-        
-        // FIX: Inject the Database Session ID into the frontend session object
         (session as any).sessionId = token.sessionId; 
       }
       return session;
