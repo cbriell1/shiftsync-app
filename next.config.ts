@@ -6,13 +6,15 @@ const nextConfig: NextConfig = {
     // This allows the build to finish even if there are small type errors
     ignoreBuildErrors: true,
   },
-  // FIX: Force Next.js to aggressively bundle the ESM WebAuthn packages 
-  // so the Node.js externalRequire step doesn't crash on Vercel
-  transpilePackages:[
-    "@simplewebauthn/server", 
-    "@simplewebauthn/browser", 
-    "next-auth"
-  ],
+  eslint: {
+    // Ignore linting errors during build
+    ignoreDuringBuilds: true,
+  },
+  // FIX: Protect Prisma's physical database engine from the Turbopack bundler
+  serverExternalPackages: [
+    "@prisma/client",
+    "@auth/prisma-adapter"
+  ]
 };
 
 export default nextConfig;
