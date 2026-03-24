@@ -1,25 +1,132 @@
 // filepath: app/components/TimeCardTab.tsx
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TimeCard, ShiftTemplate, Checklist } from '../lib/types';
 import { notify } from '@/lib/ui-utils';
 import { useAppStore } from '@/lib/store';
 import { formatTimeSafe, formatDateSafe } from '@/lib/common';
 
+// ==================================================================
+// 1. ISOLATED REPORT EDITOR (Fixes typing focus & scroll jumping)
+// ==================================================================
+function ShiftReportEditor({ card, globalReport, assignedTasks, fetchChecklists }: any) {
+  // Local state guarantees the UI never tears down while typing
+  const [completedTasks, setCompletedTasks] = useState<string[]>(globalReport?.completedTasks || []);
+  const [notes, setNotes] = useState(globalReport?.notes || '');
+  const [prevNotes, setPrevNotes] = useState(globalReport?.previousShiftNotes || '');
+  const [isSaving, setIsSaving] = useState(false);
+  const[savedOnce, setSavedOnce] = useState(!!globalReport);
+
+  // Only sync from server on initial mount
+  useEffect(() => {
+    if (globalReport && !savedOnce) {
+      setCompletedTasks(globalReport.completedTasks ||[]);
+      setNotes(globalReport.notes || '');
+      setPrevNotes(globalReport.previousShiftNotes || '');
+      setSavedOnce(true);
+    }
+  }, [globalReport?.id, savedOnce]);
+
+  const progressPct = assignedTasks.length > 0 ? Math.round((completedTasks.length / assignedTasks.length) * 100) : (completedTasks.length > 0 ? 100 : 0);
+
+  const saveReport = async (tasks: string[], n: string, pN: string) => {
+    setIsSaving(true);
+    const missed = assignedTasks.filter((t: string) => !tasks.includes(t));
+    const payload = {
+      id: globalReport?.id || undefined,
+      timeCardId: card.id,
+      userId: card.userId,
+      locationId: card.locationId,
+      notes: n,
+      previousShiftNotes: pN,
+      completedTasks: tasks,
+      missedTasks: missed
+    };
+
+    try {
+      const res = await fetch('/api/checklists', {
+        method: globalReport?.id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        setSavedOnce(true);
+        await fetchChecklists(); // Silently updates the parent progress percentage
+      }
+    } catch (e) {
+      notify.error("Network error saving report");
+    } finally {
+      setTimeout(() => setIsSaving(false), 500);
+    }
+  };
+
+  const toggleTask = (task: string) => {
+    const updated = completedTasks.includes(task) ? completedTasks.filter((t: string) => t !== task) : [...completedTasks, task];
+    setCompletedTasks(updated);
+    saveReport(updated, notes, prevNotes); // Auto-save on toggle
+  };
+
+  return (
+    <div className="p-4 md:p-6 bg-slate-50 space-y-6">
+      <div>
+        <h4 className="text-xs font-black text-slate-700 uppercase mb-3">Facility Checklist ({progressPct}% Done)</h4>
+        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+          {assignedTasks.map((t: string, idx: number) => (
+            <label key={idx} className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${completedTasks.includes(t) ? 'bg-green-50 border-green-300' : 'bg-white border-slate-300 hover:border-blue-400'}`}>
+              <input type="checkbox" checked={completedTasks.includes(t)} onChange={() => toggleTask(t)} className="w-5 h-5 rounded shrink-0 mt-0.5" />
+              <span className={`text-sm font-bold ${completedTasks.includes(t) ? 'text-green-900 line-through opacity-70' : 'text-slate-900'}`}>{t}</span>
+            </label>
+          ))}
+          {assignedTasks.length === 0 && <p className="text-sm font-bold text-slate-500 italic">No tasks assigned.</p>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <h4 className="text-xs font-black text-pink-700 uppercase mb-2">Previous Shift Carry-Over</h4>
+          <textarea 
+            value={prevNotes} 
+            onChange={(e) => setPrevNotes(e.target.value)} 
+            onBlur={() => saveReport(completedTasks, notes, prevNotes)} 
+            placeholder="Did the previous shift leave items unfinished?" 
+            className="w-full border-2 border-slate-300 rounded-xl p-3 text-sm font-bold text-slate-900 bg-white focus:border-pink-500 outline-none resize-none shadow-inner placeholder:text-slate-400" 
+            rows={4}
+          ></textarea>
+        </div>
+        <div>
+          <h4 className="text-xs font-black text-slate-700 uppercase mb-2">Your Shift Notes</h4>
+          <textarea 
+            value={notes} 
+            onChange={(e) => setNotes(e.target.value)} 
+            onBlur={() => saveReport(completedTasks, notes, prevNotes)} 
+            placeholder="Report any issues or pass-downs..." 
+            className="w-full border-2 border-slate-300 rounded-xl p-3 text-sm font-bold text-slate-900 bg-white focus:border-blue-500 outline-none resize-none shadow-inner placeholder:text-slate-400" 
+            rows={4}
+          ></textarea>
+        </div>
+      </div>
+
+      <button onClick={() => saveReport(completedTasks, notes, prevNotes)} disabled={isSaving} className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-xl shadow-md transition text-sm tracking-wide">
+        {isSaving ? 'Saving...' : (savedOnce ? 'Report Saved ✓' : 'Save Shift Report')}
+      </button>
+    </div>
+  );
+}
+
+// ==================================================================
+// 2. TIMECARD ROW COMPONENT
+// ==================================================================
 const TimeCardItem = ({ card, viewMode }: { card: TimeCard, viewMode: 'mobile' | 'desktop' }) => {
-  const users = useAppStore(state => state.users);
   const locations = useAppStore(state => state.locations);
   const templates = useAppStore(state => state.templates);
   const checklists = useAppStore(state => state.checklists);
   const fetchChecklists = useAppStore(state => state.fetchChecklists);
 
-  const activeUser = users.find(u => u.id === card.userId);
-
   const outD = new Date(card.clockOut || '');
   const isActive = !card.clockOut || isNaN(outD.getTime()) || outD.getFullYear() === 1970;
   
+  const [isExpanded, setIsExpanded] = useState(isActive); 
   const globalReport = checklists?.find((c: Checklist) => c.timeCardId === card.id);
-  const activeReport = globalReport || (card.checklists && card.checklists.length > 0 ? card.checklists[0] : null);
 
   let bestTpl: ShiftTemplate | null = null;
   const tcDate = new Date(card.clockIn);
@@ -41,117 +148,10 @@ const TimeCardItem = ({ card, viewMode }: { card: TimeCard, viewMode: 'mobile' |
 
   const assignedTasks = bestTpl ? (bestTpl.checklistTasks || []) :[];
   
-  const[isExpanded, setIsExpanded] = useState(isActive); 
-  const [completedTasks, setCompletedTasks] = useState<string[]>(activeReport ? activeReport.completedTasks || [] : []);
-  const[notes, setNotes] = useState(activeReport ? activeReport.notes || '' : '');
-  const[prevNotes, setPrevNotes] = useState(activeReport ? activeReport.previousShiftNotes || '' : '');
-  const[reportId, setReportId] = useState<number | null>(activeReport?.id || null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [savedOnce, setSavedOnce] = useState(!!activeReport);
+  // Calculate display progress from the global store so it updates silently on the outside row
+  const completedTaskCount = globalReport?.completedTasks?.length || 0;
+  const progressPct = assignedTasks.length > 0 ? Math.round((completedTaskCount / assignedTasks.length) * 100) : (completedTaskCount > 0 ? 100 : 0);
 
-  const lastLocalUpdate = useRef<number>(0);
-
-  useEffect(() => {
-    const sourceReport = globalReport || activeReport;
-    if (sourceReport) {
-      if (!reportId) setReportId(sourceReport.id);
-      if (!savedOnce) setSavedOnce(true);
-      if (Date.now() - lastLocalUpdate.current < 10000) return;
-      setCompletedTasks(prev => JSON.stringify(prev) !== JSON.stringify(sourceReport.completedTasks ||[]) ? sourceReport.completedTasks ||[] : prev);
-      setNotes(prev => prev !== (sourceReport.notes || '') ? sourceReport.notes || '' : prev);
-      setPrevNotes(prev => prev !== (sourceReport.previousShiftNotes || '') ? sourceReport.previousShiftNotes || '' : prev);
-    }
-  },[globalReport, activeReport]);
-
-  const progressPct = assignedTasks.length > 0 ? Math.round((completedTasks.length / assignedTasks.length) * 100) : (completedTasks.length > 0 ? 100 : 0);
-
-  const saveInlineReport = async (tasksToSave: string[], notesToSave: string, prevToSave: string) => {
-    setIsSaving(true);
-    const missed = assignedTasks.filter(t => !tasksToSave.includes(t));
-    const payload: any = { 
-      notes: notesToSave, 
-      previousShiftNotes: prevToSave,
-      completedTasks: tasksToSave, 
-      missedTasks: missed,
-      userId: card.userId,
-      locationId: card.locationId,
-      timeCardId: card.id
-    };
-
-    try {
-      if (reportId) payload.id = reportId;
-      const res = await fetch('/api/checklists', { method: reportId ? 'PUT' : 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.id) setReportId(data.id);
-        setSavedOnce(true);
-        await fetchChecklists();
-      }
-    } catch (err) {
-      notify.error("Network Error saving report.");
-    } finally {
-      setTimeout(() => setIsSaving(false), 500); 
-    }
-  };
-
-  const toggleTask = (task: string) => {
-    lastLocalUpdate.current = Date.now();
-    setCompletedTasks(prev => {
-      const updated = prev.includes(task) ? prev.filter(t => t !== task) :[...prev, task];
-      saveInlineReport(updated, notes, prevNotes);
-      return updated;
-    });
-  };
-
-  // FIX: Changed from a function component to a static JSX variable. 
-  // This prevents React from destroying the DOM node and losing focus!
-  const reportUIContent = (
-    <div className="p-4 md:p-6 bg-slate-50 space-y-6">
-      <div>
-        <h4 className="text-xs font-black text-slate-700 uppercase mb-3">Facility Checklist</h4>
-        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-          {assignedTasks.map((t, idx) => (
-            <label key={idx} className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${completedTasks.includes(t) ? 'bg-green-50 border-green-300' : 'bg-white border-slate-300 hover:border-blue-400'}`}>
-              <input type="checkbox" checked={completedTasks.includes(t)} onChange={() => toggleTask(t)} className="w-5 h-5 rounded shrink-0 mt-0.5" />
-              <span className={`text-sm font-bold ${completedTasks.includes(t) ? 'text-green-900 line-through opacity-70' : 'text-slate-900'}`}>{t}</span>
-            </label>
-          ))}
-          {assignedTasks.length === 0 && <p className="text-sm font-bold text-slate-500 italic">No tasks assigned.</p>}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <h4 className="text-xs font-black text-pink-700 uppercase mb-2">Previous Shift Carry-Over</h4>
-          <textarea 
-            value={prevNotes} 
-            onChange={(e) => { lastLocalUpdate.current = Date.now(); setPrevNotes(e.target.value); }} 
-            onBlur={() => saveInlineReport(completedTasks, notes, prevNotes)} 
-            placeholder="Did the previous shift leave items unfinished?" 
-            className="w-full border-2 border-slate-300 rounded-xl p-3 text-sm font-bold text-slate-900 bg-white focus:border-pink-500 outline-none resize-none shadow-inner placeholder:text-slate-400" 
-            rows={4}
-          ></textarea>
-        </div>
-        <div>
-          <h4 className="text-xs font-black text-slate-700 uppercase mb-2">Your Shift Notes</h4>
-          <textarea 
-            value={notes} 
-            onChange={(e) => { lastLocalUpdate.current = Date.now(); setNotes(e.target.value); }} 
-            onBlur={() => saveInlineReport(completedTasks, notes, prevNotes)} 
-            placeholder="Report any issues or pass-downs..." 
-            className="w-full border-2 border-slate-300 rounded-xl p-3 text-sm font-bold text-slate-900 bg-white focus:border-blue-500 outline-none resize-none shadow-inner placeholder:text-slate-400" 
-            rows={4}
-          ></textarea>
-        </div>
-      </div>
-
-      <button onClick={() => saveInlineReport(completedTasks, notes, prevNotes)} disabled={isSaving} className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-xl shadow-md transition text-sm tracking-wide">
-        {isSaving ? 'Saving...' : (savedOnce ? 'Report Saved ✓' : 'Save Shift Report')}
-      </button>
-    </div>
-  );
-
-  // MOBILE RENDER
   if (viewMode === 'mobile') {
     return (
       <div className="md:hidden bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-4 flex flex-col relative overflow-hidden">
@@ -181,13 +181,15 @@ const TimeCardItem = ({ card, viewMode }: { card: TimeCard, viewMode: 'mobile' |
           <svg className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
         </button>
 
-        {/* FIX: Using the static content variable here */}
-        {isExpanded && <div className="mt-2 border-t border-slate-200 pt-2">{reportUIContent}</div>}
+        {isExpanded && (
+          <div className="mt-2 border-t border-slate-200 pt-2">
+            <ShiftReportEditor card={card} globalReport={globalReport} assignedTasks={assignedTasks} fetchChecklists={fetchChecklists} />
+          </div>
+        )}
       </div>
     );
   }
 
-  // DESKTOP RENDER
   return (
     <>
       <tr onClick={() => setIsExpanded(!isExpanded)} className={`hidden md:table-row border-b border-slate-200 hover:bg-blue-50 transition cursor-pointer ${isActive ? 'bg-blue-50/30' : 'bg-white'}`}>
@@ -206,8 +208,7 @@ const TimeCardItem = ({ card, viewMode }: { card: TimeCard, viewMode: 'mobile' |
         <tr className="hidden md:table-row bg-slate-50 border-b border-slate-300 shadow-inner">
           <td colSpan={6} className="p-0">
             <div className="border-x-4 border-blue-500">
-              {/* FIX: Using the static content variable here */}
-              {reportUIContent}
+               <ShiftReportEditor card={card} globalReport={globalReport} assignedTasks={assignedTasks} fetchChecklists={fetchChecklists} />
             </div>
           </td>
         </tr>
@@ -216,6 +217,9 @@ const TimeCardItem = ({ card, viewMode }: { card: TimeCard, viewMode: 'mobile' |
   );
 };
 
+// ==================================================================
+// 3. MAIN TAB LAYOUT
+// ==================================================================
 export default function TimeCardTab({ appState }: any) {
   const timeCards = useAppStore(state => state.timeCards);
   const selectedUserId = useAppStore(state => state.selectedUserId);
@@ -237,14 +241,14 @@ export default function TimeCardTab({ appState }: any) {
         </div>
       ) : (
         <>
-          {/* MOBILE LIST VIEW (< 768px) */}
+          {/* MOBILE LIST VIEW */}
           <div className="md:hidden flex flex-col">
             {[...activeUserTimeCards].sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map(card => (
-              <TimeCardItem key={card.id} card={card} viewMode="mobile" />
+              <TimeCardItem key={`mob-${card.id}`} card={card} viewMode="mobile" />
             ))}
           </div>
 
-          {/* DESKTOP TABLE VIEW (>= 768px) */}
+          {/* DESKTOP TABLE VIEW */}
           <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-300 overflow-hidden">
             <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
               <table className="w-full text-left text-sm whitespace-nowrap">
@@ -260,7 +264,7 @@ export default function TimeCardTab({ appState }: any) {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {[...activeUserTimeCards].sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map(card => (
-                    <TimeCardItem key={card.id} card={card} viewMode="desktop" />
+                    <TimeCardItem key={`desk-${card.id}`} card={card} viewMode="desktop" />
                   ))}
                 </tbody>
               </table>
