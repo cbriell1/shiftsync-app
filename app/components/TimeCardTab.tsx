@@ -26,7 +26,7 @@ const TimeCardItem = ({ card, viewMode }: { card: TimeCard, viewMode: 'mobile' |
   const day = tcDate.getDay();
   const mins = tcDate.getHours() * 60 + tcDate.getMinutes();
 
-  const todayTpls = templates?.filter(t => t.locationId === card.locationId && t.dayOfWeek === day) || [];
+  const todayTpls = templates?.filter(t => t.locationId === card.locationId && t.dayOfWeek === day) ||[];
   if (todayTpls.length === 1) {
     bestTpl = todayTpls[0];
   } else if (todayTpls.length > 1) {
@@ -39,13 +39,13 @@ const TimeCardItem = ({ card, viewMode }: { card: TimeCard, viewMode: 'mobile' |
     });
   }
 
-  const assignedTasks = bestTpl ? (bestTpl.checklistTasks || []) : [];
+  const assignedTasks = bestTpl ? (bestTpl.checklistTasks || []) :[];
   
   const[isExpanded, setIsExpanded] = useState(isActive); 
   const [completedTasks, setCompletedTasks] = useState<string[]>(activeReport ? activeReport.completedTasks || [] : []);
-  const [notes, setNotes] = useState(activeReport ? activeReport.notes || '' : '');
-  const [prevNotes, setPrevNotes] = useState(activeReport ? activeReport.previousShiftNotes || '' : '');
-  const [reportId, setReportId] = useState<number | null>(activeReport?.id || null);
+  const[notes, setNotes] = useState(activeReport ? activeReport.notes || '' : '');
+  const[prevNotes, setPrevNotes] = useState(activeReport ? activeReport.previousShiftNotes || '' : '');
+  const[reportId, setReportId] = useState<number | null>(activeReport?.id || null);
   const [isSaving, setIsSaving] = useState(false);
   const [savedOnce, setSavedOnce] = useState(!!activeReport);
 
@@ -57,7 +57,7 @@ const TimeCardItem = ({ card, viewMode }: { card: TimeCard, viewMode: 'mobile' |
       if (!reportId) setReportId(sourceReport.id);
       if (!savedOnce) setSavedOnce(true);
       if (Date.now() - lastLocalUpdate.current < 10000) return;
-      setCompletedTasks(prev => JSON.stringify(prev) !== JSON.stringify(sourceReport.completedTasks || []) ? sourceReport.completedTasks ||[] : prev);
+      setCompletedTasks(prev => JSON.stringify(prev) !== JSON.stringify(sourceReport.completedTasks ||[]) ? sourceReport.completedTasks ||[] : prev);
       setNotes(prev => prev !== (sourceReport.notes || '') ? sourceReport.notes || '' : prev);
       setPrevNotes(prev => prev !== (sourceReport.previousShiftNotes || '') ? sourceReport.previousShiftNotes || '' : prev);
     }
@@ -97,20 +97,22 @@ const TimeCardItem = ({ card, viewMode }: { card: TimeCard, viewMode: 'mobile' |
   const toggleTask = (task: string) => {
     lastLocalUpdate.current = Date.now();
     setCompletedTasks(prev => {
-      const updated = prev.includes(task) ? prev.filter(t => t !== task) : [...prev, task];
+      const updated = prev.includes(task) ? prev.filter(t => t !== task) :[...prev, task];
       saveInlineReport(updated, notes, prevNotes);
       return updated;
     });
   };
 
-  const ReportUI = () => (
+  // FIX: Changed from a function component to a static JSX variable. 
+  // This prevents React from destroying the DOM node and losing focus!
+  const reportUIContent = (
     <div className="p-4 md:p-6 bg-slate-50 space-y-6">
       <div>
         <h4 className="text-xs font-black text-slate-700 uppercase mb-3">Facility Checklist</h4>
         <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
           {assignedTasks.map((t, idx) => (
             <label key={idx} className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${completedTasks.includes(t) ? 'bg-green-50 border-green-300' : 'bg-white border-slate-300 hover:border-blue-400'}`}>
-              <input type="checkbox" checked={completedTasks.includes(t)} onChange={() => toggleTask(t)} className="w-5 h-5 rounded shrink-0" />
+              <input type="checkbox" checked={completedTasks.includes(t)} onChange={() => toggleTask(t)} className="w-5 h-5 rounded shrink-0 mt-0.5" />
               <span className={`text-sm font-bold ${completedTasks.includes(t) ? 'text-green-900 line-through opacity-70' : 'text-slate-900'}`}>{t}</span>
             </label>
           ))}
@@ -179,7 +181,8 @@ const TimeCardItem = ({ card, viewMode }: { card: TimeCard, viewMode: 'mobile' |
           <svg className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
         </button>
 
-        {isExpanded && <div className="mt-2 border-t border-slate-200 pt-2"><ReportUI /></div>}
+        {/* FIX: Using the static content variable here */}
+        {isExpanded && <div className="mt-2 border-t border-slate-200 pt-2">{reportUIContent}</div>}
       </div>
     );
   }
@@ -203,7 +206,8 @@ const TimeCardItem = ({ card, viewMode }: { card: TimeCard, viewMode: 'mobile' |
         <tr className="hidden md:table-row bg-slate-50 border-b border-slate-300 shadow-inner">
           <td colSpan={6} className="p-0">
             <div className="border-x-4 border-blue-500">
-              <ReportUI />
+              {/* FIX: Using the static content variable here */}
+              {reportUIContent}
             </div>
           </td>
         </tr>
@@ -219,7 +223,7 @@ export default function TimeCardTab({ appState }: any) {
   const activeUserTimeCards = timeCards.filter(c => c.userId.toString() === selectedUserId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-3xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic">My Timesheet History</h2>
