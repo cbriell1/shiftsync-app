@@ -54,7 +54,7 @@ export default function SetupTab({ appState }: any) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   },[]);
 
-  const toggleTplLoc = (id: number) => { if (editingTplId) { setTplLocs([id]); return; } setTplLocs(prev => prev.includes(id) ? prev.filter(x => x !== id) :[...prev, id]); };
+  const toggleTplLoc = (id: number) => { if (editingTplId) { setTplLocs([id]); return; } setTplLocs(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); };
   const toggleTplDay = (idx: number) => { if (editingTplId) { setTplDays([idx]); return; } setTplDays(prev => prev.includes(idx) ? prev.filter(x => x !== idx) :[...prev, idx]); };
   const toggleTplTask = (taskName: string) => { if (tplTasks.includes(taskName)) setTplTasks(tplTasks.filter(t => t !== taskName)); else setTplTasks([...tplTasks, taskName]); };
   const toggleTplViewLoc = (id: number) => tplViewLocs.includes(id) ? setTplViewLocs(tplViewLocs.filter(x => x !== id)) : setTplViewLocs([...tplViewLocs, id]);
@@ -113,6 +113,7 @@ export default function SetupTab({ appState }: any) {
     await fetchTemplates();
   };
 
+  // Safely strips seconds from DB data before it hits Safari
   const cleanTimeStr = (t: string) => {
     if (!t) return '';
     const match = t.match(/\d{2}:\d{2}/);
@@ -123,8 +124,10 @@ export default function SetupTab({ appState }: any) {
     setEditingTplId(t.id); 
     setTplLocs([t.locationId]); 
     setTplDays([t.dayOfWeek]); 
+    
     setTplStart(cleanTimeStr(t.startTime)); 
     setTplEnd(cleanTimeStr(t.endTime)); 
+    
     setTplStartDate(t.startDate ? t.startDate.split('T')[0] : ''); 
     setTplEndDate(t.endDate ? t.endDate.split('T')[0] : ''); 
     setTplTasks(t.checklistTasks ||[]); 
@@ -167,6 +170,8 @@ export default function SetupTab({ appState }: any) {
                <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">{editingTplId ? 'Edit Template' : 'New Template'}</h3>
                <button type="button" onClick={resetForm} className="text-[10px] font-black text-blue-600 uppercase hover:underline">Clear Form</button>
             </div>
+            
+            {/* Form using native HTML5 validation, completely stripped of tricky formatting intercepts */}
             <form onSubmit={handleSaveTemplate} className="space-y-5" autoCapitalize="off" autoComplete="off">
               <div>
                 <label className="block text-sm font-black text-slate-900 mb-1.5">1. Pre-Assign Employee</label>
@@ -200,22 +205,35 @@ export default function SetupTab({ appState }: any) {
               <div className="grid grid-cols-2 gap-3 items-end">
                 <div className="flex flex-col justify-end h-full">
                   <label className="block text-sm font-black text-slate-900 mb-1.5 leading-tight">4. Start Time</label>
-                  {/* FIX: Removed step="60" and enforced exact HH:mm formatting onChange to prevent Safari crash */}
-                  <input type="time" value={tplStart} onChange={(e) => setTplStart(e.target.value.substring(0, 5))} required className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none" />
+                  {/* FIX: Removed the substring interceptor that crashed Safari */}
+                  <input type="time" value={tplStart} onChange={(e) => setTplStart(e.target.value)} required className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none" />
                 </div>
                 <div className="flex flex-col justify-end h-full">
                   <label className="block text-sm font-black text-slate-900 mb-1.5 leading-tight">End Time</label>
-                  <input type="time" value={tplEnd} onChange={(e) => setTplEnd(e.target.value.substring(0, 5))} required className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none" />
+                  {/* FIX: Removed the substring interceptor that crashed Safari */}
+                  <input type="time" value={tplEnd} onChange={(e) => setTplEnd(e.target.value)} required className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 items-end">
                 <div className="flex flex-col justify-end h-full">
                   <label className="block text-sm font-black text-slate-900 mb-1.5 leading-tight">5. Start Date <span className="block font-bold text-[11px] text-slate-600 mt-0.5">(Leave blank)</span></label>
-                  <input type="date" value={tplStartDate} onChange={(e) => setTplStartDate(e.target.value)} className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none" />
+                  {/* FIX: Added relative wrapper and physical 'Clear' button to defeat Safari's un-clearable autofill bug */}
+                  <div className="relative flex items-center">
+                    <input type="date" name="tpl_start_date_ignore" autoComplete="off" value={tplStartDate} onChange={(e) => setTplStartDate(e.target.value)} className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none" />
+                    {tplStartDate && (
+                      <button type="button" onClick={() => setTplStartDate('')} className="absolute right-6 text-slate-400 hover:text-red-500 font-black text-lg p-1 bg-white" title="Clear Date">&times;</button>
+                    )}
+                  </div>
                 </div>
                 <div className="flex flex-col justify-end h-full">
                   <label className="block text-sm font-black text-slate-900 mb-1.5 leading-tight">End Date <span className="block font-bold text-[11px] text-slate-600 mt-0.5">(Leave blank)</span></label>
-                  <input type="date" value={tplEndDate} onChange={(e) => setTplEndDate(e.target.value)} className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none" />
+                  {/* FIX: Added relative wrapper and physical 'Clear' button to defeat Safari's un-clearable autofill bug */}
+                  <div className="relative flex items-center">
+                    <input type="date" name="tpl_end_date_ignore" autoComplete="off" value={tplEndDate} onChange={(e) => setTplEndDate(e.target.value)} className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none" />
+                    {tplEndDate && (
+                      <button type="button" onClick={() => setTplEndDate('')} className="absolute right-6 text-slate-400 hover:text-red-500 font-black text-lg p-1 bg-white" title="Clear Date">&times;</button>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="border-t-2 border-slate-200 pt-4 mt-4">
