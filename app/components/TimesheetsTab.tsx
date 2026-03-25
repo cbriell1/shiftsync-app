@@ -26,11 +26,11 @@ export default function TimesheetsTab({ appState }: any) {
   const[expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
   
   const[editingCardId, setEditingCardId] = useState<number | null>(null);
-  const [formUserId, setFormUserId] = useState('');
+  const[formUserId, setFormUserId] = useState('');
   const [formDate, setFormDate] = useState('');
   const[formStartTime, setFormStartTime] = useState('');
   const [formEndTime, setFormEndTime] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState('');
+  const[selectedLocation, setSelectedLocation] = useState('');
 
   const toggleGroup = (key: string) => setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
   const toggleReport = (id: number) => setExpandedReports(prev => ({ ...prev,[id]: !prev[id] }));
@@ -61,7 +61,6 @@ export default function TimesheetsTab({ appState }: any) {
     } catch (err) { console.error(err); }
   };
 
-  // FIX: Using local formatting to safely extract exactly "HH:mm"
   const handleEditClick = (card: TimeCard) => {
     const inD = new Date(card.clockIn);
     setFormDate(inD.toISOString().split('T')[0]);
@@ -150,14 +149,13 @@ export default function TimesheetsTab({ appState }: any) {
             
             <div className="col-span-1 sm:col-span-2 lg:col-span-2">
               <label className={labelClasses}>Clock In</label>
-              {/* FIX: Explicit step added */}
-              <input type="time" step="60" value={formStartTime} onChange={(e) => setFormStartTime(e.target.value)} required className={inputClasses} />
+              {/* FIX: Removed step="60" and enforced exact HH:mm formatting onChange to prevent Safari crash */}
+              <input type="time" value={formStartTime} onChange={(e) => setFormStartTime(e.target.value.substring(0, 5))} required className={inputClasses} />
             </div>
             
             <div className="col-span-1 sm:col-span-2 lg:col-span-2">
               <label className={labelClasses}>Clock Out</label>
-              {/* FIX: Explicit step added */}
-              <input type="time" step="60" value={formEndTime} onChange={(e) => setFormEndTime(e.target.value)} className={inputClasses} />
+              <input type="time" value={formEndTime} onChange={(e) => setFormEndTime(e.target.value.substring(0, 5))} className={inputClasses} />
             </div>
           </div>
 
@@ -178,6 +176,7 @@ export default function TimesheetsTab({ appState }: any) {
         </form>
       </div>
       
+      {/* TIMECARD ACCORDION VIEW */}
       <div className="space-y-4">
         {Object.keys(groupedCards).sort().map(locName => {
           const locKey = `loc-${locName}`;
@@ -208,63 +207,53 @@ export default function TimesheetsTab({ appState }: any) {
                               return (
                                 <div key={card.id} className="flex flex-col border-2 border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 transition-colors">
                                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 gap-4 bg-white">
-                                    
-                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-5">
-                                      <span className="font-black text-lg text-slate-800">{formatDateSafe(card.clockIn)}</span>
-                                      
-                                      <div className="flex items-center gap-3 text-sm font-black text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg shadow-inner">
+                                    <div className="flex items-center gap-4">
+                                      <span className="font-black text-slate-800">{formatDateSafe(card.clockIn)}</span>
+                                      <div className="flex items-center gap-2 text-sm font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-lg">
                                         <span className="text-green-700">{formatTimeSafe(card.clockIn)}</span>
-                                        <span className="text-slate-400">&rarr;</span>
-                                        <span className={!card.clockOut ? 'text-red-600 animate-pulse' : 'text-slate-800'}>
-                                          {!card.clockOut ? 'Active' : formatTimeSafe(card.clockOut!)}
-                                        </span>
+                                        <span>&rarr;</span>
+                                        <span className={!card.clockOut ? 'text-red-600 animate-pulse' : 'text-slate-800'}>{!card.clockOut ? 'Active' : formatTimeSafe(card.clockOut!)}</span>
                                       </div>
-                                      
-                                      <span className="text-sm font-black text-white bg-blue-600 px-3 py-1.5 rounded-lg shadow-sm">
-                                        {card.totalHours?.toFixed(2)}h
-                                      </span>
+                                      <span className="text-sm font-black text-blue-700">{card.totalHours?.toFixed(2)}h</span>
                                     </div>
-
-                                    <div className="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
-                                      <button onClick={() => handleEditClick(card)} className="flex-1 md:flex-none px-5 py-2 text-xs bg-white text-blue-700 border-2 border-blue-200 hover:bg-blue-50 font-black rounded-lg uppercase tracking-widest transition-colors">Edit</button>
-                                      <button onClick={() => handleDeleteClick(card.id)} className="flex-1 md:flex-none px-5 py-2 text-xs bg-white text-red-600 border-2 border-red-200 hover:bg-red-50 font-black rounded-lg uppercase tracking-widest transition-colors">Delete</button>
+                                    <div className="flex gap-2">
+                                      <button onClick={() => handleEditClick(card)} className="px-4 py-1.5 text-xs bg-orange-50 text-orange-900 border border-orange-200 font-black rounded-lg uppercase">Edit</button>
+                                      <button onClick={() => handleDeleteClick(card.id)} className="px-4 py-1.5 text-xs bg-slate-100 text-slate-700 border border-slate-300 font-black rounded-lg uppercase">Delete</button>
                                     </div>
                                   </div>
 
                                   {report && (
-                                    <div className="border-t-2 border-slate-200 bg-slate-50">
-                                      <button onClick={() => toggleReport(card.id)} className="w-full flex items-center justify-between p-3.5 text-xs font-black text-slate-600 hover:bg-slate-100 hover:text-slate-900 uppercase tracking-widest transition-colors">
-                                        <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-500"></span> Shift Report Attached</span>
-                                        <svg className={`h-4 w-4 transition-transform ${expandedReports[card.id] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                                    <div className="border-t border-slate-200 bg-slate-50">
+                                      <button onClick={() => toggleReport(card.id)} className="w-full flex items-center justify-between p-3 text-[10px] font-black text-slate-600 hover:bg-slate-100 uppercase tracking-widest">
+                                        <span>Shift Report Attached</span>
+                                        <svg className={`h-4 w-4 transition-transform ${expandedReports[card.id] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                       </button>
                                       
                                       {expandedReports[card.id] && (
-                                        <div className="p-4 pt-0 space-y-4">
+                                        <div className="p-4 pt-0 space-y-3">
                                           {report.previousShiftNotes && (
-                                            <div className="bg-pink-50 border-2 border-pink-200 p-4 rounded-xl shadow-inner">
-                                              <span className="text-[10px] font-black uppercase tracking-widest text-pink-700 block mb-1.5">Carry-Over from Previous Shift:</span>
-                                              <p className="text-sm font-bold text-pink-900 italic">"{report.previousShiftNotes}"</p>
+                                            <div className="bg-pink-50 border border-pink-200 p-3 rounded-lg shadow-inner">
+                                              <span className="text-[10px] font-black uppercase text-pink-700 block mb-1">Leftover Issues from Previous Shift:</span>
+                                              <p className="text-xs font-bold text-pink-900 italic">"{report.previousShiftNotes}"</p>
                                             </div>
                                           )}
 
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
                                             <div>
-                                              <span className="text-[10px] font-black uppercase tracking-widest text-green-700 mb-2.5 flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Completed</span>
-                                              <ul className="text-xs font-bold text-slate-700 pl-4 space-y-1 list-disc">
+                                              <span className="text-[10px] font-black uppercase text-green-700 mb-2 block">Completed</span>
+                                              <ul className="text-[10px] font-bold text-slate-700 pl-4 list-disc">
                                                 {report.completedTasks.map(t => <li key={t}>{t}</li>)}
-                                                {report.completedTasks.length === 0 && <li className="italic text-slate-400 list-none -ml-4">None</li>}
                                               </ul>
                                             </div>
                                             <div>
-                                              <span className="text-[10px] font-black uppercase tracking-widest text-red-700 mb-2.5 flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span> Missed</span>
-                                              <ul className="text-xs font-bold text-slate-700 pl-4 space-y-1 list-disc">
+                                              <span className="text-[10px] font-black uppercase text-red-700 mb-2 block">Missed</span>
+                                              <ul className="text-[10px] font-bold text-slate-700 pl-4 list-disc">
                                                 {report.missedTasks.map(t => <li key={t}>{t}</li>)}
-                                                {report.missedTasks.length === 0 && <li className="italic text-slate-400 list-none -ml-4">None</li>}
                                               </ul>
                                             </div>
                                           </div>
                                           {report.notes && (
-                                            <div className="bg-white p-4 border-l-4 border-blue-500 rounded-r-xl text-sm text-slate-800 font-bold shadow-sm italic">
+                                            <div className="bg-white p-3 border-l-4 border-slate-400 rounded-r-lg text-xs text-slate-800 font-bold shadow-sm italic">
                                               "{report.notes}"
                                             </div>
                                           )}
