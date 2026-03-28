@@ -1,6 +1,6 @@
 // filepath: app/components/DashboardTab.tsx
 "use client";
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { formatDateSafe, formatTimeSafe, generatePeriods } from '@/lib/common';
 import { TimeCard } from '../lib/types';
@@ -17,6 +17,7 @@ export default function DashboardTab({ appState }: any) {
   const setManLocs = useAppStore(state => state.setManLocs);
   const setManEmps = useAppStore(state => state.setManEmps);
   const selectedUserId = useAppStore(state => state.selectedUserId);
+  const fetchManagerData = useAppStore(state => state.fetchManagerData);
 
   const activeUser = users.find(u => u.id.toString() === selectedUserId);
   const isAdmin = activeUser?.systemRoles?.includes('Administrator');
@@ -25,7 +26,11 @@ export default function DashboardTab({ appState }: any) {
   const allowedLocationIds = activeUser?.locationIds?.map(id => typeof id === 'string' ? parseInt(id, 10) : id) ||[];
   const visibleLocations = isAdmin ? locations : locations.filter(loc => allowedLocationIds.includes(loc.id));
 
-  // State to track which matrix rows are expanded for drill-down
+  // FIX: Force the data to re-fetch automatically if any filters are changed
+  useEffect(() => {
+    fetchManagerData(isManager, selectedUserId);
+  },[manPeriods, manLocs, manEmps, isManager, selectedUserId, fetchManagerData]);
+
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
   const toggleManPeriod = (idx: number) => manPeriods.includes(idx) ? setManPeriods(manPeriods.filter(x => x !== idx)) : setManPeriods([...manPeriods, idx]);
@@ -55,7 +60,7 @@ export default function DashboardTab({ appState }: any) {
           empName: card.user?.name, 
           periodTotals: new Map(), 
           totalRowHours: 0,
-          cards:[] // <-- Storing the raw timecards for the drill-down
+          cards:[] 
         });
       }
       
@@ -71,7 +76,6 @@ export default function DashboardTab({ appState }: any) {
         }
       });
 
-      // If it belongs to one of the selected pay periods, attach it to the row
       if (inActivePeriod) {
         row.cards.push(card);
       }
@@ -82,7 +86,7 @@ export default function DashboardTab({ appState }: any) {
       matrixRows: Array.from(matrixMap.values()),
       hiddenWarnings: Array.from(hiddenMap.entries()).map(([k, v]) => `${k} (${Array.from(v).join(', ')})`)
     };
-  }, [managerData, manPeriods, periods, visibleLocations, manLocs]);
+  },[managerData, manPeriods, periods, visibleLocations, manLocs]);
 
   const suspiciousCards = useMemo(() => {
     return managerData.filter(c => c.totalHours && (c.totalHours > 10 || c.totalHours < 1));
@@ -105,7 +109,7 @@ export default function DashboardTab({ appState }: any) {
   };
 
   const toggleRow = (idx: number) => {
-    setExpandedRows(prev => ({ ...prev, [idx]: !prev[idx] }));
+    setExpandedRows(prev => ({ ...prev,[idx]: !prev[idx] }));
   };
 
   return (
@@ -272,7 +276,6 @@ export default function DashboardTab({ appState }: any) {
                       <td className="p-3 font-black text-blue-900 bg-blue-50 text-center border-l-2 border-blue-200">{row.totalRowHours.toFixed(2)}h</td>
                     </tr>
 
-                    {/* NEW: DRILL DOWN TABLE */}
                     {isExpanded && (
                       <tr className="bg-slate-100 border-b border-slate-300 shadow-inner">
                         <td colSpan={activeManPeriods.length + 3} className="p-4 md:p-6">

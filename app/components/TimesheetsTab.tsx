@@ -1,17 +1,24 @@
 // filepath: app/components/TimesheetsTab.tsx
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { TimeCard } from '../lib/types';
 import { useAppStore } from '@/lib/store';
-import { formatDateSafe, formatTimeSafe } from '@/lib/common';
+import { formatDateSafe, formatTimeSafe, generatePeriods } from '@/lib/common';
 
 export default function TimesheetsTab({ appState }: any) {
   const managerData = useAppStore(state => state.managerData);
   const users = useAppStore(state => state.users);
   const locations = useAppStore(state => state.locations);
-  const manLocs = useAppStore(state => state.manLocs);
   const checklists = useAppStore(state => state.checklists);
   const selectedUserId = useAppStore(state => state.selectedUserId);
+
+  // Filters State
+  const manPeriods = useAppStore(state => state.manPeriods);
+  const setManPeriods = useAppStore(state => state.setManPeriods);
+  const manLocs = useAppStore(state => state.manLocs);
+  const setManLocs = useAppStore(state => state.setManLocs);
+  const manEmps = useAppStore(state => state.manEmps);
+  const setManEmps = useAppStore(state => state.setManEmps);
 
   const fetchManagerData = useAppStore(state => state.fetchManagerData);
   const fetchTimeCards = useAppStore(state => state.fetchTimeCards);
@@ -21,19 +28,25 @@ export default function TimesheetsTab({ appState }: any) {
   const isManager = activeUserObj?.systemRoles?.includes('Manager') || isAdmin;
 
   const activeUsers = users.filter(u => u.isActive !== false);
+  const periods = useMemo(() => generatePeriods(),[]);
 
-  const[expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  // FIX: Force the data to re-fetch automatically if any filters are changed
+  useEffect(() => {
+    fetchManagerData(isManager, selectedUserId);
+  },[manPeriods, manLocs, manEmps, isManager, selectedUserId, fetchManagerData]);
+
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const[expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
   
   const[editingCardId, setEditingCardId] = useState<number | null>(null);
-  const[formUserId, setFormUserId] = useState('');
-  const [formDate, setFormDate] = useState('');
-  const[formStartTime, setFormStartTime] = useState('');
-  const [formEndTime, setFormEndTime] = useState('');
-  const[selectedLocation, setSelectedLocation] = useState('');
+  const [formUserId, setFormUserId] = useState('');
+  const[formDate, setFormDate] = useState('');
+  const [formStartTime, setFormStartTime] = useState('');
+  const[formEndTime, setFormEndTime] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
 
   const toggleGroup = (key: string) => setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
-  const toggleReport = (id: number) => setExpandedReports(prev => ({ ...prev,[id]: !prev[id] }));
+  const toggleReport = (id: number) => setExpandedReports(prev => ({ ...prev, [id]: !prev[id] }));
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,6 +125,42 @@ export default function TimesheetsTab({ appState }: any) {
         </div>
       </div>
 
+      {/* NEW: Global Filters explicitly added to Timesheets Tab */}
+      <div className="bg-slate-50 p-4 md:p-5 rounded-2xl border-2 border-slate-200 mb-8 flex flex-col sm:flex-row gap-4 shadow-inner">
+        <div className="flex-1">
+          <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Pay Period Filter</label>
+          <select 
+            value={manPeriods.length > 0 ? manPeriods[0] : 0} 
+            onChange={(e) => setManPeriods([parseInt(e.target.value)])} 
+            className="w-full border-2 border-slate-300 rounded-xl p-3 text-sm font-bold text-slate-900 bg-white focus:border-blue-600 outline-none shadow-sm cursor-pointer"
+          >
+            {periods.map((p, i) => <option key={i} value={i}>{p.label}</option>)}
+          </select>
+        </div>
+        <div className="flex-1">
+          <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Facility Filter</label>
+          <select 
+            value={manLocs.length === 1 ? manLocs[0] : ''} 
+            onChange={(e) => { const v = e.target.value; if(v === '') setManLocs([]); else setManLocs([parseInt(v)]); }} 
+            className="w-full border-2 border-slate-300 rounded-xl p-3 text-sm font-bold text-slate-900 bg-white focus:border-blue-600 outline-none shadow-sm cursor-pointer"
+          >
+            <option value="">All Locations</option>
+            {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name} {loc.isActive === false && '(Archived)'}</option>)}
+          </select>
+        </div>
+        <div className="flex-1">
+          <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Staff Filter</label>
+          <select 
+            value={manEmps.length === 1 ? manEmps[0] : ''} 
+            onChange={(e) => { const v = e.target.value; if(v === '') setManEmps([]); else setManEmps([parseInt(v)]); }} 
+            className="w-full border-2 border-slate-300 rounded-xl p-3 text-sm font-bold text-slate-900 bg-white focus:border-blue-600 outline-none shadow-sm cursor-pointer"
+          >
+            <option value="">All Staff</option>
+            {activeUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+        </div>
+      </div>
+
       <div className="bg-blue-50/40 p-5 md:p-7 rounded-2xl border-2 border-blue-100 mb-10 shadow-inner">
         <h2 className="text-lg md:text-xl font-black text-blue-950 mb-5 flex items-center gap-2">
           {editingCardId ? (
@@ -149,7 +198,6 @@ export default function TimesheetsTab({ appState }: any) {
             
             <div className="col-span-1 sm:col-span-2 lg:col-span-2">
               <label className={labelClasses}>Clock In</label>
-              {/* FIX: Removed step="60" and enforced exact HH:mm formatting onChange to prevent Safari crash */}
               <input type="time" value={formStartTime} onChange={(e) => setFormStartTime(e.target.value.substring(0, 5))} required className={inputClasses} />
             </div>
             
@@ -176,104 +224,119 @@ export default function TimesheetsTab({ appState }: any) {
         </form>
       </div>
       
-      {/* TIMECARD ACCORDION VIEW */}
       <div className="space-y-4">
-        {Object.keys(groupedCards).sort().map(locName => {
-          const locKey = `loc-${locName}`;
-          const empGroups = groupedCards[locName];
-          return (
-            <div key={locName} className="bg-white border-2 border-slate-300 rounded-2xl overflow-hidden shadow-sm">
-              <button onClick={() => toggleGroup(locKey)} className="w-full bg-slate-800 text-white p-5 flex justify-between items-center hover:bg-slate-700 transition">
-                <span className="text-xl font-black uppercase tracking-widest">{locName}</span>
-                <svg className={`h-6 w-6 transition-transform ${expandedGroups[locKey] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
-              </button>
+        {Object.keys(groupedCards).length === 0 ? (
+          <div className="bg-slate-50 border-2 border-dashed border-slate-300 p-12 text-center rounded-2xl">
+            <p className="text-slate-500 font-black uppercase tracking-widest">No timesheets match your active filters.</p>
+          </div>
+        ) : (
+          Object.keys(groupedCards).sort().map(locName => {
+            const locKey = `loc-${locName}`;
+            const empGroups = groupedCards[locName];
+            return (
+              <div key={locName} className="bg-white border-2 border-slate-300 rounded-2xl overflow-hidden shadow-sm">
+                <button onClick={() => toggleGroup(locKey)} className="w-full bg-slate-800 text-white p-5 flex justify-between items-center hover:bg-slate-700 transition">
+                  <span className="text-xl font-black uppercase tracking-widest">{locName}</span>
+                  <svg className={`h-6 w-6 transition-transform ${expandedGroups[locKey] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                </button>
 
-              {expandedGroups[locKey] && (
-                <div className="p-3 md:p-5 bg-slate-100 space-y-4">
-                  {Object.keys(empGroups).sort().map(empName => {
-                    const empKey = `emp-${locName}-${empName}`;
-                    const cards = empGroups[empName];
-                    return (
-                      <div key={empName} className="bg-white border border-slate-200 rounded-xl shadow-md overflow-hidden">
-                        <button onClick={() => toggleGroup(empKey)} className="w-full bg-blue-50 text-blue-950 p-4 flex justify-between items-center border-b-2 border-blue-100 hover:bg-blue-100/50 transition-colors">
-                          <span className="font-black text-lg tracking-tight">{empName}</span>
-                          <svg className={`h-5 w-5 text-blue-700 transition-transform ${expandedGroups[empKey] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
-                        </button>
-                        
-                        {expandedGroups[empKey] && (
-                          <div className="p-3 md:p-5 space-y-4 bg-white">
-                            {cards.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map(card => {
-                              const report = checklists.find(c => c.timeCardId === card.id);
-                              return (
-                                <div key={card.id} className="flex flex-col border-2 border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 transition-colors">
-                                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 gap-4 bg-white">
-                                    <div className="flex items-center gap-4">
-                                      <span className="font-black text-slate-800">{formatDateSafe(card.clockIn)}</span>
-                                      <div className="flex items-center gap-2 text-sm font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-lg">
-                                        <span className="text-green-700">{formatTimeSafe(card.clockIn)}</span>
-                                        <span>&rarr;</span>
-                                        <span className={!card.clockOut ? 'text-red-600 animate-pulse' : 'text-slate-800'}>{!card.clockOut ? 'Active' : formatTimeSafe(card.clockOut!)}</span>
-                                      </div>
-                                      <span className="text-sm font-black text-blue-700">{card.totalHours?.toFixed(2)}h</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <button onClick={() => handleEditClick(card)} className="px-4 py-1.5 text-xs bg-orange-50 text-orange-900 border border-orange-200 font-black rounded-lg uppercase">Edit</button>
-                                      <button onClick={() => handleDeleteClick(card.id)} className="px-4 py-1.5 text-xs bg-slate-100 text-slate-700 border border-slate-300 font-black rounded-lg uppercase">Delete</button>
-                                    </div>
-                                  </div>
-
-                                  {report && (
-                                    <div className="border-t border-slate-200 bg-slate-50">
-                                      <button onClick={() => toggleReport(card.id)} className="w-full flex items-center justify-between p-3 text-[10px] font-black text-slate-600 hover:bg-slate-100 uppercase tracking-widest">
-                                        <span>Shift Report Attached</span>
-                                        <svg className={`h-4 w-4 transition-transform ${expandedReports[card.id] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                      </button>
+                {expandedGroups[locKey] && (
+                  <div className="p-3 md:p-5 bg-slate-100 space-y-4">
+                    {Object.keys(empGroups).sort().map(empName => {
+                      const empKey = `emp-${locName}-${empName}`;
+                      const cards = empGroups[empName];
+                      return (
+                        <div key={empName} className="bg-white border border-slate-200 rounded-xl shadow-md overflow-hidden">
+                          <button onClick={() => toggleGroup(empKey)} className="w-full bg-blue-50 text-blue-950 p-4 flex justify-between items-center border-b-2 border-blue-100 hover:bg-blue-100/50 transition-colors">
+                            <span className="font-black text-lg tracking-tight">{empName}</span>
+                            <svg className={`h-5 w-5 text-blue-700 transition-transform ${expandedGroups[empKey] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                          </button>
+                          
+                          {expandedGroups[empKey] && (
+                            <div className="p-3 md:p-5 space-y-4 bg-white">
+                              {cards.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map(card => {
+                                const report = checklists.find(c => c.timeCardId === card.id);
+                                return (
+                                  <div key={card.id} className="flex flex-col border-2 border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 transition-colors">
+                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 gap-4 bg-white">
                                       
-                                      {expandedReports[card.id] && (
-                                        <div className="p-4 pt-0 space-y-3">
-                                          {report.previousShiftNotes && (
-                                            <div className="bg-pink-50 border border-pink-200 p-3 rounded-lg shadow-inner">
-                                              <span className="text-[10px] font-black uppercase text-pink-700 block mb-1">Leftover Issues from Previous Shift:</span>
-                                              <p className="text-xs font-bold text-pink-900 italic">"{report.previousShiftNotes}"</p>
-                                            </div>
-                                          )}
-
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                                            <div>
-                                              <span className="text-[10px] font-black uppercase text-green-700 mb-2 block">Completed</span>
-                                              <ul className="text-[10px] font-bold text-slate-700 pl-4 list-disc">
-                                                {report.completedTasks.map(t => <li key={t}>{t}</li>)}
-                                              </ul>
-                                            </div>
-                                            <div>
-                                              <span className="text-[10px] font-black uppercase text-red-700 mb-2 block">Missed</span>
-                                              <ul className="text-[10px] font-bold text-slate-700 pl-4 list-disc">
-                                                {report.missedTasks.map(t => <li key={t}>{t}</li>)}
-                                              </ul>
-                                            </div>
-                                          </div>
-                                          {report.notes && (
-                                            <div className="bg-white p-3 border-l-4 border-slate-400 rounded-r-lg text-xs text-slate-800 font-bold shadow-sm italic">
-                                              "{report.notes}"
-                                            </div>
-                                          )}
+                                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-5">
+                                        <span className="font-black text-lg text-slate-800">{formatDateSafe(card.clockIn)}</span>
+                                        
+                                        <div className="flex items-center gap-3 text-sm font-black text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg shadow-inner">
+                                          <span className="text-green-700">{formatTimeSafe(card.clockIn)}</span>
+                                          <span className="text-slate-400">&rarr;</span>
+                                          <span className={!card.clockOut ? 'text-red-600 animate-pulse' : 'text-slate-800'}>
+                                            {!card.clockOut ? 'Active' : formatTimeSafe(card.clockOut!)}
+                                          </span>
                                         </div>
-                                      )}
+                                        
+                                        <span className="text-sm font-black text-white bg-blue-600 px-3 py-1.5 rounded-lg shadow-sm">
+                                          {card.totalHours?.toFixed(2)}h
+                                        </span>
+                                      </div>
+
+                                      <div className="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
+                                        <button onClick={() => handleEditClick(card)} className="flex-1 md:flex-none px-5 py-2 text-xs bg-white text-blue-700 border-2 border-blue-200 hover:bg-blue-50 font-black rounded-lg uppercase tracking-widest transition-colors">Edit</button>
+                                        <button onClick={() => handleDeleteClick(card.id)} className="flex-1 md:flex-none px-5 py-2 text-xs bg-white text-red-600 border-2 border-red-200 hover:bg-red-50 font-black rounded-lg uppercase tracking-widest transition-colors">Delete</button>
+                                      </div>
                                     </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
+
+                                    {report && (
+                                      <div className="border-t-2 border-slate-200 bg-slate-50">
+                                        <button onClick={() => toggleReport(card.id)} className="w-full flex items-center justify-between p-3.5 text-xs font-black text-slate-600 hover:bg-slate-100 hover:text-slate-900 uppercase tracking-widest transition-colors">
+                                          <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-500"></span> Shift Report Attached</span>
+                                          <svg className={`h-4 w-4 transition-transform ${expandedReports[card.id] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                                        </button>
+                                        
+                                        {expandedReports[card.id] && (
+                                          <div className="p-4 pt-0 space-y-4">
+                                            {report.previousShiftNotes && (
+                                              <div className="bg-pink-50 border-2 border-pink-200 p-4 rounded-xl shadow-inner">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-pink-700 block mb-1.5">Carry-Over from Previous Shift:</span>
+                                                <p className="text-sm font-bold text-pink-900 italic">"{report.previousShiftNotes}"</p>
+                                              </div>
+                                            )}
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                              <div>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-green-700 mb-2.5 flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Completed</span>
+                                                <ul className="text-xs font-bold text-slate-700 pl-4 space-y-1 list-disc">
+                                                  {report.completedTasks.map(t => <li key={t}>{t}</li>)}
+                                                  {report.completedTasks.length === 0 && <li className="italic text-slate-400 list-none -ml-4">None</li>}
+                                                </ul>
+                                              </div>
+                                              <div>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-red-700 mb-2.5 flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span> Missed</span>
+                                                <ul className="text-xs font-bold text-slate-700 pl-4 space-y-1 list-disc">
+                                                  {report.missedTasks.map(t => <li key={t}>{t}</li>)}
+                                                  {report.missedTasks.length === 0 && <li className="italic text-slate-400 list-none -ml-4">None</li>}
+                                                </ul>
+                                              </div>
+                                            </div>
+                                            {report.notes && (
+                                              <div className="bg-white p-4 border-l-4 border-blue-500 rounded-r-xl text-sm text-slate-800 font-bold shadow-sm italic">
+                                                "{report.notes}"
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );
