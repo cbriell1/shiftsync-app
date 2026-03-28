@@ -229,9 +229,9 @@ function MainDashboard({ session }: { session: any }) {
   useEscapeKey(() => setSidebarOpen(false), sidebarOpen);
   useEscapeKey(() => setShowChecklistModal(false), showChecklistModal);
 
-  const [isMounted, setIsMounted] = useState(false);
+  const[isMounted, setIsMounted] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false); 
-  const[lastViewedFeedback, setLastViewedFeedback] = useState('1970-01-01T00:00:00.000Z');
+  const [lastViewedFeedback, setLastViewedFeedback] = useState('1970-01-01T00:00:00.000Z');
   const[lastViewedMessages, setLastViewedMessages] = useState('1970-01-01T00:00:00.000Z');
 
   const reportTargetCard = useAppStore(s => s.reportTargetCard);
@@ -279,7 +279,10 @@ function MainDashboard({ session }: { session: any }) {
   const systemHasAdmin = safeUsers.some(u => u.systemRoles && u.systemRoles.includes('Administrator'));
   
   const showDashboard = isManager || isFrontDesk; 
-  const showTimesheets = isManager;
+  
+  // FIX: Make Timesheets Tab visible to all Front Desk / Staff members so they can edit their own
+  const showTimesheets = isManager || isFrontDesk; 
+  
   const showSetup = isManager;
   const showBuilder = isManager; 
   const showStaff = isManager || isAdmin || !systemHasAdmin; 
@@ -331,7 +334,7 @@ function MainDashboard({ session }: { session: any }) {
   },[feedbacks, lastViewedFeedback, isManager, selectedUserId]);
 
   const unreadMessagesCount = useMemo(() => {
-    return [...messages, ...announcements].filter(item => {
+    return[...messages, ...announcements].filter(item => {
       const itemDate = new Date(item.createdAt).getTime();
       if (itemDate <= new Date(lastViewedMessages).getTime()) return false;
       if ('senderId' in item && item.senderId.toString() === selectedUserId) return false;
@@ -460,6 +463,8 @@ function MainDashboard({ session }: { session: any }) {
               <NavItem id="clock" icon={Clock} label="Time Clock" />
               <NavItem id="calendar" icon={Calendar} label="Schedule" />
               <NavItem id="manual" icon={FileText} label="My Time" />
+              {/* FIX: Timesheets added to the Workspace area so standard staff can view/edit their own */}
+              {showTimesheets && <NavItem id="timesheets" icon={FileText} label="Timesheets & Pay" badge={unapprovedCount} />}
               {showPasses && <NavItem id="privileges" icon={Gift} label="Guest Passes" />}
               {showGiftCards && <NavItem id="giftcards" icon={Gift} label="Gift Cards" />}
             </div>
@@ -484,7 +489,6 @@ function MainDashboard({ session }: { session: any }) {
               )}
               <div className="space-y-1">
                 {showDashboard && <NavItem id="dashboard" icon={LayoutDashboard} label="Payroll" />}
-                {showTimesheets && <NavItem id="timesheets" icon={FileText} label="Timesheets" badge={unapprovedCount} />}
                 {showBuilder && <NavItem id="builder" icon={CalendarDays} label="Builder" />}
                 {showStaff && <NavItem id="staff" icon={Users} label="Staff" />}
                 {showLocationsTab && <NavItem id="locations" icon={MapPin} label="Locations" />}

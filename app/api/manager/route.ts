@@ -4,7 +4,6 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/auth'; 
 
-// FIX: Stop Turbopack from pre-rendering
 export const dynamic = 'force-dynamic';
 
 const managerSchema = z.object({
@@ -15,18 +14,27 @@ const managerSchema = z.object({
   userIds: z.array(z.coerce.number()).optional(),
 });
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await request.json();
+    const body = await req.json();
     const { periods, userIds } = managerSchema.parse(body);
+
+    const userRoles = (session.user as any).systemRoles ||[];
+    const isManager = userRoles.includes('Administrator') || userRoles.includes('Manager');
+
+    // FIX: Forcefully override the request if the user is not a manager
+    let allowedUserIds = userIds;
+    if (!isManager) {
+      allowedUserIds =[parseInt(session.user?.id as string)];
+    }
 
     const whereClause: any = {};
 
-    if (userIds && userIds.length > 0) {
-      whereClause.userId = { in: userIds };
+    if (allowedUserIds && allowedUserIds.length > 0) {
+      whereClause.userId = { in: allowedUserIds };
     }
 
     if (periods && periods.length > 0) {

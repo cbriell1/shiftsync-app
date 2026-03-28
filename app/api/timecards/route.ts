@@ -2,7 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/auth'; // <-- Added Security
+import { auth } from '@/auth'; 
 
 export const dynamic = 'force-dynamic';
 
@@ -49,11 +49,7 @@ export async function GET(req: Request) {
 
     const timeCards = await prisma.timeCard.findMany({
       where: whereClause,
-      include: { 
-        user: true, 
-        location: true, 
-        checklists: true 
-      },
+      include: { user: true, location: true, checklists: true },
       orderBy: { clockIn: 'desc' },
       take: 100 
     });
@@ -98,6 +94,12 @@ export async function PUT(req: Request) {
 
     if (!data.id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
+    // FIX: Ensure the user is a manager OR owns the timecard
+    const isManager = await verifyManagementAccess();
+    if (!isManager && data.userId !== parseInt(session.user?.id as string)) {
+      return NextResponse.json({ error: "Forbidden. You can only edit your own timecards." }, { status: 403 });
+    }
+
     const updateData: any = {
       userId: data.userId,
       locationId: data.locationId,
@@ -106,7 +108,7 @@ export async function PUT(req: Request) {
       totalHours: calculateTotalHours(data.clockIn, data.clockOut), 
     };
 
-    if (data.status) updateData.status = data.status;
+    if (data.status && isManager) updateData.status = data.status; // Only managers can approve status
 
     const tc = await prisma.timeCard.update({
       where: { id: data.id },
@@ -121,12 +123,20 @@ export async function PUT(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    if (!(await verifyManagementAccess())) {
-      return NextResponse.json({ error: "Forbidden. Management access required to delete timecards." }, { status: 403 });
-    }
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const data = await req.json();
     const id = z.coerce.number().parse(data.id);
+    
+    const tc = await prisma.timeCard.findUnique({ where: { id } });
+    if (!tc) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    // FIX: Ensure the user is a manager OR owns the timecard
+    const isManager = await verifyManagementAccess();
+    if (!isManager && tc.userId !== parseInt(session.user?.id as string)) {
+      return NextResponse.json({ error: "Forbidden. You can only delete your own timecards." }, { status: 403 });
+    }
     
     await prisma.checklist.deleteMany({
       where: { timeCardId: id }

@@ -9,13 +9,12 @@ export default function TimesheetsTab({ appState }: any) {
   const managerData = useAppStore(state => state.managerData);
   const users = useAppStore(state => state.users);
   const locations = useAppStore(state => state.locations);
+  const manLocs = useAppStore(state => state.manLocs);
   const checklists = useAppStore(state => state.checklists);
   const selectedUserId = useAppStore(state => state.selectedUserId);
 
-  // Filters State
   const manPeriods = useAppStore(state => state.manPeriods);
   const setManPeriods = useAppStore(state => state.setManPeriods);
-  const manLocs = useAppStore(state => state.manLocs);
   const setManLocs = useAppStore(state => state.setManLocs);
   const manEmps = useAppStore(state => state.manEmps);
   const setManEmps = useAppStore(state => state.setManEmps);
@@ -30,7 +29,6 @@ export default function TimesheetsTab({ appState }: any) {
   const activeUsers = users.filter(u => u.isActive !== false);
   const periods = useMemo(() => generatePeriods(),[]);
 
-  // FIX: Force the data to re-fetch automatically if any filters are changed
   useEffect(() => {
     fetchManagerData(isManager, selectedUserId);
   },[manPeriods, manLocs, manEmps, isManager, selectedUserId, fetchManagerData]);
@@ -50,7 +48,10 @@ export default function TimesheetsTab({ appState }: any) {
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formUserId) return alert("Select an employee!");
+    
+    // FIX: Force target user to be the logged in user if not a manager
+    const targetUserId = isManager ? formUserId : selectedUserId;
+    if (!targetUserId) return alert("Select an employee!");
     if (!selectedLocation) return alert("Select a location!");
     if (!formDate || !formStartTime) return alert("Date and Start Time required!");
 
@@ -61,7 +62,7 @@ export default function TimesheetsTab({ appState }: any) {
       if (clockOutDateTime < clockInDateTime) clockOutDateTime.setDate(clockOutDateTime.getDate() + 1);
     }
     
-    const body: any = { userId: formUserId, locationId: selectedLocation, clockIn: clockInDateTime.toISOString(), clockOut: clockOutDateTime?.toISOString() || null };
+    const body: any = { userId: parseInt(targetUserId), locationId: selectedLocation, clockIn: clockInDateTime.toISOString(), clockOut: clockOutDateTime?.toISOString() || null };
     if (editingCardId) body.id = editingCardId;
 
     try {
@@ -72,6 +73,12 @@ export default function TimesheetsTab({ appState }: any) {
         await fetchTimeCards(selectedUserId);
       }
     } catch (err) { console.error(err); }
+  };
+
+  const cleanTimeStr = (t: string) => {
+    if (!t) return '';
+    const match = t.match(/\d{2}:\d{2}/);
+    return match ? match[0] : '';
   };
 
   const handleEditClick = (card: TimeCard) => {
@@ -111,7 +118,7 @@ export default function TimesheetsTab({ appState }: any) {
       acc[locName][empName].push(card);
       return acc;
     }, {});
-  }, [managerData, manLocs]);
+  },[managerData, manLocs]);
 
   const inputClasses = "w-full border-2 border-slate-300 rounded-xl px-4 py-3.5 text-base font-black text-slate-900 bg-white focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 outline-none shadow-sm transition-all";
   const labelClasses = "block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1";
@@ -120,12 +127,13 @@ export default function TimesheetsTab({ appState }: any) {
     <div className="bg-white p-4 md:p-6 rounded-2xl border border-gray-300 shadow-md animate-in fade-in duration-300">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-gray-200 pb-4 gap-4">
         <div>
-          <h2 className="text-lg md:text-2xl font-black text-slate-900">Timesheets & Auditing</h2>
+          <h2 className="text-lg md:text-2xl font-black text-slate-900">
+            {isManager ? 'Timesheets & Auditing' : 'My Pay Periods'}
+          </h2>
           <p className="text-sm font-bold text-slate-500 mt-1">Review hours and read shift reports inline.</p>
         </div>
       </div>
 
-      {/* NEW: Global Filters explicitly added to Timesheets Tab */}
       <div className="bg-slate-50 p-4 md:p-5 rounded-2xl border-2 border-slate-200 mb-8 flex flex-col sm:flex-row gap-4 shadow-inner">
         <div className="flex-1">
           <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Pay Period Filter</label>
@@ -148,17 +156,21 @@ export default function TimesheetsTab({ appState }: any) {
             {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name} {loc.isActive === false && '(Archived)'}</option>)}
           </select>
         </div>
-        <div className="flex-1">
-          <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Staff Filter</label>
-          <select 
-            value={manEmps.length === 1 ? manEmps[0] : ''} 
-            onChange={(e) => { const v = e.target.value; if(v === '') setManEmps([]); else setManEmps([parseInt(v)]); }} 
-            className="w-full border-2 border-slate-300 rounded-xl p-3 text-sm font-bold text-slate-900 bg-white focus:border-blue-600 outline-none shadow-sm cursor-pointer"
-          >
-            <option value="">All Staff</option>
-            {activeUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
-        </div>
+        
+        {/* FIX: Hide Staff Filter if not a manager */}
+        {isManager && (
+          <div className="flex-1">
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Staff Filter</label>
+            <select 
+              value={manEmps.length === 1 ? manEmps[0] : ''} 
+              onChange={(e) => { const v = e.target.value; if(v === '') setManEmps([]); else setManEmps([parseInt(v)]); }} 
+              className="w-full border-2 border-slate-300 rounded-xl p-3 text-sm font-bold text-slate-900 bg-white focus:border-blue-600 outline-none shadow-sm cursor-pointer"
+            >
+              <option value="">All Staff</option>
+              {activeUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="bg-blue-50/40 p-5 md:p-7 rounded-2xl border-2 border-blue-100 mb-10 shadow-inner">
@@ -173,15 +185,18 @@ export default function TimesheetsTab({ appState }: any) {
         <form onSubmit={handleManualSubmit}>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-4 md:gap-5 items-start">
             
-            <div className="col-span-2 sm:col-span-4 lg:col-span-3">
-              <label className={labelClasses}>Staff Member</label>
-              <select value={formUserId} onChange={(e) => setFormUserId(e.target.value)} required className={inputClasses}>
-                <option value="" className="text-slate-500 font-medium">-- Select Name --</option>
-                {activeUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
-            </div>
+            {/* FIX: Only Managers can select other staff members */}
+            {isManager && (
+              <div className="col-span-2 sm:col-span-4 lg:col-span-3">
+                <label className={labelClasses}>Staff Member</label>
+                <select value={formUserId} onChange={(e) => setFormUserId(e.target.value)} required className={inputClasses}>
+                  <option value="" className="text-slate-500 font-medium">-- Select Name --</option>
+                  {activeUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
+            )}
             
-            <div className="col-span-2 sm:col-span-4 lg:col-span-3">
+            <div className={`col-span-2 sm:col-span-4 ${isManager ? 'lg:col-span-3' : 'lg:col-span-4'}`}>
               <label className={labelClasses}>Facility</label>
               <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} required className={inputClasses}>
                 <option value="" className="text-slate-500 font-medium">-- Select Location --</option>
@@ -191,19 +206,19 @@ export default function TimesheetsTab({ appState }: any) {
               </select>
             </div>
             
-            <div className="col-span-2 sm:col-span-4 lg:col-span-2">
+            <div className={`col-span-2 sm:col-span-4 ${isManager ? 'lg:col-span-2' : 'lg:col-span-4'}`}>
               <label className={labelClasses}>Date</label>
               <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} required className={inputClasses} />
             </div>
             
             <div className="col-span-1 sm:col-span-2 lg:col-span-2">
               <label className={labelClasses}>Clock In</label>
-              <input type="time" value={formStartTime} onChange={(e) => setFormStartTime(e.target.value.substring(0, 5))} required className={inputClasses} />
+              <input type="time" value={formStartTime} onChange={(e) => setFormStartTime(cleanTimeStr(e.target.value))} required className={inputClasses} />
             </div>
             
             <div className="col-span-1 sm:col-span-2 lg:col-span-2">
               <label className={labelClasses}>Clock Out</label>
-              <input type="time" value={formEndTime} onChange={(e) => setFormEndTime(e.target.value.substring(0, 5))} className={inputClasses} />
+              <input type="time" value={formEndTime} onChange={(e) => setFormEndTime(cleanTimeStr(e.target.value))} className={inputClasses} />
             </div>
           </div>
 
