@@ -27,10 +27,10 @@ export default function TimesheetsTab({ appState }: any) {
   const isManager = activeUserObj?.systemRoles?.includes('Manager') || isAdmin;
 
   const activeUsers = users.filter(u => u.isActive !== false);
-  const periods = useMemo(() => generatePeriods(),[]);
+  const periods = useMemo(() => generatePeriods() as { label: string; start: string; end: string }[],[]);
 
   useEffect(() => {
-    fetchManagerData(isManager, selectedUserId);
+    fetchManagerData(!!isManager, selectedUserId);
   },[manPeriods, manLocs, manEmps, isManager, selectedUserId, fetchManagerData]);
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
@@ -56,13 +56,20 @@ export default function TimesheetsTab({ appState }: any) {
     if (!formDate || !formStartTime) return alert("Date and Start Time required!");
 
     const clockInDateTime = new Date(`${formDate}T${formStartTime}`);
-    let clockOutDateTime = null;
+    let clockOutDateTime: Date | null = null;
     if (formEndTime) {
       clockOutDateTime = new Date(`${formDate}T${formEndTime}`);
-      if (clockOutDateTime < clockInDateTime) clockOutDateTime.setDate(clockOutDateTime.getDate() + 1);
+      if (clockOutDateTime < clockInDateTime) {
+        clockOutDateTime.setDate(clockOutDateTime.getDate() + 1);
+      }
     }
     
-    const body: any = { userId: parseInt(targetUserId), locationId: selectedLocation, clockIn: clockInDateTime.toISOString(), clockOut: clockOutDateTime?.toISOString() || null };
+    const body: any = { 
+      userId: parseInt(targetUserId as string), 
+      locationId: selectedLocation, 
+      clockIn: clockInDateTime.toISOString(), 
+      clockOut: clockOutDateTime ? clockOutDateTime.toISOString() : null 
+    };
     if (editingCardId) body.id = editingCardId;
 
     try {
@@ -120,21 +127,50 @@ export default function TimesheetsTab({ appState }: any) {
     }, {});
   },[managerData, manLocs]);
 
+  const totalHours = useMemo(() => {
+    return (managerData || []).reduce((sum, card) => {
+      if (manLocs.length > 0 && !manLocs.includes(card.locationId)) return sum;
+      return sum + (card.totalHours || 0);
+    }, 0);
+  }, [managerData, manLocs]);
+
+  const getLocationSubtotal = (locName: string) => {
+    const empGroups = groupedCards[locName] || {};
+    return Object.values(empGroups).flat().reduce((sum, card) => sum + (card.totalHours || 0), 0);
+  };
+
   const inputClasses = "w-full border-2 border-slate-300 rounded-xl px-4 py-3.5 text-base font-black text-slate-900 bg-white focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 outline-none shadow-sm transition-all";
   const labelClasses = "block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1";
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
-    <div className="bg-white p-4 md:p-6 rounded-2xl border border-gray-300 shadow-md animate-in fade-in duration-300">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-gray-200 pb-4 gap-4">
+    <div className="bg-white p-4 md:p-6 rounded-2xl border border-gray-300 shadow-md animate-in fade-in duration-300 print:shadow-none print:border-none print:p-0">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-gray-200 pb-4 gap-4 print:mb-8">
         <div>
           <h2 className="text-lg md:text-2xl font-black text-slate-900">
             {isManager ? 'Timesheets & Auditing' : 'My Pay Periods'}
           </h2>
-          <p className="text-sm font-bold text-slate-500 mt-1">Review hours and read shift reports inline.</p>
+          <p className="text-sm font-bold text-slate-500 mt-1 print:hidden">Review hours and read shift reports inline.</p>
+          {!isManager && (
+            <div className="hidden print:block mt-2">
+              <p className="text-xl font-black text-slate-800 uppercase tracking-tight">{activeUserObj?.name}</p>
+              <p className="text-sm font-bold text-slate-600">Payroll Period: {periods[manPeriods[0] || 0]?.label}</p>
+            </div>
+          )}
         </div>
+        <button 
+          onClick={handlePrint}
+          className="w-full md:w-auto flex items-center justify-center gap-2 bg-slate-900 text-white font-black py-2.5 px-6 rounded-xl hover:bg-black transition-all text-sm uppercase tracking-widest print:hidden"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+          Print Timesheet
+        </button>
       </div>
 
-      <div className="bg-slate-50 p-4 md:p-5 rounded-2xl border-2 border-slate-200 mb-8 flex flex-col sm:flex-row gap-4 shadow-inner">
+      <div className="bg-slate-50 p-4 md:p-5 rounded-2xl border-2 border-slate-200 mb-8 flex flex-col sm:flex-row gap-4 shadow-inner print:hidden">
         <div className="flex-1">
           <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Pay Period Filter</label>
           <select 
@@ -173,7 +209,27 @@ export default function TimesheetsTab({ appState }: any) {
         )}
       </div>
 
-      <div className="bg-blue-50/40 p-5 md:p-7 rounded-2xl border-2 border-blue-100 mb-10 shadow-inner">
+      {/* Summary Card for Staff */}
+      {!isManager && (
+        <div className="bg-slate-900 text-white p-5 rounded-2xl mb-8 flex justify-between items-center shadow-lg border-b-4 border-yellow-400 print:bg-white print:text-slate-900 print:border-slate-300 print:rounded-none print:shadow-none print:px-0">
+          <div>
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 print:text-slate-500">Period Grand Total</h3>
+            <p className="text-3xl font-black tracking-tight">{totalHours.toFixed(2)} <span className="text-sm text-slate-400">Hours</span></p>
+          </div>
+          <div className="hidden md:block print:hidden">
+            <div className="flex gap-2">
+              {Object.keys(groupedCards).map(loc => (
+                <div key={loc} className="bg-slate-800 px-3 py-1 rounded-lg border border-slate-700">
+                  <span className="text-[8px] font-black uppercase text-slate-500 block">{loc}</span>
+                  <span className="text-xs font-bold">{getLocationSubtotal(loc).toFixed(2)}h</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-blue-50/40 p-5 md:p-7 rounded-2xl border-2 border-blue-100 mb-10 shadow-inner print:hidden">
         <h2 className="text-lg md:text-xl font-black text-blue-950 mb-5 flex items-center gap-2">
           {editingCardId ? (
             <><span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span> Edit Timecard</>
@@ -251,7 +307,10 @@ export default function TimesheetsTab({ appState }: any) {
             return (
               <div key={locName} className="bg-white border-2 border-slate-300 rounded-2xl overflow-hidden shadow-sm">
                 <button onClick={() => toggleGroup(locKey)} className="w-full bg-slate-800 text-white p-5 flex justify-between items-center hover:bg-slate-700 transition">
-                  <span className="text-xl font-black uppercase tracking-widest">{locName}</span>
+                  <div className="flex flex-col items-start">
+                    <span className="text-xl font-black uppercase tracking-widest">{locName}</span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subtotal: {getLocationSubtotal(locName).toFixed(2)}h</span>
+                  </div>
                   <svg className={`h-6 w-6 transition-transform ${expandedGroups[locKey] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
                 </button>
 
