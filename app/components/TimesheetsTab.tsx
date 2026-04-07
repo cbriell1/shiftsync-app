@@ -7,7 +7,7 @@ import { formatDateSafe, formatTimeSafe, generatePeriods } from '@/lib/common';
 import { notify } from '@/lib/ui-utils';
 
 // ==================================================================
-// 1. ISOLATED REPORT EDITOR (Ported from TimeCardTab)
+// 1. ISOLATED REPORT EDITOR
 // ==================================================================
 function ShiftReportEditor({ card, globalReport, assignedTasks, fetchChecklists }: any) {
   const [completedTasks, setCompletedTasks] = useState<string[]>(globalReport?.completedTasks || []);
@@ -126,14 +126,8 @@ export default function TimesheetsTab({ appState }: any) {
   const activeUsers = users.filter(u => u.isActive !== false);
   const periods = useMemo(() => generatePeriods() as { label: string; start: string; end: string }[],[]);
 
-  // State for Matrix Interaction
-  const [selectedCell, setSelectedCell] = useState<{ locId: number | null, periodIdx: number | null }>({ locId: null, periodIdx: null });
-
-  useEffect(() => {
-    fetchManagerData(!!isManager, selectedUserId);
-  },[manPeriods, manLocs, manEmps, isManager, selectedUserId, fetchManagerData]);
-
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  // State for Matrix Interaction & Drilldown
+  const [expandedLocs, setExpandedLocs] = useState<Record<number, boolean>>({});
   const[expandedReports, setExpandedReports] = useState<Record<number, boolean>>({});
   
   const[editingCardId, setEditingCardId] = useState<number | null>(null);
@@ -143,7 +137,11 @@ export default function TimesheetsTab({ appState }: any) {
   const[formEndTime, setFormEndTime] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
 
-  const toggleGroup = (key: string) => setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
+  useEffect(() => {
+    fetchManagerData(!!isManager, selectedUserId);
+  },[manPeriods, manLocs, manEmps, isManager, selectedUserId, fetchManagerData]);
+
+  const toggleLocDrilldown = (locId: number) => setExpandedLocs(prev => ({ ...prev, [locId]: !prev[locId] }));
   const toggleReport = (id: number) => setExpandedReports(prev => ({ ...prev, [id]: !prev[id] }));
 
   const handleManualSubmit = async (e: React.FormEvent) => {
@@ -193,6 +191,11 @@ export default function TimesheetsTab({ appState }: any) {
     await fetchTimeCards(selectedUserId);
   };
 
+  const togglePeriod = (idx: number) => {
+    if (manPeriods.includes(idx)) setManPeriods(manPeriods.filter(i => i !== idx));
+    else setManPeriods([...manPeriods, idx]);
+  };
+
   // Matrix Logic
   const matrixData = useMemo(() => {
     const activePeriods = manPeriods.map(idx => periods[idx]);
@@ -204,42 +207,24 @@ export default function TimesheetsTab({ appState }: any) {
       
       const locName = card.location?.name || 'Unknown Facility';
       if (!matrixMap.has(locId)) {
-        matrixMap.set(locId, { locId, locName, periodTotals: new Array(activePeriods.length).fill(0), totalRowHours: 0 });
+        matrixMap.set(locId, { locId, locName, periodTotals: new Array(activePeriods.length).fill(0), totalRowHours: 0, allCards:[] });
       }
       
       const row = matrixMap.get(locId);
+      let inAnySelectedPeriod = false;
       activePeriods.forEach((p, pIdx) => {
         const cDate = new Date(card.clockIn);
         if (cDate >= new Date(p.start) && cDate <= new Date(new Date(p.end).setHours(23,59,59))) {
           row.periodTotals[pIdx] += (card.totalHours || 0);
           row.totalRowHours += (card.totalHours || 0);
+          inAnySelectedPeriod = true;
         }
       });
+      if (inAnySelectedPeriod) row.allCards.push(card);
     });
 
     return Array.from(matrixMap.values()).sort((a, b) => a.locName.localeCompare(b.locName));
   }, [managerData, manPeriods, periods, manLocs]);
-
-  const filteredCards = useMemo(() => {
-    return (managerData || []).filter(card => {
-      // 1. Basic Filters
-      if (manLocs.length > 0 && !manLocs.includes(card.locationId)) return false;
-      
-      // 2. Matrix Filter (Drill-down)
-      if (selectedCell.locId !== null && card.locationId !== selectedCell.locId) return false;
-      if (selectedCell.periodIdx !== null) {
-        const p = periods[manPeriods[selectedCell.periodIdx]];
-        const cDate = new Date(card.clockIn);
-        if (!(cDate >= new Date(p.start) && cDate <= new Date(new Date(p.end).setHours(23,59,59)))) return false;
-      }
-      
-      return true;
-    });
-  }, [managerData, manLocs, selectedCell, periods, manPeriods]);
-
-  const totalHoursSummary = useMemo(() => {
-    return filteredCards.reduce((sum, card) => sum + (card.totalHours || 0), 0);
-  }, [filteredCards]);
 
   const handlePrint = () => window.print();
 
@@ -259,7 +244,7 @@ export default function TimesheetsTab({ appState }: any) {
           {!isManager && (
             <div className="hidden print:block mt-2">
               <p className="text-xl font-black text-slate-800 uppercase tracking-tight">{activeUserObj?.name}</p>
-              <p className="text-sm font-bold text-slate-600">Payroll Period Summary</p>
+              <p className="text-sm font-bold text-slate-600">Payroll History Report</p>
             </div>
           )}
         </div>
@@ -271,7 +256,163 @@ export default function TimesheetsTab({ appState }: any) {
         </div>
       </div>
 
-      {/* 1. Log Missing Shift (Staff Tool) */}
+      {/* 1. Multi-Period Selection & Filters */}
+      <div className="bg-white border-2 border-slate-200 rounded-2xl p-5 shadow-sm print:hidden">
+        <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-yellow-400"></span> Payroll Period Filters
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div>
+            <label className={labelClasses}>Active Pay Periods</label>
+            <div className="border-2 border-slate-200 rounded-xl p-2 h-40 overflow-y-auto bg-slate-50 flex flex-col gap-1 shadow-inner">
+              {periods.map((p, i) => (
+                <label key={i} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${manPeriods.includes(i) ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-200 text-slate-700'}`}>
+                  <input type="checkbox" checked={manPeriods.includes(i)} onChange={() => togglePeriod(i)} className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300" />
+                  <span className="text-xs font-black tracking-tight">{p.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => setManPeriods(periods.map((_, i) => i))} className="text-[10px] font-black uppercase text-blue-600 hover:underline">Select All</button>
+              <button onClick={() => setManPeriods([0])} className="text-[10px] font-black uppercase text-slate-500 hover:underline">Current Only</button>
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClasses}>Facility Filter</label>
+            <div className="border-2 border-slate-200 rounded-xl p-2 h-40 overflow-y-auto bg-slate-50 flex flex-col gap-1 shadow-inner">
+              {locations.map(loc => (
+                <label key={loc.id} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${manLocs.includes(loc.id) ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-slate-200 text-slate-700'}`}>
+                  <input type="checkbox" checked={manLocs.includes(loc.id)} onChange={() => { if(manLocs.includes(loc.id)) setManLocs(manLocs.filter(id => id !== loc.id)); else setManLocs([...manLocs, loc.id]); }} className="w-4 h-4 rounded" />
+                  <span className="text-xs font-black tracking-tight">{loc.name}</span>
+                </label>
+              ))}
+            </div>
+            <button onClick={() => setManLocs([])} className="text-[10px] font-black uppercase text-slate-500 hover:underline mt-2">Clear Selection</button>
+          </div>
+
+          {isManager && (
+            <div>
+              <label className={labelClasses}>Staff Member Filter</label>
+              <div className="border-2 border-slate-200 rounded-xl p-2 h-40 overflow-y-auto bg-slate-50 flex flex-col gap-1 shadow-inner">
+                {activeUsers.map(u => (
+                  <label key={u.id} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${manEmps.includes(u.id) ? 'bg-slate-800 text-white shadow-md' : 'hover:bg-slate-200 text-slate-700'}`}>
+                    <input type="checkbox" checked={manEmps.includes(u.id)} onChange={() => { if(manEmps.includes(u.id)) setManEmps(manEmps.filter(id => id !== u.id)); else setManEmps([...manEmps, u.id]); }} className="w-4 h-4 rounded" />
+                    <span className="text-xs font-black tracking-tight">{u.name}</span>
+                  </label>
+                ))}
+              </div>
+              <button onClick={() => setManEmps([])} className="text-[10px] font-black uppercase text-slate-500 hover:underline mt-2">Clear Selection</button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 2. Integrated Hours Matrix & Drill-Down */}
+      <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm">
+        <div className="bg-slate-900 p-4 print:bg-white print:border-b-2 print:border-slate-300">
+          <h3 className="text-sm font-black text-white uppercase tracking-widest print:text-slate-900 italic">Consolidated Hours Matrix</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-slate-100 text-slate-600 border-b border-slate-200">
+              <tr>
+                <th className="p-4 font-black uppercase border-r border-slate-200">Facility</th>
+                {manPeriods.map((idx) => (
+                  <th key={idx} className="p-4 font-black uppercase text-center border-r border-slate-200 bg-slate-50/50">
+                    {periods[idx].label.split(' - ')[0]}...
+                  </th>
+                ))}
+                <th className="p-4 font-black uppercase text-center bg-slate-200 text-slate-900">Facility Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {matrixData.length === 0 ? (
+                <tr><td colSpan={manPeriods.length + 2} className="p-12 text-center font-bold text-slate-400 italic">No data found for the selected filters.</td></tr>
+              ) : (
+                matrixData.map(row => (
+                  <React.Fragment key={row.locId}>
+                    <tr onClick={() => toggleLocDrilldown(row.locId)} className={`group hover:bg-blue-50 transition-colors cursor-pointer ${expandedLocs[row.locId] ? 'bg-blue-50/50' : ''}`}>
+                      <td className="p-4 font-black border-r border-slate-200 text-slate-800 flex items-center justify-between">
+                        <span>{row.locName}</span>
+                        <svg className={`h-4 w-4 text-slate-400 group-hover:text-blue-600 transition-transform ${expandedLocs[row.locId] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                      </td>
+                      {row.periodTotals.map((total: number, pIdx: number) => (
+                        <td key={pIdx} className={`p-4 text-center font-bold border-r border-slate-200 ${total > 0 ? 'text-green-700' : 'text-slate-300'}`}>
+                          {total > 0 ? total.toFixed(2) + 'h' : '-'}
+                        </td>
+                      ))}
+                      <td className="p-4 text-center font-black bg-slate-50 text-slate-900">{row.totalRowHours.toFixed(2)}h</td>
+                    </tr>
+                    
+                    {/* INLINE DRILL DOWN */}
+                    {expandedLocs[row.locId] && (
+                      <tr className="bg-slate-100 border-b border-slate-300 shadow-inner print:bg-white">
+                        <td colSpan={manPeriods.length + 2} className="p-4 md:p-6">
+                          <div className="space-y-3 w-full lg:w-[95%] mx-auto">
+                            <h4 className="text-[10px] font-black uppercase text-blue-700 mb-2 tracking-widest">Shift Details: {row.locName}</h4>
+                            {row.allCards.sort((a: any, b: any) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map((card: TimeCard) => {
+                              const report = checklists.find(c => c.timeCardId === card.id);
+                              const isRepExpanded = expandedReports[card.id];
+                              const tcDate = new Date(card.clockIn);
+                              const day = tcDate.getDay();
+                              const mins = tcDate.getHours() * 60 + tcDate.getMinutes();
+                              const todayTpls = templates?.filter(t => t.locationId === card.locationId && t.dayOfWeek === day) || [];
+                              let bestTpl = todayTpls.length === 1 ? todayTpls[0] : (todayTpls.length > 1 ? todayTpls.reduce((min, t) => {
+                                const p = t.startTime.split(':');
+                                const d = Math.abs(mins - (parseInt(p[0]) * 60 + parseInt(p[1])));
+                                return d < min.diff ? { diff: d, t } : min;
+                              }, { diff: 9999, t: todayTpls[0] }).t : null);
+                              const assignedTasks = bestTpl ? (bestTpl.checklistTasks || []) : [];
+                              const progress = assignedTasks.length > 0 ? Math.round(((report?.completedTasks?.length || 0) / assignedTasks.length) * 100) : (report ? 100 : 0);
+
+                              return (
+                                <div key={card.id} className="bg-white border-2 border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                  <div className="p-3 flex flex-col sm:flex-row justify-between items-center gap-3">
+                                    <div className="flex items-center gap-4">
+                                      <span className="font-black text-sm text-slate-900">{formatDateSafe(card.clockIn)}</span>
+                                      <div className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1 rounded-lg">
+                                        <span className="text-green-700">{formatTimeSafe(card.clockIn)}</span>
+                                        <span className="text-slate-300">→</span>
+                                        <span className={!card.clockOut ? 'text-red-500 animate-pulse' : 'text-slate-800'}>{card.clockOut ? formatTimeSafe(card.clockOut) : 'ACTIVE'}</span>
+                                      </div>
+                                      <span className="text-xs font-black text-blue-700 bg-blue-50 px-2 py-1 rounded-md">{card.totalHours?.toFixed(2)}h</span>
+                                    </div>
+                                    <div className="flex gap-2 print:hidden">
+                                      <button onClick={(e) => { e.stopPropagation(); toggleReport(card.id); }} className={`px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-widest border transition-all ${isRepExpanded ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'}`}>Report ({progress}%)</button>
+                                      <button onClick={(e) => { e.stopPropagation(); handleEditClick(card); }} className="px-3 py-1.5 text-[10px] font-black bg-white text-blue-700 border border-blue-100 hover:bg-blue-50 rounded-lg uppercase transition-all">Edit</button>
+                                      <button onClick={(e) => { e.stopPropagation(); handleDeleteClick(card.id); }} className="px-3 py-1.5 text-[10px] font-black bg-white text-red-600 border border-red-100 hover:bg-red-50 rounded-lg uppercase transition-all">Delete</button>
+                                    </div>
+                                  </div>
+                                  {isRepExpanded && (
+                                    <div className="border-t border-slate-100">
+                                      <ShiftReportEditor card={card} globalReport={report} assignedTasks={assignedTasks} fetchChecklists={fetchChecklists} />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                )
+              ))}
+              <tr className="bg-slate-900 text-white font-black print:text-slate-900 print:bg-slate-100">
+                <td className="p-4 uppercase italic">Grand Total</td>
+                {manPeriods.map((_, pIdx) => {
+                  const pTotal = matrixData.reduce((sum, row) => sum + row.periodTotals[pIdx], 0);
+                  return <td key={pIdx} className="p-4 text-center text-lg tracking-tighter">{pTotal.toFixed(2)}h</td>;
+                })}
+                <td className="p-4 text-center text-xl text-yellow-400 print:text-blue-700">{matrixData.reduce((sum, row) => sum + row.totalRowHours, 0).toFixed(2)}h</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 3. Log Missing Shift (Remains at bottom or top as a tool) */}
       <div className="bg-blue-50/40 p-5 md:p-7 rounded-2xl border-2 border-blue-100 shadow-inner print:hidden">
         <h3 className="text-lg font-black text-blue-950 mb-5 flex items-center gap-2">
           {editingCardId ? <><span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span> Edit Timecard</> : <><span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Log Missing Shift</>}
@@ -314,130 +455,6 @@ export default function TimesheetsTab({ appState }: any) {
             {editingCardId && <button type="button" onClick={() => { setEditingCardId(null); setFormUserId(''); setFormDate(''); setFormStartTime(''); setFormEndTime(''); setSelectedLocation(''); }} className="w-full sm:w-auto bg-white border-2 border-slate-300 text-slate-700 font-black py-3.5 px-8 rounded-xl hover:bg-slate-50 transition-colors text-sm uppercase tracking-widest shadow-sm">Cancel Edit</button>}
           </div>
         </form>
-      </div>
-
-      {/* 2. Payroll Matrix Summary (Payroll View Style) */}
-      <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm">
-        <div className="bg-slate-900 p-4 flex justify-between items-center print:bg-white print:border-b-2 print:border-slate-300">
-          <h3 className="text-sm font-black text-white uppercase tracking-widest print:text-slate-900 italic">Hours Summary Matrix</h3>
-          <div className="flex gap-2 print:hidden">
-            <button onClick={() => setSelectedCell({ locId: null, periodIdx: null })} className={`text-[10px] font-black uppercase px-3 py-1 rounded-full transition-all ${selectedCell.locId === null && selectedCell.periodIdx === null ? 'bg-yellow-400 text-slate-950' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>Show All</button>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-100 text-slate-600 border-b border-slate-200">
-              <tr>
-                <th className="p-4 font-black uppercase border-r border-slate-200">Facility</th>
-                {manPeriods.map((idx, i) => (
-                  <th key={idx} className={`p-4 font-black uppercase text-center border-r border-slate-200 ${selectedCell.periodIdx === i ? 'bg-yellow-50 text-blue-700' : ''}`}>
-                    {periods[idx].label.split(' - ')[0]}...
-                  </th>
-                ))}
-                <th className="p-4 font-black uppercase text-center bg-slate-200 text-slate-900">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {matrixData.map(row => (
-                <tr key={row.locId} className="hover:bg-slate-50 transition-colors">
-                  <td onClick={() => setSelectedCell(prev => prev.locId === row.locId ? { ...prev, locId: null } : { ...prev, locId: row.locId })} className={`p-4 font-black border-r border-slate-200 cursor-pointer ${selectedCell.locId === row.locId ? 'bg-blue-50 text-blue-700' : 'text-slate-800'}`}>
-                    {row.locName}
-                  </td>
-                  {row.periodTotals.map((total: number, pIdx: number) => (
-                    <td 
-                      key={pIdx} 
-                      onClick={() => setSelectedCell({ locId: row.locId, periodIdx: pIdx })}
-                      className={`p-4 text-center font-bold border-r border-slate-200 cursor-pointer transition-all ${total > 0 ? 'text-green-700 bg-green-50/30' : 'text-slate-300'} ${selectedCell.locId === row.locId && selectedCell.periodIdx === pIdx ? 'ring-4 ring-inset ring-yellow-400 !bg-yellow-50 !text-slate-900' : ''}`}
-                    >
-                      {total > 0 ? total.toFixed(2) + 'h' : '-'}
-                    </td>
-                  ))}
-                  <td className="p-4 text-center font-black bg-slate-50 text-slate-900">{row.totalRowHours.toFixed(2)}h</td>
-                </tr>
-              ))}
-              <tr className="bg-slate-900 text-white font-black print:text-slate-900 print:bg-slate-100">
-                <td className="p-4 uppercase italic">Grand Total</td>
-                {manPeriods.map((_, pIdx) => {
-                  const pTotal = matrixData.reduce((sum, row) => sum + row.periodTotals[pIdx], 0);
-                  return <td key={pIdx} className="p-4 text-center text-lg tracking-tighter">{pTotal.toFixed(2)}h</td>;
-                })}
-                <td className="p-4 text-center text-xl text-yellow-400 print:text-blue-700">{matrixData.reduce((sum, row) => sum + row.totalRowHours, 0).toFixed(2)}h</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 3. Detailed Shift List (Drill-down) */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-end">
-          <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tight">
-            {selectedCell.locId !== null || selectedCell.periodIdx !== null ? 'Filtered Detail View' : 'Individual Timecards'}
-          </h3>
-          <span className="text-xs font-bold text-slate-500 uppercase">Showing {filteredCards.length} shifts | {totalHoursSummary.toFixed(2)}h</span>
-        </div>
-
-        {filteredCards.length === 0 ? (
-          <div className="bg-slate-50 border-2 border-dashed border-slate-300 p-12 text-center rounded-2xl shadow-inner">
-            <p className="text-slate-400 font-black uppercase tracking-widest">No shifts found for this selection.</p>
-          </div>
-        ) : (
-          filteredCards.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map(card => {
-            const report = checklists.find(c => c.timeCardId === card.id);
-            const isExpanded = expandedReports[card.id];
-            
-            // Find best template for checklist
-            const tcDate = new Date(card.clockIn);
-            const day = tcDate.getDay();
-            const mins = tcDate.getHours() * 60 + tcDate.getMinutes();
-            const todayTpls = templates?.filter(t => t.locationId === card.locationId && t.dayOfWeek === day) || [];
-            let bestTpl = todayTpls.length === 1 ? todayTpls[0] : (todayTpls.length > 1 ? todayTpls.reduce((min, t) => {
-              const p = t.startTime.split(':');
-              const d = Math.abs(mins - (parseInt(p[0]) * 60 + parseInt(p[1])));
-              return d < min.diff ? { diff: d, t } : min;
-            }, { diff: 9999, t: todayTpls[0] }).t : null);
-            const assignedTasks = bestTpl ? (bestTpl.checklistTasks || []) : [];
-            const progress = assignedTasks.length > 0 ? Math.round(((report?.completedTasks?.length || 0) / assignedTasks.length) * 100) : (report ? 100 : 0);
-
-            return (
-              <div key={card.id} className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:border-slate-300 transition-all">
-                <div className="p-4 md:p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-6">
-                    <div className="flex flex-col">
-                      <span className="font-black text-lg text-slate-900 leading-none">{formatDateSafe(card.clockIn)}</span>
-                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{card.location?.name}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 text-sm font-bold text-slate-700 bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl">
-                      <span className="text-green-700">{formatTimeSafe(card.clockIn)}</span>
-                      <span className="text-slate-300">→</span>
-                      <span className={!card.clockOut ? 'text-red-500 animate-pulse' : 'text-slate-800'}>{card.clockOut ? formatTimeSafe(card.clockOut) : 'ACTIVE'}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-black text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">{card.totalHours?.toFixed(2)}h</span>
-                      <span className={`text-[10px] font-black uppercase px-2 py-1 rounded border ${progress === 100 ? 'bg-green-100 text-green-800 border-green-200' : 'bg-slate-100 text-slate-600'}`}>{progress}% Report</span>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 w-full md:w-auto print:hidden">
-                    <button onClick={() => toggleReport(card.id)} className={`flex-1 md:flex-none px-4 py-2 text-xs font-black rounded-lg uppercase tracking-widest border-2 transition-all ${isExpanded ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-                      {isExpanded ? 'Close Report' : 'Shift Report'}
-                    </button>
-                    <button onClick={() => handleEditClick(card)} className="px-4 py-2 text-xs bg-white text-blue-700 border-2 border-blue-100 hover:bg-blue-50 font-black rounded-lg uppercase tracking-widest transition-all">Edit</button>
-                    <button onClick={() => handleDeleteClick(card.id)} className="px-4 py-2 text-xs bg-white text-red-600 border-2 border-red-100 hover:bg-red-50 font-black rounded-lg uppercase tracking-widest transition-all">Delete</button>
-                  </div>
-                </div>
-
-                {isExpanded && (
-                  <div className="border-t-2 border-slate-100">
-                    <ShiftReportEditor card={card} globalReport={report} assignedTasks={assignedTasks} fetchChecklists={fetchChecklists} />
-                  </div>
-                )}
-              </div>
-            );
-          })
-        )}
       </div>
     </div>
   );
