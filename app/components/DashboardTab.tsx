@@ -40,7 +40,7 @@ export default function DashboardTab({ appState }: any) {
   const periods = useMemo(() => generatePeriods(),[]);
 
   const { matrixRows, hiddenWarnings, activeManPeriods } = useMemo(() => {
-    const activePeriods = manPeriods.map(idx => periods[idx]);
+    const activePeriods = manPeriods.map(idx => periods[idx]) as { label: string; start: string; end: string }[];
     const matrixMap = new Map();
     const hiddenMap = new Map();
 

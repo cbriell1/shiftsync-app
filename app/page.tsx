@@ -10,7 +10,6 @@ import { getMonday } from '@/lib/common';
 import { Menu, X, Clock, Calendar, FileText, Settings, Users, MessageSquare, MapPin, LayoutDashboard, CalendarDays, Gift, AlertCircle, LogOut, Smartphone, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import CalendarTab from './components/CalendarTab';
-import TimeCardTab from './components/TimeCardTab';
 import DashboardTab from './components/DashboardTab';
 import TimesheetsTab from './components/TimesheetsTab';
 import PrivilegesTab from './components/PrivilegesTab';
@@ -447,8 +446,7 @@ function MainDashboard({ session }: { session: any }) {
             <div className="space-y-1">
               <NavItem id="clock" icon={Clock} label="Time Clock" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
               <NavItem id="calendar" icon={Calendar} label="Schedule" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
-              <NavItem id="manual" icon={FileText} label="My Time" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
-              {showTimesheets && <NavItem id="timesheets" icon={FileText} label="Timesheets & Pay" badge={unapprovedCount} activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
+              {showTimesheets && <NavItem id="timesheets" icon={FileText} label="My Timesheet" badge={unapprovedCount} activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
               {showPasses && <NavItem id="privileges" icon={Gift} label="Guest Passes" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
               {showGiftCards && <NavItem id="giftcards" icon={Gift} label="Gift Cards" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
             </div>
@@ -516,7 +514,6 @@ function MainDashboard({ session }: { session: any }) {
           <div className={`mx-auto transition-all duration-300 w-full ${isCollapsed ? 'max-w-full' : 'max-w-7xl'}`}>
             {activeTab === 'clock' && <TimeClockTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'calendar' && <CalendarTab appState={legacyAppStatePlaceholder} />}
-            {activeTab === 'manual' && <TimeCardTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'dashboard' && <DashboardTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'timesheets' && <TimesheetsTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'privileges' && <PrivilegesTab appState={legacyAppStatePlaceholder} />}

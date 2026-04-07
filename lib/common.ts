@@ -38,12 +38,13 @@ export const getMonday = (d: Date) => {
   return new Date(dt.setDate(diff)).toISOString().split('T')[0]; 
 };
 
-export const generatePeriods = () => {
-  const p =[];
-  const today = new Date();
-  let curM = today.getMonth();
-  let curY = today.getFullYear();
-  if (today.getDate() < 28) { curM--; if(curM < 0) { curM = 11; curY--; } }
+export const generatePeriods = (): { label: string; start: string; end: string }[] => {
+  const p: { label: string; start: string; end: string }[] =[];
+  const cur = new Date();
+
+  let curM = cur.getMonth();
+  let curY = cur.getFullYear();
+  if (cur.getDate() < 28) { curM--; if(curM < 0) { curM = 11; curY--; } }
   for(let i = 0; i < 6; i++) {
     const s = new Date(curY, curM - i, 28);
     const e = new Date(curY, curM - i + 1, 27);
