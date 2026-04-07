@@ -10,7 +10,6 @@ import { getMonday } from '@/lib/common';
 import { Menu, X, Clock, Calendar, FileText, Settings, Users, MessageSquare, MapPin, LayoutDashboard, CalendarDays, Gift, AlertCircle, LogOut, Smartphone, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import CalendarTab from './components/CalendarTab';
-import ScheduleBuilderTab from './components/ScheduleBuilderTab';
 import TimeCardTab from './components/TimeCardTab';
 import DashboardTab from './components/DashboardTab';
 import TimesheetsTab from './components/TimesheetsTab';
@@ -279,12 +278,10 @@ function MainDashboard({ session }: { session: any }) {
   const systemHasAdmin = safeUsers.some(u => u.systemRoles && u.systemRoles.includes('Administrator'));
   
   const showDashboard = isManager || isFrontDesk; 
-  
-  // FIX: Make Timesheets Tab visible to all Front Desk / Staff members so they can edit their own
   const showTimesheets = isManager || isFrontDesk; 
   
+  // FIX: Setup Tab now handles both Setup AND Builder
   const showSetup = isManager;
-  const showBuilder = isManager; 
   const showStaff = isManager || isAdmin || !systemHasAdmin; 
   const showLocationsTab = isManager || isAdmin;
   const showPasses = isFrontDesk; 
@@ -292,8 +289,10 @@ function MainDashboard({ session }: { session: any }) {
 
   useEffect(() => {
     if (isMounted && authenticatedUserId) {
+      // If the saved tab was "builder", default them to "setup" now since it merged
       const savedTab = localStorage.getItem('lastActiveTab_' + authenticatedUserId);
-      if (savedTab) setActiveTab(savedTab);
+      if (savedTab === 'builder') setActiveTab('setup');
+      else if (savedTab) setActiveTab(savedTab);
 
       const savedCollapse = localStorage.getItem('sidebarCollapsed');
       if (savedCollapse === 'true') setIsCollapsed(true);
@@ -334,7 +333,7 @@ function MainDashboard({ session }: { session: any }) {
   },[feedbacks, lastViewedFeedback, isManager, selectedUserId]);
 
   const unreadMessagesCount = useMemo(() => {
-    return[...messages, ...announcements].filter(item => {
+    return [...messages, ...announcements].filter(item => {
       const itemDate = new Date(item.createdAt).getTime();
       if (itemDate <= new Date(lastViewedMessages).getTime()) return false;
       if ('senderId' in item && item.senderId.toString() === selectedUserId) return false;
@@ -427,27 +426,13 @@ function MainDashboard({ session }: { session: any }) {
           </button>
         </div>
 
-        {/* User Switcher and Integrated Buttons */}
-        <div className={`p-4 border-b border-slate-800 shrink-0 bg-slate-950/50 ${isCollapsed ? 'hidden' : 'space-y-4'}`}>
+        {/* User Switcher */}
+        <div className={`p-4 border-b border-slate-800 shrink-0 bg-slate-950/50 ${isCollapsed ? 'hidden' : 'space-y-3'}`}>
           <div>
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-1">Active Profile</label>
             <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm font-bold outline-none cursor-pointer focus:border-yellow-500">
               {safeUsers.map((u: any) => <option key={u.id} value={u.id}>{u.id.toString() === authenticatedUserId ? `★ ${u.name} (Me)` : u.name}</option>)}
             </select>
-          </div>
-          
-          <div className="flex flex-col gap-2">
-            {isRealManager && (
-              <button onClick={async () => {
-                const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
-                if (res?.error) notify.error("Failed: " + res.error); else if (res?.ok) notify.success("Device Linked!");
-              }} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg font-bold text-xs transition-colors">
-                <Smartphone size={14} /> Link Device Passkey
-              </button>
-            )}
-            <button onClick={() => performSecureLogout(session)} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-bold text-xs transition-colors">
-              <LogOut size={14} /> Logout
-            </button>
           </div>
         </div>
 
@@ -463,7 +448,6 @@ function MainDashboard({ session }: { session: any }) {
               <NavItem id="clock" icon={Clock} label="Time Clock" />
               <NavItem id="calendar" icon={Calendar} label="Schedule" />
               <NavItem id="manual" icon={FileText} label="My Time" />
-              {/* FIX: Timesheets added to the Workspace area so standard staff can view/edit their own */}
               {showTimesheets && <NavItem id="timesheets" icon={FileText} label="Timesheets & Pay" badge={unapprovedCount} />}
               {showPasses && <NavItem id="privileges" icon={Gift} label="Guest Passes" />}
               {showGiftCards && <NavItem id="giftcards" icon={Gift} label="Gift Cards" />}
@@ -489,13 +473,29 @@ function MainDashboard({ session }: { session: any }) {
               )}
               <div className="space-y-1">
                 {showDashboard && <NavItem id="dashboard" icon={LayoutDashboard} label="Payroll" />}
-                {showBuilder && <NavItem id="builder" icon={CalendarDays} label="Builder" />}
+                {/* FIX: Setup Tab now handles Builder, Templates, and Tasks */}
+                {showSetup && <NavItem id="setup" icon={CalendarDays} label="Shift Setup" />}
                 {showStaff && <NavItem id="staff" icon={Users} label="Staff" />}
                 {showLocationsTab && <NavItem id="locations" icon={MapPin} label="Locations" />}
-                {showSetup && <NavItem id="setup" icon={Settings} label="Setup" />}
               </div>
             </div>
           )}
+        </div>
+
+        {/* Footer Actions */}
+        <div className="p-4 border-t border-slate-800 shrink-0 flex flex-col gap-2">
+          {isRealManager && !isCollapsed && (
+            <button onClick={async () => {
+              const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
+              if (res?.error) notify.error("Failed: " + res.error); else if (res?.ok) notify.success("Device Linked!");
+            }} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg font-bold text-xs transition-colors">
+              <Smartphone size={14} /> Link Passkey
+            </button>
+          )}
+
+          <button onClick={() => performSecureLogout(session)} title="Logout" className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start px-4'} gap-3 py-2.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg font-bold text-sm transition-colors`}>
+            <LogOut size={16} /> {!isCollapsed && <span>Logout</span>}
+          </button>
         </div>
       </div>
 
@@ -516,7 +516,6 @@ function MainDashboard({ session }: { session: any }) {
           <div className={`mx-auto transition-all duration-300 w-full ${isCollapsed ? 'max-w-full' : 'max-w-7xl'}`}>
             {activeTab === 'clock' && <TimeClockTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'calendar' && <CalendarTab appState={legacyAppStatePlaceholder} />}
-            {activeTab === 'builder' && <ScheduleBuilderTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'manual' && <TimeCardTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'dashboard' && <DashboardTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'timesheets' && <TimesheetsTab appState={legacyAppStatePlaceholder} />}

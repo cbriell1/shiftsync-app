@@ -4,12 +4,17 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Shift, User } from '../lib/types';
 import { useAppStore } from '@/lib/store';
 import { DAYS_OF_WEEK, getLocationColor } from '@/lib/common';
-import { notify } from '@/lib/ui-utils';
+import { notify, customConfirm } from '@/lib/ui-utils';
 
-const ShiftCard = ({ shift, showEmployeeSelect = false, isMoving, onMoveClick }: { shift: Shift, showEmployeeSelect?: boolean, isMoving?: boolean, onMoveClick?: () => void }) => {
+const ShiftCard = ({ shift, showEmployeeSelect = false, isMoving, onMoveClick, onDeleteClick }: { shift: Shift, showEmployeeSelect?: boolean, isMoving?: boolean, onMoveClick?: () => void, onDeleteClick?: () => void }) => {
   const users = useAppStore(state => state.users);
   const fetchShifts = useAppStore(state => state.fetchShifts);
+  const selectedUserId = useAppStore(state => state.selectedUserId);
   
+  const activeUser = users.find(u => u.id.toString() === selectedUserId);
+  const isAdmin = activeUser?.systemRoles?.includes('Administrator');
+  const isManager = activeUser?.systemRoles?.includes('Manager') || isAdmin;
+
   const [tempEnd, setTempEnd] = useState<Date>(new Date(shift.endTime));
   const startD = new Date(shift.startTime);
   const durationMs = tempEnd.getTime() - startD.getTime();
@@ -69,10 +74,23 @@ const ShiftCard = ({ shift, showEmployeeSelect = false, isMoving, onMoveClick }:
   const dropdownUsers = users.filter(u => u.isActive !== false || u.id === shift.userId);
 
   return (
-    <div draggable onDragStart={handleDragStart} className={`relative w-full rounded-lg shadow-sm mb-2 border-l-[5px] overflow-hidden flex flex-col transition-transform hover:shadow-md cursor-grab active:cursor-grabbing hover:scale-[1.02] hover:z-20 ${finalBg} ${finalBorder}`}>
+    <div draggable onDragStart={handleDragStart} className={`group relative w-full rounded-lg shadow-sm mb-2 border-l-[5px] overflow-hidden flex flex-col transition-transform hover:shadow-md cursor-grab active:cursor-grabbing hover:scale-[1.02] hover:z-20 ${finalBg} ${finalBorder}`}>
+      
+      {/* NEW: Individual Delete Button (Appears on Hover) */}
+      {(isManager) && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onDeleteClick?.(); }}
+          className="absolute top-1 right-1 bg-white/90 hover:bg-red-100 text-slate-400 hover:text-red-600 rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity z-30 shadow-sm"
+          title="Delete Shift"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" /></svg>
+        </button>
+      )}
+
       <div className={`p-1.5 flex-1 flex flex-col overflow-hidden leading-tight pointer-events-none ${showEmployeeSelect ? 'pb-1' : 'pb-5'}`}>
         <div className="flex justify-between items-start mb-1">
-          <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest truncate pr-2 ${locTextColor}`}>{shift.location?.name}</span>
+          <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest truncate pr-4 ${locTextColor}`}>{shift.location?.name}</span>
           <span className="text-[9px] md:text-[10px] font-black text-slate-700 bg-white/60 px-1.5 py-0.5 rounded shadow-sm">{hours.toFixed(1)}h</span>
         </div>
         <div className="font-bold text-slate-900 text-[10px] md:text-xs truncate">{startD.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - {tempEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
@@ -260,12 +278,62 @@ export default function ScheduleBuilderTab({ appState }: any) {
     notify.success("Shift Moved!");
   };
 
+  // NEW: Individual Shift Deletion Handler
+  const handleDeleteShift = async (shiftId: number) => {
+    if (!(await customConfirm("Are you sure you want to delete this specific shift?", "Delete Shift", true))) return;
+    try {
+      const res = await fetch('/api/shifts', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shiftId })
+      });
+      if (res.ok) {
+        notify.success("Shift deleted.");
+        await fetchShifts();
+      } else {
+        const err = await res.json();
+        notify.error(err.error || "Failed to delete shift.");
+      }
+    } catch (e) {
+      notify.error("Network error.");
+    }
+  };
+
+  // NEW: Bulk Delete Handler
+  const handleBulkDelete = async () => {
+    const startStr = rangeStart.toLocaleDateString();
+    const endStr = rangeEnd.toLocaleDateString();
+    const locName = calLocFilter ? locations.find(l => l.id.toString() === calLocFilter)?.name : 'All Locations';
+    
+    if (!(await customConfirm(`Are you sure you want to completely delete ALL visible shifts from ${startStr} to ${endStr} for ${locName}? This cannot be undone!`, "Delete All Listed", true))) return;
+    
+    try {
+      const res = await fetch('/api/shifts', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          startDate: rangeStart.toISOString(), 
+          endDate: rangeEnd.toISOString(),
+          locationId: calLocFilter ? parseInt(calLocFilter) : undefined
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        notify.success(`Successfully deleted ${data.count} shifts.`);
+        await fetchShifts();
+      } else {
+        notify.error(data.error || "Failed to delete shifts.");
+      }
+    } catch (e) {
+      notify.error("Network error.");
+    }
+  };
+
   const colWidthClass = viewMode === 'day' ? 'min-w-[300px] w-full' : 'min-w-[140px] w-1/7';
 
   return (
-    <div className="bg-white p-3 md:p-6 rounded-2xl border border-gray-300 shadow-md flex flex-col h-[85vh] relative">
+    <div className="flex flex-col h-[75vh] relative">
       
-      {/* FLOATING ACTION BAR FOR MOBILE MOVE */}
       {mobileMoveShiftId && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] z-[100] flex items-center justify-between animate-in slide-in-from-bottom-10 fade-in border border-slate-700">
           <div className="flex items-center gap-3">
@@ -278,29 +346,44 @@ export default function ScheduleBuilderTab({ appState }: any) {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4 border-b border-slate-100 pb-3">
-        <h2 className="text-lg md:text-xl font-black text-slate-900 tracking-tight shrink-0">Builder</h2>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-4 border-b border-slate-200 pb-4">
+        
+        <div className="flex items-center bg-white rounded-lg p-1 shadow-sm border border-slate-300">
+          <button onClick={() => changeDate(-1)} className="px-3 py-1.5 hover:bg-slate-100 rounded font-black transition-colors flex items-center gap-1 text-slate-700">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Prev
+          </button>
+          <div className="w-px h-6 bg-slate-200 mx-1"></div>
+          <span className="px-4 font-black text-sm text-slate-900 whitespace-nowrap text-center min-w-[140px]">{dateLabel}</span>
+          <div className="w-px h-6 bg-slate-200 mx-1"></div>
+          <button onClick={() => changeDate(1)} className="px-3 py-1.5 hover:bg-slate-100 rounded font-black transition-colors flex items-center gap-1 text-slate-700">
+            Next
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           
-          <div className="flex bg-slate-200 p-0.5 rounded-lg border border-slate-300 shadow-sm">
+          {/* NEW: Clear Shifts Bulk Delete Button */}
+          {isManager && (
+            <button onClick={handleBulkDelete} className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-black py-2 px-4 rounded-lg shadow-sm text-[10px] uppercase tracking-widest transition-all flex items-center gap-1.5 mr-2">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4z" clipRule="evenodd" /></svg>
+              Clear Shifts
+            </button>
+          )}
+
+          <button onClick={jumpToToday} className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg text-xs font-black uppercase tracking-widest text-slate-600 shadow-sm transition">Today</button>
+
+          <div className="flex bg-slate-200 p-0.5 rounded-lg border border-slate-300 shadow-sm ml-2">
             {['month', 'week', 'day'].map(mode => (
-              <button key={mode} onClick={() => setViewMode(mode as any)} className={`px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest rounded transition-all ${viewMode === mode ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}>{mode}</button>
+              <button key={mode} onClick={() => setViewMode(mode as any)} className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded transition-all ${viewMode === mode ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}>{mode}</button>
             ))}
           </div>
 
-          <select value={calLocFilter} onChange={(e) => setCalLocFilter(e.target.value)} className="border border-blue-200 rounded-lg p-1.5 font-black text-slate-900 bg-blue-50 focus:border-blue-500 outline-none cursor-pointer text-[11px]">
+          <select value={calLocFilter} onChange={(e) => setCalLocFilter(e.target.value)} className="border border-blue-200 rounded-lg py-1.5 px-3 font-black text-slate-900 bg-blue-50 focus:border-blue-500 outline-none cursor-pointer text-xs ml-2">
             <option value="">All Locations</option>
             {visibleLocations.map(loc => <option key={loc.id} value={loc.id}>{loc.name} {loc.isActive === false && '(Hidden)'}</option>)}
           </select>
-
-          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 shadow-inner border border-slate-300">
-            <button onClick={() => changeDate(-1)} className="p-1.5 hover:bg-white rounded font-black transition-colors text-xs">&lt;</button>
-            <span className="px-2 font-black text-[11px] text-slate-800 whitespace-nowrap text-center min-w-[110px]">{dateLabel}</span>
-            <button onClick={() => changeDate(1)} className="p-1.5 hover:bg-white rounded font-black transition-colors text-xs">&gt;</button>
-          </div>
-
-          <button onClick={jumpToToday} className="px-2 py-2 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-600 shadow-sm transition">Today</button>
         </div>
       </div>
 
@@ -329,8 +412,9 @@ export default function ScheduleBuilderTab({ appState }: any) {
                       <>
                         <div className={`text-right font-black mb-2 flex justify-between items-center border-b border-slate-100 pb-1 ${isToday ? 'text-slate-900 text-base' : 'text-gray-400 text-sm'}`}>{isToday ? <span style={{ fontSize: '10px' }} className="bg-yellow-400 text-slate-900 px-1.5 py-0.5 rounded shadow-sm tracking-widest uppercase">Today</span> : <span></span>}<span>{dateObj.getDate()}</span></div>
                         <div className="space-y-2 overflow-y-auto flex-grow pr-1">
+                          {/* FIX: Passed onDeleteClick to ShiftCard */}
                           {dayShifts.map(shift => (
-                            <ShiftCard key={shift.id} shift={shift} showEmployeeSelect={true} isMoving={mobileMoveShiftId === shift.id} onMoveClick={() => setMobileMoveShiftId(mobileMoveShiftId === shift.id ? null : shift.id)} />
+                            <ShiftCard key={shift.id} shift={shift} showEmployeeSelect={true} isMoving={mobileMoveShiftId === shift.id} onMoveClick={() => setMobileMoveShiftId(mobileMoveShiftId === shift.id ? null : shift.id)} onDeleteClick={() => handleDeleteShift(shift.id)} />
                           ))}
                         </div>
                       </>
@@ -365,8 +449,9 @@ export default function ScheduleBuilderTab({ appState }: any) {
                     onDrop={(e) => handleDrop(e, null, day)}
                     onClick={() => { if(mobileMoveShiftId) executeMobileMove(null, day); }}
                   >
+                    {/* FIX: Passed onDeleteClick to ShiftCard */}
                     {visibleShifts.filter(s => isSameDay(s.startTime, day) && s.userId === null).map(shift => (
-                      <ShiftCard key={shift.id} shift={shift} showEmployeeSelect={true} isMoving={mobileMoveShiftId === shift.id} onMoveClick={() => setMobileMoveShiftId(mobileMoveShiftId === shift.id ? null : shift.id)} />
+                      <ShiftCard key={shift.id} shift={shift} showEmployeeSelect={true} isMoving={mobileMoveShiftId === shift.id} onMoveClick={() => setMobileMoveShiftId(mobileMoveShiftId === shift.id ? null : shift.id)} onDeleteClick={() => handleDeleteShift(shift.id)} />
                     ))}
                   </th>
                 ))}
@@ -390,8 +475,9 @@ export default function ScheduleBuilderTab({ appState }: any) {
                         onDrop={(e) => handleDrop(e, user.id, day)}
                         onClick={() => { if(mobileMoveShiftId) executeMobileMove(user.id, day); }}
                       >
+                        {/* FIX: Passed onDeleteClick to ShiftCard */}
                         {visibleShifts.filter(s => isSameDay(s.startTime, day) && s.userId === user.id).map(shift => (
-                          <ShiftCard key={shift.id} shift={shift} showEmployeeSelect={true} isMoving={mobileMoveShiftId === shift.id} onMoveClick={() => setMobileMoveShiftId(mobileMoveShiftId === shift.id ? null : shift.id)} />
+                          <ShiftCard key={shift.id} shift={shift} showEmployeeSelect={true} isMoving={mobileMoveShiftId === shift.id} onMoveClick={() => setMobileMoveShiftId(mobileMoveShiftId === shift.id ? null : shift.id)} onDeleteClick={() => handleDeleteShift(shift.id)} />
                         ))}
                       </td>
                     ))}
