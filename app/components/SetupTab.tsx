@@ -1,7 +1,7 @@
 // filepath: app/components/SetupTab.tsx
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { Location, GlobalTask, ShiftTemplate } from '../lib/types';
+import { Location, GlobalTask, ShiftTemplate } from '@/lib/types';
 import { notify } from '@/lib/ui-utils';
 import { useAppStore } from '@/lib/store';
 import { DAYS_OF_WEEK } from '@/lib/common';

@@ -44,7 +44,7 @@ export async function PUT(req: Request, context: any) {
     
     // FIX: Extract the exact Zod validation error if it fails
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid data: " + error.errors[0].message }, { status: 400 });
+      return NextResponse.json({ error: "Invalid data: " + error.issues[0].message }, { status: 400 });
     }
     
     return NextResponse.json({ error: error.message || 'Database update failed' }, { status: 500 });

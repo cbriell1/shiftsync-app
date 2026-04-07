@@ -1,7 +1,7 @@
 // filepath: app/components/FeedbackTab.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Feedback, User } from '../lib/types';
+import { Feedback, User } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { notify } from '@/lib/ui-utils';
 

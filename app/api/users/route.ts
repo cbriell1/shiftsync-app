@@ -8,7 +8,6 @@ export const dynamic = 'force-dynamic';
 
 const userCreateSchema = z.object({
   name: z.string().min(1),
-  pinCode: z.string().nullable().optional(),
   courtReserveId: z.string().nullable().optional(),
   phoneNumber: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
@@ -18,7 +17,6 @@ const userUpdateSchema = z.object({
   id: z.coerce.number(),
   roles: z.array(z.string()).optional(),
   locationIds: z.array(z.coerce.number()).optional(),
-  pinCode: z.string().nullable().optional(),
   courtReserveId: z.string().nullable().optional(),
   phoneNumber: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
@@ -63,7 +61,6 @@ export async function POST(request: Request) {
     const newUser = await prisma.user.create({
       data: {
         name: data.name,
-        pinCode: data.pinCode || null,
         courtReserveId: data.courtReserveId || null,
         phoneNumber: data.phoneNumber || null,
         email: data.email || null,
@@ -107,8 +104,10 @@ export async function PUT(request: Request) {
       where: { id: data.id },
       data: {
         ...(data.roles && { systemRoles: data.roles }),
-        ...(data.locationIds && { locationIds: data.locationIds }), 
-        ...(data.pinCode !== undefined && { pinCode: data.pinCode }),
+        ...(data.locationIds && { 
+          locationIds: data.locationIds,
+          locationId: data.locationIds.length > 0 ? data.locationIds[0] : null
+        }), 
         ...(data.courtReserveId !== undefined && { courtReserveId: data.courtReserveId }),
         ...(data.phoneNumber !== undefined && { phoneNumber: data.phoneNumber }),
         ...(data.email !== undefined && { email: data.email }),

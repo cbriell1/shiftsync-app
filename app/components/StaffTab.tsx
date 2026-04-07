@@ -1,7 +1,7 @@
 // filepath: app/components/StaffTab.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
-import { User, AuditLog } from '../lib/types';
+import { User, AuditLog } from '@/lib/types';
 import { notify, customConfirm } from '@/lib/ui-utils';
 import { useAppStore } from '@/lib/store';
 import { AVAILABLE_ROLES } from '@/lib/common';
@@ -23,7 +23,7 @@ export default function StaffTab({ appState }: any) {
 
   const [staffView, setStaffView] = useState<'DIRECTORY' | 'SESSIONS' | 'LOGS'>('DIRECTORY');
   const[isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newStaff, setNewStaff] = useState({ name: '', pinCode: '', courtReserveId: '', phoneNumber: '', email: '' });
+  const [newStaff, setNewStaff] = useState({ name: '', courtReserveId: '', phoneNumber: '', email: '' });
   const[mergeModalOpen, setMergeModalOpen] = useState(false);
   const [mergeSourceId, setMergeSourceId] = useState('');
   const[mergeTargetId, setMergeTargetId] = useState('');
@@ -94,7 +94,7 @@ export default function StaffTab({ appState }: any) {
     e.preventDefault();
     await handleAddUser(newStaff);
     setIsAddModalOpen(false);
-    setNewStaff({ name: '', pinCode: '', courtReserveId: '', phoneNumber: '', email: '' });
+    setNewStaff({ name: '', courtReserveId: '', phoneNumber: '', email: '' });
   };
 
   const handleMergeSubmit = async (e: React.FormEvent) => {
@@ -164,7 +164,6 @@ export default function StaffTab({ appState }: any) {
         <div className="w-full xl:w-[18%] flex flex-col gap-2 border-t xl:border-t-0 xl:border-l pt-2 xl:pt-0 xl:pl-4">
           <div className="flex items-center gap-2">
              <span className="text-[9px] font-bold text-slate-400">ID:{user.id}</span>
-             <input type="text" maxLength={4} defaultValue={user.pinCode || ''} onBlur={(e) => handleUpdateUser(user.id, { pinCode: e.target.value })} className="w-12 bg-slate-100 border border-slate-300 rounded text-[9px] font-black text-center text-slate-950 focus:bg-white focus:border-blue-500 outline-none" placeholder="PIN" />
           </div>
           <input type="email" defaultValue={user.email || ''} onBlur={(e) => handleUpdateUser(user.id, { email: e.target.value })} className="w-full bg-slate-50 border border-slate-400 rounded p-1.5 text-[10px] font-black text-slate-950 focus:bg-white focus:border-blue-500 outline-none" placeholder="Email" />
         </div>

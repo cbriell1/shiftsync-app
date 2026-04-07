@@ -6,7 +6,7 @@ import { z } from 'zod';
 export const dynamic = 'force-dynamic';
 
 const getQuerySchema = z.object({
-  userId: z.coerce.number({ invalid_type_error: "Missing or invalid User ID" })
+  userId: z.coerce.number()
 });
 
 const postSchema = z.object({
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     
     return NextResponse.json(messages);
   } catch (error: any) {
-    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.issues[0].message }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(msg);
   } catch (error: any) {
-    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 });
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.issues }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

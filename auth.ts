@@ -113,7 +113,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET || "fallback_secret_for_build_time_only_12345",
   adapter: customAdapter,
   providers:[
-    Passkey(),
+    Passkey({}),
     Credentials({
       name: "Emergency Fallback",
       credentials: {
@@ -158,7 +158,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   experimental: { enableWebAuthn: true },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
+      if (user && user.id) {
         token.id = user.id.toString();
         
         const sessionToken = generateSessionToken();

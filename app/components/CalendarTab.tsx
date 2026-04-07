@@ -1,7 +1,7 @@
 // filepath: app/components/CalendarTab.tsx
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
-import { Shift, Location } from '../lib/types';
+import { Shift, Location } from '@/lib/types';
 import { customConfirm, notify } from '@/lib/ui-utils';
 import { useAppStore } from '@/lib/store';
 import { MONTHS, YEARS, DAYS_OF_WEEK, getLocationColor, formatTimeSafe } from '@/lib/common';

@@ -1,7 +1,7 @@
 // filepath: app/components/MessagesTab.tsx
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Message } from '../lib/types';
+import { Message } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { notify, useEscapeKey } from '@/lib/ui-utils';
 import { MessageSquare, Send, X, PlusCircle } from 'lucide-react';

@@ -1,7 +1,7 @@
 // filepath: app/components/ScheduleBuilderTab.tsx
 "use client";
 import React, { useState, useMemo, useEffect } from 'react';
-import { Shift, User } from '../lib/types';
+import { Shift, User } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { DAYS_OF_WEEK, getLocationColor } from '@/lib/common';
 import { notify, customConfirm } from '@/lib/ui-utils';

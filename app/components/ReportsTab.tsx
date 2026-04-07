@@ -1,7 +1,7 @@
 // filepath: app/components/ReportsTab.tsx
 "use client";
 import React from 'react';
-import { Checklist, TimeCard } from '../lib/types';
+import { Checklist, TimeCard } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 
 export default function ReportsTab() {

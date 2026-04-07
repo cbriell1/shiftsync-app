@@ -3,7 +3,7 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { formatDateSafe, formatTimeSafe, generatePeriods } from '@/lib/common';
-import { TimeCard } from '../lib/types';
+import { TimeCard } from '@/lib/types';
 
 export default function DashboardTab({ appState }: any) {
   const managerData = useAppStore(state => state.managerData);

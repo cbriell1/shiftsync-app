@@ -1,7 +1,7 @@
 // filepath: app/components/PrivilegesTab.tsx
 "use client";
 import React, { useState } from 'react';
-import { Member, PassUsage } from '../lib/types';
+import { Member, PassUsage } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 
 // Helper Component to handle the complex rendering of a single row/card

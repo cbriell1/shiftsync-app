@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     return NextResponse.json(newTask);
   } catch (error: any) {
     if (error.code === 'P2002') return NextResponse.json({ error: "This task already exists" }, { status: 400 });
-    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.issues[0].message }, { status: 400 });
     return NextResponse.json({ error: "Server error creating task" }, { status: 500 });
   }
 }
@@ -92,7 +92,7 @@ export async function PUT(request: Request) {
     return NextResponse.json(updatedTask);
   } catch (error: any) {
     if (error.code === 'P2002') return NextResponse.json({ error: "A task with this name already exists" }, { status: 400 });
-    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.issues[0].message }, { status: 400 });
     return NextResponse.json({ error: "Server error updating task" }, { status: 500 });
   }
 }

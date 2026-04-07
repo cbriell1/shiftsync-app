@@ -9,13 +9,11 @@ const kioskSchema = z.discriminatedUnion("action",[
   z.object({
     action: z.literal("CLOCK_IN"),
     userId: z.coerce.number(),
-    locationId: z.coerce.number(),
-    pinCode: z.string()
+    locationId: z.coerce.number()
   }),
   z.object({
     action: z.literal("CLOCK_OUT"),
-    timeCardId: z.coerce.number(),
-    pinCode: z.string()
+    timeCardId: z.coerce.number()
   })
 ]);
 
@@ -36,18 +34,6 @@ export async function POST(request: Request) {
       const user = await prisma.user.findUnique({ where: { id: data.userId } });
       if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
       
-      // ERROR TRIPWIRE: If the PIN is wrong, log it immediately!
-      if ((user.pinCode || '1234') !== data.pinCode) {
-        await prisma.auditLog.create({
-          data: {
-            userId: user.id,
-            action: 'ERROR',
-            details: `Failed KIOSK Clock-In attempt. Invalid PIN entered at location ID: ${data.locationId}`
-          }
-        });
-        return NextResponse.json({ error: "Invalid PIN" }, { status: 401 });
-      }
-
       const newCard = await prisma.timeCard.create({
         data: { userId: data.userId, locationId: data.locationId, clockIn: new Date() }
       });
@@ -61,18 +47,6 @@ export async function POST(request: Request) {
       });
       if (!tc || !tc.user) return NextResponse.json({ error: "Record not found" }, { status: 404 });
 
-      // ERROR TRIPWIRE: Catch bad clock-out PINs too!
-      if ((tc.user.pinCode || '1234') !== data.pinCode) {
-        await prisma.auditLog.create({
-          data: {
-            userId: tc.user.id,
-            action: 'ERROR',
-            details: `Failed KIOSK Clock-Out attempt. Invalid PIN entered.`
-          }
-        });
-        return NextResponse.json({ error: "Invalid PIN" }, { status: 401 });
-      }
-      
       const clockOut = new Date();
       const diff = clockOut.getTime() - new Date(tc.clockIn).getTime();
       const hours = parseFloat((diff / (1000 * 60 * 60)).toFixed(2));

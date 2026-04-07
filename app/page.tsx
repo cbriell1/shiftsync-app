@@ -201,6 +201,32 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
   );
 }
 
+const NavItem = ({ id, icon: Icon, label, badge = 0, activeTab, isCollapsed, setActiveTab, setSidebarOpen }: any) => (
+  <button
+    onClick={() => { setActiveTab(id); setSidebarOpen(false); }}
+    title={isCollapsed ? label : undefined}
+    className={`relative flex items-center ${isCollapsed ? 'justify-center px-0 py-3 w-12 mx-auto' : 'justify-between px-4 py-3 w-full'} rounded-lg font-bold text-sm transition-all ${
+      activeTab === id 
+        ? 'bg-yellow-400 text-slate-900 shadow-md' 
+        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+    }`}
+  >
+    <div className="flex items-center gap-3">
+      <Icon size={18} className="shrink-0" />
+      {!isCollapsed && <span className="truncate">{label}</span>}
+    </div>
+    {badge > 0 && (
+      isCollapsed ? (
+        <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse"></span>
+      ) : (
+        <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black shadow-sm shrink-0">
+          {badge}
+        </span>
+      )
+    )}
+  </button>
+);
+
 // ==================================================================
 // 2. MAIN DASHBOARD APP
 // ==================================================================
@@ -365,32 +391,6 @@ function MainDashboard({ session }: { session: any }) {
 
   if (!isMounted || users.length === 0) return <DashboardSkeleton />;
 
-  const NavItem = ({ id, icon: Icon, label, badge = 0 }: any) => (
-    <button
-      onClick={() => { setActiveTab(id); setSidebarOpen(false); }}
-      title={isCollapsed ? label : undefined}
-      className={`relative flex items-center ${isCollapsed ? 'justify-center px-0 py-3 w-12 mx-auto' : 'justify-between px-4 py-3 w-full'} rounded-lg font-bold text-sm transition-all ${
-        activeTab === id 
-          ? 'bg-yellow-400 text-slate-900 shadow-md' 
-          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-      }`}
-    >
-      <div className="flex items-center gap-3">
-        <Icon size={18} className="shrink-0" />
-        {!isCollapsed && <span className="truncate">{label}</span>}
-      </div>
-      {badge > 0 && (
-        isCollapsed ? (
-          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse"></span>
-        ) : (
-          <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black shadow-sm shrink-0">
-            {badge}
-          </span>
-        )
-      )}
-    </button>
-  );
-
   const legacyAppStatePlaceholder = {} as any;
 
   return (
@@ -445,12 +445,12 @@ function MainDashboard({ session }: { session: any }) {
               <div className="w-8 h-px bg-slate-700 mx-auto mb-3"></div>
             )}
             <div className="space-y-1">
-              <NavItem id="clock" icon={Clock} label="Time Clock" />
-              <NavItem id="calendar" icon={Calendar} label="Schedule" />
-              <NavItem id="manual" icon={FileText} label="My Time" />
-              {showTimesheets && <NavItem id="timesheets" icon={FileText} label="Timesheets & Pay" badge={unapprovedCount} />}
-              {showPasses && <NavItem id="privileges" icon={Gift} label="Guest Passes" />}
-              {showGiftCards && <NavItem id="giftcards" icon={Gift} label="Gift Cards" />}
+              <NavItem id="clock" icon={Clock} label="Time Clock" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
+              <NavItem id="calendar" icon={Calendar} label="Schedule" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
+              <NavItem id="manual" icon={FileText} label="My Time" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
+              {showTimesheets && <NavItem id="timesheets" icon={FileText} label="Timesheets & Pay" badge={unapprovedCount} activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
+              {showPasses && <NavItem id="privileges" icon={Gift} label="Guest Passes" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
+              {showGiftCards && <NavItem id="giftcards" icon={Gift} label="Gift Cards" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
             </div>
           </div>
           <div>
@@ -460,8 +460,8 @@ function MainDashboard({ session }: { session: any }) {
               <div className="w-8 h-px bg-slate-700 mx-auto mb-3"></div>
             )}
             <div className="space-y-1">
-              <NavItem id="messages" icon={MessageSquare} label="Messages" badge={unreadMessagesCount} />
-              <NavItem id="feedback" icon={AlertCircle} label="Feedback" badge={unreadFeedbackCount} />
+              <NavItem id="messages" icon={MessageSquare} label="Messages" badge={unreadMessagesCount} activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
+              <NavItem id="feedback" icon={AlertCircle} label="Feedback" badge={unreadFeedbackCount} activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
             </div>
           </div>
           {isManager && (
@@ -472,11 +472,11 @@ function MainDashboard({ session }: { session: any }) {
                 <div className="w-8 h-px bg-yellow-600/30 mx-auto mb-3"></div>
               )}
               <div className="space-y-1">
-                {showDashboard && <NavItem id="dashboard" icon={LayoutDashboard} label="Payroll" />}
+                {showDashboard && <NavItem id="dashboard" icon={LayoutDashboard} label="Payroll" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
                 {/* FIX: Setup Tab now handles Builder, Templates, and Tasks */}
-                {showSetup && <NavItem id="setup" icon={CalendarDays} label="Shift Setup" />}
-                {showStaff && <NavItem id="staff" icon={Users} label="Staff" />}
-                {showLocationsTab && <NavItem id="locations" icon={MapPin} label="Locations" />}
+                {showSetup && <NavItem id="setup" icon={CalendarDays} label="Shift Setup" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
+                {showStaff && <NavItem id="staff" icon={Users} label="Staff" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
+                {showLocationsTab && <NavItem id="locations" icon={MapPin} label="Locations" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
               </div>
             </div>
           )}

@@ -1,7 +1,7 @@
 // filepath: app/components/TimesheetsTab.tsx
 "use client";
 import React, { useState, useMemo, useEffect } from 'react';
-import { TimeCard } from '../lib/types';
+import { TimeCard } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { formatDateSafe, formatTimeSafe, generatePeriods } from '@/lib/common';
 

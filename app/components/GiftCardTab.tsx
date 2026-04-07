@@ -1,7 +1,7 @@
 // filepath: app/components/GiftCardTab.tsx
 "use client";
 import React, { useState } from 'react';
-import { GiftCard, Member } from '../lib/types';
+import { GiftCard, Member } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { notify } from '@/lib/ui-utils';
 

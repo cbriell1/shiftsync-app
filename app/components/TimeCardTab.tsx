@@ -1,7 +1,7 @@
 // filepath: app/components/TimeCardTab.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
-import { TimeCard, ShiftTemplate, Checklist } from '../lib/types';
+import { TimeCard, ShiftTemplate, Checklist } from '@/lib/types';
 import { notify } from '@/lib/ui-utils';
 import { useAppStore } from '@/lib/store';
 import { formatTimeSafe, formatDateSafe } from '@/lib/common';

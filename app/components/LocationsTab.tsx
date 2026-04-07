@@ -1,7 +1,7 @@
 // filepath: app/components/LocationsTab.tsx
 "use client";
 import React, { useState } from 'react';
-import { Location } from '../lib/types';
+import { Location } from '@/lib/types';
 import { notify, customConfirm } from '@/lib/ui-utils';
 import { useAppStore } from '@/lib/store';
 

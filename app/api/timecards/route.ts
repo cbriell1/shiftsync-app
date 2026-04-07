@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(tc);
   } catch (error: any) {
-    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 });
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.issues }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -116,7 +116,7 @@ export async function PUT(req: Request) {
     });
     return NextResponse.json(tc);
   } catch (error: any) {
-    if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 });
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.issues }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
