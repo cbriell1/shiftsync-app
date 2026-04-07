@@ -80,7 +80,6 @@ const ShiftCard = ({ shift, showEmployeeSelect = false, isMoving, onMoveClick }:
         {!showEmployeeSelect && shift.status === 'OPEN' && <div className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">Unassigned</div>}
       </div>
       
-      {/* Employee Dropdown */}
       {showEmployeeSelect && (
         <div className="px-1.5 pb-2 mt-auto relative z-10">
           <select 
@@ -98,7 +97,6 @@ const ShiftCard = ({ shift, showEmployeeSelect = false, isMoving, onMoveClick }:
         </div>
       )}
 
-      {/* MOBILE ONLY: Tap-to-Move Button */}
       <div className="md:hidden px-1.5 pb-2 relative z-10">
         <button 
           type="button" 
@@ -109,7 +107,6 @@ const ShiftCard = ({ shift, showEmployeeSelect = false, isMoving, onMoveClick }:
         </button>
       </div>
 
-      {/* Desktop Drag Handle */}
       <div onMouseDown={handleMouseDown} className="hidden md:flex absolute bottom-0 left-0 right-0 h-3 bg-black/5 hover:bg-black/20 cursor-ns-resize items-center justify-center transition-colors z-20"><div className="w-6 h-0.5 bg-black/30 rounded-full"></div></div>
     </div>
   );
@@ -144,14 +141,14 @@ export default function ScheduleBuilderTab({ appState }: any) {
 
   useEffect(() => {
     if (builderWeekStart) {
-      const [year, month] = builderWeekStart.split('-').map(Number);
+      const[year, month] = builderWeekStart.split('-').map(Number);
       setCurrentMonth(month - 1);
       setCurrentYear(year);
     }
   },[builderWeekStart, setCurrentMonth, setCurrentYear]);
 
   const dateColumns = useMemo(() => {
-    if (!builderWeekStart) return [];
+    if (!builderWeekStart) return[];
     const [year, month, day] = builderWeekStart.split('-').map(Number);
     const targetDate = new Date(year, month - 1, day);
     if (viewMode === 'day') return [targetDate];
@@ -235,7 +232,6 @@ export default function ScheduleBuilderTab({ appState }: any) {
     await fetchShifts();
   };
 
-  // NATIVE DESKTOP DRAG & DROP
   const handleDrop = (e: React.DragEvent, targetUserId: number | null, targetDate: Date) => {
     e.preventDefault();
     const shiftId = Number(e.dataTransfer.getData('shiftId'));
@@ -248,7 +244,6 @@ export default function ScheduleBuilderTab({ appState }: any) {
     handleUpdateShiftTime(shiftId, newStart.toISOString(), new Date(newStart.getTime() + durationMs).toISOString(), targetUserId);
   };
 
-  // MOBILE TAP-TO-MOVE
   const executeMobileMove = (targetUserId: number | null, targetDate: Date) => {
     if (!mobileMoveShiftId) return;
     const targetShift = shifts.find(s => s.id === mobileMoveShiftId);
@@ -263,13 +258,6 @@ export default function ScheduleBuilderTab({ appState }: any) {
     handleUpdateShiftTime(mobileMoveShiftId, newStart.toISOString(), new Date(newStart.getTime() + durationMs).toISOString(), targetUserId);
     setMobileMoveShiftId(null);
     notify.success("Shift Moved!");
-  };
-
-  const handleGenerateSchedule = async () => {
-    const res = await fetch('/api/shifts/seed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locationId: calLocFilter, month: currentMonth, year: currentYear }) });
-    const data = await res.json();
-    if (res.ok) { notify.success(`Success! ${data.count} shifts generated.`); await fetchShifts(); } 
-    else { notify.error(data.error || "Failed to generate schedule."); }
   };
 
   const colWidthClass = viewMode === 'day' ? 'min-w-[300px] w-full' : 'min-w-[140px] w-1/7';
@@ -294,12 +282,7 @@ export default function ScheduleBuilderTab({ appState }: any) {
         <h2 className="text-lg md:text-xl font-black text-slate-900 tracking-tight shrink-0">Builder</h2>
 
         <div className="flex flex-wrap items-center gap-2">
-          {isManager && (
-            <button onClick={handleGenerateSchedule} className="bg-green-800 hover:bg-green-900 text-white font-black py-2 px-3 rounded-lg shadow-sm text-xs transition-all flex items-center gap-1">
-              <span>+</span> Generate
-            </button>
-          )}
-
+          
           <div className="flex bg-slate-200 p-0.5 rounded-lg border border-slate-300 shadow-sm">
             {['month', 'week', 'day'].map(mode => (
               <button key={mode} onClick={() => setViewMode(mode as any)} className={`px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest rounded transition-all ${viewMode === mode ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}>{mode}</button>

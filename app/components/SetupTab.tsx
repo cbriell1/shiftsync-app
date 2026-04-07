@@ -14,28 +14,42 @@ export default function SetupTab({ appState }: any) {
   
   const fetchGlobalTasks = useAppStore(state => state.fetchGlobalTasks);
   const fetchTemplates = useAppStore(state => state.fetchTemplates);
+  const fetchShifts = useAppStore(state => state.fetchShifts); // NEW: To refresh calendar after generation
 
-  const[activeTab, setActiveTab] = useState('templates');
-  const [showLocFilter, setShowLocFilter] = useState(false);
+  const [activeTab, setActiveTab] = useState('templates');
+  const[showLocFilter, setShowLocFilter] = useState(false);
   const [showDayFilter, setShowDayFilter] = useState(false);
-  const[sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'}>({ key: 'location', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'}>({ key: 'location', direction: 'asc' });
 
-  const [editingTplId, setEditingTplId] = useState<number | null>(null);
-  const [tplLocs, setTplLocs] = useState<number[]>([]);
-  const [tplDays, setTplDays] = useState<number[]>([]);
-  const[tplStart, setTplStart] = useState('');
+  // Template Form State
+  const[editingTplId, setEditingTplId] = useState<number | null>(null);
+  const[tplLocs, setTplLocs] = useState<number[]>([]);
+  const[tplDays, setTplDays] = useState<number[]>([]);
+  const [tplStart, setTplStart] = useState('');
   const [tplEnd, setTplEnd] = useState('');
   const [tplStartDate, setTplStartDate] = useState('');
   const [tplEndDate, setTplEndDate] = useState('');
   const [tplTasks, setTplTasks] = useState<string[]>([]);
-  const[tplUserId, setTplUserId] = useState('');
+  const [tplUserId, setTplUserId] = useState('');
   
+  // View Filters
   const [tplViewLocs, setTplViewLocs] = useState<number[]>([]);
   const [tplViewDays, setTplViewDays] = useState<number[]>([]);
   
+  // Master Task State
   const [newTaskStr, setNewTaskStr] = useState('');
   const[editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [editTaskStr, setEditTaskStr] = useState('');
+
+  // NEW: Generation State (Defaults to Today -> 4 Weeks out)
+  const[genLocId, setGenLocId] = useState('');
+  const [genStartDate, setGenStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [genEndDate, setGenEndDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 28);
+    return d.toISOString().split('T')[0];
+  });
+  const[isGenerating, setIsGenerating] = useState(false);
 
   const locFilterRef = useRef<HTMLTableHeaderCellElement>(null);
   const dayFilterRef = useRef<HTMLTableHeaderCellElement>(null);
@@ -113,7 +127,6 @@ export default function SetupTab({ appState }: any) {
     await fetchTemplates();
   };
 
-  // Safely strips seconds from DB data before it hits Safari
   const cleanTimeStr = (t: string) => {
     if (!t) return '';
     const match = t.match(/\d{2}:\d{2}/);
@@ -124,15 +137,51 @@ export default function SetupTab({ appState }: any) {
     setEditingTplId(t.id); 
     setTplLocs([t.locationId]); 
     setTplDays([t.dayOfWeek]); 
-    
     setTplStart(cleanTimeStr(t.startTime)); 
     setTplEnd(cleanTimeStr(t.endTime)); 
-    
     setTplStartDate(t.startDate ? t.startDate.split('T')[0] : ''); 
     setTplEndDate(t.endDate ? t.endDate.split('T')[0] : ''); 
     setTplTasks(t.checklistTasks ||[]); 
     setTplUserId(t.userId?.toString() || ''); 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // NEW: Generate Schedule Handler
+  const handleGenerateSchedule = async () => {
+    setIsGenerating(true);
+    try {
+      // Fallback defaults if blank
+      let start = genStartDate;
+      let end = genEndDate;
+      
+      if (!start) start = new Date().toISOString().split('T')[0];
+      if (!end) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + 30);
+        end = d.toISOString().split('T')[0];
+      }
+
+      const res = await fetch('/api/shifts/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locationId: genLocId ? parseInt(genLocId) : null,
+          startDate: start,
+          endDate: end
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        notify.success(`Success! Generated ${data.count} shifts.`);
+        await fetchShifts();
+      } else {
+        notify.error(data.error || 'Failed to generate');
+      }
+    } catch (e) {
+      notify.error('Network error');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const displayedTemplates = (templates ||[]).filter(tpl => {
@@ -171,7 +220,6 @@ export default function SetupTab({ appState }: any) {
                <button type="button" onClick={resetForm} className="text-[10px] font-black text-blue-600 uppercase hover:underline">Clear Form</button>
             </div>
             
-            {/* Form using native HTML5 validation, completely stripped of tricky formatting intercepts */}
             <form onSubmit={handleSaveTemplate} className="space-y-5" autoCapitalize="off" autoComplete="off">
               <div>
                 <label className="block text-sm font-black text-slate-900 mb-1.5">1. Pre-Assign Employee</label>
@@ -205,19 +253,16 @@ export default function SetupTab({ appState }: any) {
               <div className="grid grid-cols-2 gap-3 items-end">
                 <div className="flex flex-col justify-end h-full">
                   <label className="block text-sm font-black text-slate-900 mb-1.5 leading-tight">4. Start Time</label>
-                  {/* FIX: Removed the substring interceptor that crashed Safari */}
                   <input type="time" value={tplStart} onChange={(e) => setTplStart(e.target.value)} required className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none" />
                 </div>
                 <div className="flex flex-col justify-end h-full">
                   <label className="block text-sm font-black text-slate-900 mb-1.5 leading-tight">End Time</label>
-                  {/* FIX: Removed the substring interceptor that crashed Safari */}
                   <input type="time" value={tplEnd} onChange={(e) => setTplEnd(e.target.value)} required className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 items-end">
                 <div className="flex flex-col justify-end h-full">
                   <label className="block text-sm font-black text-slate-900 mb-1.5 leading-tight">5. Start Date <span className="block font-bold text-[11px] text-slate-600 mt-0.5">(Leave blank)</span></label>
-                  {/* FIX: Added relative wrapper and physical 'Clear' button to defeat Safari's un-clearable autofill bug */}
                   <div className="relative flex items-center">
                     <input type="date" name="tpl_start_date_ignore" autoComplete="off" value={tplStartDate} onChange={(e) => setTplStartDate(e.target.value)} className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none" />
                     {tplStartDate && (
@@ -227,7 +272,6 @@ export default function SetupTab({ appState }: any) {
                 </div>
                 <div className="flex flex-col justify-end h-full">
                   <label className="block text-sm font-black text-slate-900 mb-1.5 leading-tight">End Date <span className="block font-bold text-[11px] text-slate-600 mt-0.5">(Leave blank)</span></label>
-                  {/* FIX: Added relative wrapper and physical 'Clear' button to defeat Safari's un-clearable autofill bug */}
                   <div className="relative flex items-center">
                     <input type="date" name="tpl_end_date_ignore" autoComplete="off" value={tplEndDate} onChange={(e) => setTplEndDate(e.target.value)} className="w-full border-2 border-slate-300 rounded-lg p-2.5 text-sm text-slate-900 font-bold focus:border-blue-600 focus:outline-none" />
                     {tplEndDate && (
@@ -259,6 +303,40 @@ export default function SetupTab({ appState }: any) {
           </div>
 
           <div className="lg:col-span-2 space-y-6">
+            
+            {/* NEW: GENERATE SCHEDULE COMPONENT */}
+            <div className="bg-slate-800 p-5 rounded-xl border border-slate-900 shadow-md">
+              <h3 className="font-black text-white mb-4 text-lg border-b border-slate-600 pb-2">Generate Schedule from Templates</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+                <div className="sm:col-span-1">
+                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Facility</label>
+                  <select value={genLocId} onChange={(e) => setGenLocId(e.target.value)} className="w-full border-2 border-slate-600 bg-slate-900 text-white rounded-lg p-2.5 text-sm font-bold focus:border-yellow-400 outline-none cursor-pointer">
+                    <option value="">All Locations</option>
+                    {locations?.map((loc: Location) => (
+                      <option key={loc.id} value={loc.id}>{loc.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Start Date</label>
+                  <input type="date" value={genStartDate} onChange={(e) => setGenStartDate(e.target.value)} className="w-full border-2 border-slate-600 bg-slate-900 text-white rounded-lg p-2.5 text-sm font-bold focus:border-yellow-400 outline-none" />
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">End Date</label>
+                  <input type="date" value={genEndDate} onChange={(e) => setGenEndDate(e.target.value)} className="w-full border-2 border-slate-600 bg-slate-900 text-white rounded-lg p-2.5 text-sm font-bold focus:border-yellow-400 outline-none" />
+                </div>
+                <div className="sm:col-span-1">
+                  <button 
+                    onClick={handleGenerateSchedule} 
+                    disabled={isGenerating}
+                    className="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-black py-2.5 rounded-lg shadow-sm transition disabled:opacity-50 h-[44px]"
+                  >
+                    {isGenerating ? '...' : 'Generate Shifts'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white p-5 rounded-xl border border-slate-300 shadow-sm overflow-hidden h-full flex flex-col">
               <h3 className="font-black text-slate-900 mb-4 text-xl border-b-2 border-slate-100 pb-2">Saved Templates</h3>
               <div className="overflow-x-auto overflow-y-auto flex-1 min-h-[300px] max-h-[800px] pb-32">
@@ -349,6 +427,7 @@ export default function SetupTab({ appState }: any) {
         </div>
       )}
 
+      {/* Task Code Below (Unchanged) */}
       {activeTab === 'tasks' && (
         <div className="max-w-4xl mx-auto mt-2">
           <div className="bg-white rounded-xl shadow-sm border border-slate-300 overflow-hidden flex flex-col h-full">
