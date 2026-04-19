@@ -24,6 +24,7 @@ export default function CalendarTab({ appState }: any) {
   const users = useAppStore(state => state.users);
   const shifts = useAppStore(state => state.shifts);
   const fetchShifts = useAppStore(state => state.fetchShifts);
+  const updateShift = useAppStore(state => state.updateShift);
   const selectedUserId = useAppStore(state => state.selectedUserId);
 
   const calLocFilter = useAppStore(state => state.calLocFilter);
@@ -31,11 +32,11 @@ export default function CalendarTab({ appState }: any) {
   const calEmpFilter = useAppStore(state => state.calEmpFilter);
   const setCalEmpFilter = useAppStore(state => state.setCalEmpFilter);
 
-  const activeUserObj = users.find(u => u.id.toString() === selectedUserId);
-  const isAdmin = activeUserObj?.systemRoles?.includes('Administrator');
-  const isManager = activeUserObj?.systemRoles?.includes('Manager') || isAdmin;
+  const activeUser = users.find(u => u.id.toString() === selectedUserId);
+  const isAdmin = activeUser?.systemRoles?.includes('Administrator');
+  const isManager = activeUser?.systemRoles?.includes('Manager') || isAdmin;
 
-  const userLocationIds = activeUserObj?.locationIds ||[];
+  const userLocationIds = activeUser?.locationIds ||[];
   const allowedLocationIds = userLocationIds.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
 
   const activeLocations = (isAdmin || isManager) 
@@ -112,15 +113,16 @@ export default function CalendarTab({ appState }: any) {
     return dayArray.flatMap(d => safeLocs.map(loc => ({ date: d, location: loc })));
   },[dayArray, activeLocations, selectedLocs, shifts, locations, isAdmin, isManager, allowedLocationIds]);
 
-  const handleUpdateShiftTime = async (shiftId: number, startTime: string, endTime: string, userId: number | null) => {
-    await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId, userId, startTime, endTime, action: 'UPDATE' }) });
-    await fetchShifts(); 
+  const isSameDay = (isoString: string, targetDate: Date) => {
+    const d = new Date(isoString);
+    return d.getFullYear() === targetDate.getFullYear() && d.getMonth() === targetDate.getMonth() && d.getDate() === targetDate.getDate();
   };
 
   const handleClaimShift = async (shiftId: number) => { 
     if(!selectedUserId) { notify.error("Select an employee first!"); return; } 
-    await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId: shiftId, userId: parseInt(selectedUserId), action: 'CLAIM' }) }); 
-    await fetchShifts(); 
+    const shift = shifts.find(s => s.id === shiftId);
+    if (!shift) return;
+    await updateShift(shiftId, shift.startTime, shift.endTime, parseInt(selectedUserId)); 
     notify.success("Shift claimed!");
   };
 
@@ -148,7 +150,7 @@ export default function CalendarTab({ appState }: any) {
     const newStart = new Date(targetDate);
     newStart.setHours(originalStart.getHours(), originalStart.getMinutes(), 0, 0);
     const newEnd = new Date(newStart.getTime() + durationMs);
-    handleUpdateShiftTime(shiftId, newStart.toISOString(), newEnd.toISOString(), targetShift.userId || null);
+    updateShift(shiftId, newStart.toISOString(), newEnd.toISOString(), targetShift.userId || null);
   };
 
   const executeMobileMove = (targetDate: Date) => {
@@ -161,9 +163,8 @@ export default function CalendarTab({ appState }: any) {
     
     const newStart = new Date(targetDate);
     newStart.setHours(originalStart.getHours(), originalStart.getMinutes(), 0, 0);
-    const newEnd = new Date(newStart.getTime() + durationMs);
     
-    handleUpdateShiftTime(mobileMoveShiftId, newStart.toISOString(), newEnd.toISOString(), targetShift.userId || null);
+    updateShift(mobileMoveShiftId, newStart.toISOString(), new Date(newStart.getTime() + durationMs).toISOString(), targetShift.userId || null);
     setMobileMoveShiftId(null);
     notify.success("Shift Moved!");
   };
@@ -330,7 +331,7 @@ export default function CalendarTab({ appState }: any) {
                                 <div className="mt-1 flex flex-col gap-1">
                                   {isAdmin || isManager ? (
                                     <>
-                                      <select value={shift.userId || ""} onChange={(e) => handleUpdateShiftTime(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} className={`w-full font-bold text-center truncate px-1 py-1.5 rounded shadow-sm border outline-none cursor-pointer text-xs ${shift.userId === null ? 'bg-green-100 text-green-900 border-green-500' : `${shiftColor.badge}`}`}><option value="">-- Open Shift --</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
+                                      <select value={shift.userId || ""} onChange={(e) => updateShift(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} className={`w-full font-bold text-center truncate px-1 py-1.5 rounded shadow-sm border outline-none cursor-pointer text-xs ${shift.userId === null ? 'bg-green-100 text-green-900 border-green-500' : `${shiftColor.badge}`}`}><option value="">-- Open Shift --</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
                                       <button type="button" onClick={(e) => { e.stopPropagation(); setMobileMoveShiftId(mobileMoveShiftId === shift.id ? null : shift.id); }} className="md:hidden w-full bg-slate-900 text-white font-black text-[9px] py-1.5 rounded uppercase tracking-widest shadow-sm">
                                         {mobileMoveShiftId === shift.id ? 'Cancel Move' : 'Move Shift'}
                                       </button>
@@ -438,7 +439,7 @@ export default function CalendarTab({ appState }: any) {
                                   </div>
                                   {(isAdmin || isManager) && !isCompact && (
                                     <div className="px-1 pb-1 mt-auto space-y-1">
-                                      <select value={shift.userId || ""} onChange={(e) => handleUpdateShiftTime(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} className="w-full bg-white/50 border border-black/10 rounded outline-none text-[9px] font-bold p-0.5 cursor-pointer text-slate-800"><option value="">- Open -</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
+                                      <select value={shift.userId || ""} onChange={(e) => updateShift(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} className="w-full bg-white/50 border border-black/10 rounded outline-none text-[9px] font-bold p-0.5 cursor-pointer text-slate-800"><option value="">- Open -</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
                                       <button type="button" onClick={(e) => { e.stopPropagation(); setMobileMoveShiftId(mobileMoveShiftId === shift.id ? null : shift.id); }} className="md:hidden w-full bg-slate-900 text-white font-black text-[9px] py-1.5 rounded uppercase tracking-widest shadow-sm">
                                         {mobileMoveShiftId === shift.id ? 'Cancel Move' : 'Move Shift'}
                                       </button>

@@ -1,14 +1,14 @@
 // filepath: lib/common.ts
 export const DAYS_OF_WEEK =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-export const YEARS = [2025, 2026, 2027];
+export const YEARS = [new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1];
 export const AVAILABLE_ROLES = ['Administrator', 'Manager', 'Front Desk', 'Trainer'];
 
 export const formatTimeSafe = (dStr: string | null | undefined) => {
   if (!dStr) return 'Active';
   const d = new Date(dStr);
   if (isNaN(d.getTime())) return 'Active';
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 };
 
 export const formatDateSafe = (dStr: string | null | undefined) => {

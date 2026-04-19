@@ -3,12 +3,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Shift, User } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
-import { DAYS_OF_WEEK, getLocationColor } from '@/lib/common';
+import { DAYS_OF_WEEK, getLocationColor, formatTimeSafe } from '@/lib/common';
 import { notify, customConfirm } from '@/lib/ui-utils';
 
 const ShiftCard = ({ shift, showEmployeeSelect = false, isMoving, onMoveClick, onDeleteClick }: { shift: Shift, showEmployeeSelect?: boolean, isMoving?: boolean, onMoveClick?: () => void, onDeleteClick?: () => void }) => {
   const users = useAppStore(state => state.users);
   const fetchShifts = useAppStore(state => state.fetchShifts);
+  const updateShift = useAppStore(state => state.updateShift);
   const selectedUserId = useAppStore(state => state.selectedUserId);
   
   const activeUser = users.find(u => u.id.toString() === selectedUserId);
@@ -44,11 +45,6 @@ const ShiftCard = ({ shift, showEmployeeSelect = false, isMoving, onMoveClick, o
     e.dataTransfer.setData('shiftId', shift.id.toString());
   };
 
-  const handleUpdateShiftTime = async (shiftId: number, startTime: string, endTime: string, userId: number | null) => {
-    await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shiftId, userId, startTime, endTime, action: 'UPDATE' }) });
-    await fetchShifts();
-  };
-
   const handleMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault(); 
@@ -65,7 +61,7 @@ const ShiftCard = ({ shift, showEmployeeSelect = false, isMoving, onMoveClick, o
       document.removeEventListener('mouseup', handleMouseUp);
       const finalEndTime = new Date(originalEnd + currentMinsAdded * 60000);
       if (finalEndTime.getTime() <= startD.getTime()) { setTempEnd(new Date(shift.endTime)); return; }
-      handleUpdateShiftTime(shift.id, shift.startTime, finalEndTime.toISOString(), shift.userId || null);
+      updateShift(shift.id, shift.startTime, finalEndTime.toISOString(), shift.userId || null);
     };
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
@@ -93,7 +89,7 @@ const ShiftCard = ({ shift, showEmployeeSelect = false, isMoving, onMoveClick, o
           <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest truncate pr-4 ${locTextColor}`}>{shift.location?.name}</span>
           <span className="text-[9px] md:text-[10px] font-black text-slate-700 bg-white/60 px-1.5 py-0.5 rounded shadow-sm">{hours.toFixed(1)}h</span>
         </div>
-        <div className="font-bold text-slate-900 text-[10px] md:text-xs truncate">{startD.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - {tempEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
+        <div className="font-bold text-slate-900 text-[10px] md:text-xs truncate">{formatTimeSafe(shift.startTime)} - {formatTimeSafe(tempEnd.toISOString())}</div>
         {shift.status === 'COVERAGE_REQUESTED' && <div className="mt-1.5 font-black text-center truncate px-1 py-1 rounded shadow-sm border bg-red-600 text-white text-[9px] uppercase tracking-widest animate-pulse">🚨 Needs Cover</div>}
         {!showEmployeeSelect && shift.status === 'OPEN' && <div className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">Unassigned</div>}
       </div>
@@ -102,7 +98,7 @@ const ShiftCard = ({ shift, showEmployeeSelect = false, isMoving, onMoveClick, o
         <div className="px-1.5 pb-2 mt-auto relative z-10">
           <select 
             value={shift.userId || ""} 
-            onChange={(e) => handleUpdateShiftTime(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} 
+            onChange={(e) => updateShift(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} 
             onClick={(e) => e.stopPropagation()} 
             onMouseDown={(e) => e.stopPropagation()} 
             className={`w-full font-bold text-center truncate px-1 py-1 rounded shadow-sm border outline-none cursor-pointer text-[10px] transition-colors ${shift.userId === null ? 'bg-green-100 text-green-900 border-green-500 hover:bg-green-200' : `${shiftColor.badge} hover:brightness-95`}`}

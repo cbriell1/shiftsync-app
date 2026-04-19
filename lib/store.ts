@@ -157,6 +157,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
     } catch (e) {}
   },
 
+  updateShift: async (shiftId, startTime, endTime, userId) => {
+    try {
+      const res = await fetch('/api/shifts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shiftId, userId, startTime, endTime, action: 'UPDATE' })
+      });
+      if (res.ok) {
+        await get().fetchShifts();
+      }
+    } catch (e) {}
+  },
+
   fetchManagerData: async (isManager: boolean, userId: string) => {
     const { manPeriods, manEmps } = get();
     const periodsList = generatePeriods();
