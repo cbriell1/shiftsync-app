@@ -29,7 +29,6 @@ const prismaClientSingleton = () => {
   const pool = new NeonPool({ connectionString: url });
   const adapter = new PrismaNeon(pool as any);
   
-  console.log("🚀 Prisma initialized with Neon HTTP Adapter (Production Mode).");
   return new PrismaClient({ adapter });
 };
 

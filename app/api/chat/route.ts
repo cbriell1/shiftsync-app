@@ -34,6 +34,7 @@ export async function POST(req: Request) {
       role: m.role === 'user' ? 'user' : 'model',
       parts: [{ text: m.content }]
     })).filter((m: any, i: number) => {
+      // 🧪 Gemini SDK requires history to START with 'user'
       if (i === 0 && m.role === 'model') return false;
       return true;
     });

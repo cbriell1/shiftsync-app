@@ -402,6 +402,14 @@ function MainDashboard({ session }: { session: any }) {
 
   const legacyAppStatePlaceholder = {} as any;
 
+  if (users.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center h-screen bg-slate-900 text-white font-black uppercase tracking-[0.3em] animate-pulse italic sports-slant">
+         Accessing Stadium Records...
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans relative flex overflow-hidden">
       
