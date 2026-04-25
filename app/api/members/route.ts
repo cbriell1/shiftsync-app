@@ -28,35 +28,16 @@ const memberActionSchema = z.discriminatedUnion("action",[
 // Helper to check for needed renewal resets
 async function processLazyResets(members: any[]) {
   const now = new Date();
-  const currentStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }).replace(/\//g, '-');
-  
   for (const m of members) {
     if (!m.renewalDate) continue;
-    
-    // Simple reset check: if renewal date is today or has passed since lastResetDate
-    // and we haven't reset yet this year.
     const lastResetYear = m.lastResetDate ? new Date(m.lastResetDate).getFullYear() : 0;
     if (lastResetYear < now.getFullYear()) {
-       // Check if current date is past the month/day of renewal
        const [rMonth, rDay] = m.renewalDate.split('-').map(Number);
        const renewalThisYear = new Date(now.getFullYear(), rMonth - 1, rDay);
-       
        if (now >= renewalThisYear) {
-          // Trigger Reset
           await prisma.$transaction([
-            prisma.member.update({
-              where: { id: m.id },
-              data: { lastResetDate: now }
-            }),
-            prisma.passUsage.create({
-              data: {
-                memberId: m.id,
-                dateUsed: now.toISOString(),
-                amount: 0, // Informational log
-                initials: 'AUTO',
-                description: `Annual Renewal Reset - ${now.getFullYear()}`
-              }
-            })
+            prisma.member.update({ where: { id: m.id }, data: { lastResetDate: now } }),
+            prisma.passUsage.create({ data: { memberId: m.id, dateUsed: now.toISOString(), amount: 0, initials: 'AUTO', description: `Annual Renewal Reset - ${now.getFullYear()}` } })
           ]);
        }
     }
@@ -73,12 +54,12 @@ export async function GET(req: Request) {
       orderBy: { lastName: 'asc' }
     });
 
-    // Check for needed resets in background
     processLazyResets(members).catch(console.error);
 
     return NextResponse.json(members);
   } catch (error: any) {
-    return NextResponse.json({ error: "Failed to fetch members" }, { status: 500 });
+    console.error("❌ GET /api/members Error:", error.message, error.stack);
+    return NextResponse.json({ error: "Failed to fetch members", details: error.message }, { status: 500 });
   }
 }
 
@@ -104,6 +85,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(newMember);
   } catch (error: any) {
+    console.error("❌ POST /api/members Error:", error.message, error.stack);
     if (error instanceof z.ZodError) return NextResponse.json({ error: error.issues }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -134,9 +116,6 @@ export async function PUT(request: Request) {
     }
 
     if (data.action === 'GRANT_EXTRA_PASSES') {
-      // Granting extra passes adds a negative usage (adding back to balance)
-      // or we can update totalPasses. Best practice is to update totalPasses
-      // and log the audit.
       const updated = await prisma.member.update({
         where: { id: data.memberId },
         data: { 
@@ -167,7 +146,7 @@ export async function PUT(request: Request) {
     }
 
     if (data.action === 'REVERT_PASS') {
-      const deleted = await prisma.passUsage.delete({
+      await prisma.passUsage.delete({
         where: { id: data.usageId }
       });
       return NextResponse.json({ success: true });
@@ -175,6 +154,7 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ error: "Invalid Action" }, { status: 400 });
   } catch (error: any) {
+    console.error("❌ PUT /api/members Error:", error.message, error.stack);
     if (error instanceof z.ZodError) return NextResponse.json({ error: error.issues }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

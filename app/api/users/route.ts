@@ -36,7 +36,6 @@ async function verifyManagementAccess() {
   return userRoles.includes('Administrator') || userRoles.includes('Manager');
 }
 
-// FIX: Added (req: Request)
 export async function GET(req: Request) {
   try {
     const session = await auth();
@@ -47,6 +46,7 @@ export async function GET(req: Request) {
     });
     return NextResponse.json(users);
   } catch (error: any) {
+    console.error("❌ GET /api/users Error:", error.message, error.stack);
     return NextResponse.json({ error: "Database error fetching users.", details: error.message }, { status: 500 });
   }
 }
@@ -74,6 +74,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(newUser);
   } catch (error: any) {
+    console.error("❌ POST /api/users Error:", error.message, error.stack);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -118,6 +119,7 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updatedUser);
   } catch (error: any) {
+    console.error("❌ PUT /api/users Error:", error.message, error.stack);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
