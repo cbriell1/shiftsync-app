@@ -27,7 +27,8 @@ export async function GET(req: Request) {
     });
     return NextResponse.json(messages);
   } catch (error: any) {
-    return NextResponse.json({ error: "Failed to fetch messages" }, { status: 500 });
+    console.error("❌ GET /api/messages Error:", error.message, error.stack);
+    return NextResponse.json({ error: "Failed to fetch messages", details: error.message }, { status: 500 });
   }
 }
 
@@ -65,12 +66,13 @@ export async function POST(request: Request) {
         const { sendChatNotificationEmail } = require('@/lib/email');
         await sendChatNotificationEmail(message, message.sender, recipientEmails);
       }
-    } catch (emailErr) {
-      console.error("Chat email notification failed:", emailErr);
+    } catch (emailErr: any) {
+      console.error("Chat email notification failed:", emailErr.message);
     }
 
     return NextResponse.json(message);
   } catch (error: any) {
-    return NextResponse.json({ error: "Failed to send message" }, { status: 500 });
+    console.error("❌ POST /api/messages Error:", error.message, error.stack);
+    return NextResponse.json({ error: "Failed to send message", details: error.message }, { status: 500 });
   }
 }

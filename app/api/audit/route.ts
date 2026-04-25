@@ -34,7 +34,8 @@ export async function GET(req: Request) {
     });
     return NextResponse.json(logs);
   } catch (error: any) {
-    return NextResponse.json({ error: "Failed to fetch logs" }, { status: 500 });
+    console.error("❌ GET /api/audit Error:", error.message, error.stack);
+    return NextResponse.json({ error: "Failed to fetch logs", details: error.message }, { status: 500 });
   }
 }
 
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(log);
   } catch (error: any) {
-    return NextResponse.json({ error: "Failed to log" }, { status: 500 });
+    console.error("❌ POST /api/audit Error:", error.message, error.stack);
+    return NextResponse.json({ error: "Failed to log", details: error.message }, { status: 500 });
   }
 }

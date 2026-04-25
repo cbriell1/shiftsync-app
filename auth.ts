@@ -121,30 +121,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Emergency Password", type: "password" }
       },
       async authorize(credentials) {
-        const inputEmail = String(credentials?.email || "").toLowerCase().trim();
-        const inputPassword = String(credentials?.password || "").trim();
-        
-        const emergencyPassword = process.env.EMERGENCY_PASSWORD;
+        try {
+          const inputEmail = String(credentials?.email || "").toLowerCase().trim();
+          const inputPassword = String(credentials?.password || "").trim();
+          
+          const emergencyPassword = process.env.EMERGENCY_PASSWORD;
 
-        if (!emergencyPassword) {
-          console.error("🚨 CRITICAL ERROR: EMERGENCY_PASSWORD missing in environment!");
-          return null;
-        }
+          if (!emergencyPassword) {
+            console.error("🚨 CRITICAL ERROR: EMERGENCY_PASSWORD missing in environment!");
+            return null;
+          }
 
-        // ALLOW LOGIN IF SECRET MATCHES
-        if (inputPassword === emergencyPassword) {
-           const user = await prisma.user.findFirst({ where: { email: inputEmail, isActive: true } });
-           
-           if (!user) {
-             console.error(`🚨 LOGIN DENIED: User ${inputEmail} not found or inactive.`);
+          if (inputPassword === emergencyPassword) {
+             const user = await prisma.user.findFirst({ where: { email: inputEmail, isActive: true } });
+             
+             if (!user) {
+               console.error(`🚨 LOGIN DENIED: User ${inputEmail} not found or inactive.`);
+               return null;
+             }
+             
+             console.log(`✅ Emergency Access Granted for: ${inputEmail}`);
+             return { ...user, id: user.id.toString() };
+          } else {
+             console.error(`🚨 LOGIN DENIED: Invalid Emergency Secret.`);
              return null;
-           }
-           
-           console.log(`✅ Emergency Access Granted for: ${inputEmail}`);
-           return { ...user, id: user.id.toString() };
-        } else {
-           console.error(`🚨 LOGIN DENIED: Invalid Emergency Secret.`);
-           return null;
+          }
+        } catch (authError: any) {
+          console.error("🚨 authorize callback error:", authError.message, authError.stack);
+          return null;
         }
       }
     })
@@ -153,58 +157,64 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   experimental: { enableWebAuthn: true },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id?.toString();
-        token.role = (user as any).role;
-        token.systemRoles = (user as any).systemRoles;
-        
-        const sessionToken = generateSessionToken();
-        const expires = new Date();
-        expires.setDate(expires.getDate() + 30);
-        
-        // Use a background-ish approach for metadata to speed up login
-        try {
-          await prisma.session.create({
-            data: { sessionToken, userId: Number(user.id), expires }
-          });
+      try {
+        if (user) {
+          token.id = user.id?.toString();
+          token.role = (user as any).role;
+          token.systemRoles = (user as any).systemRoles;
           
-          const sysRoles = (user as any).systemRoles || [];
-          const isElevated = sysRoles.includes('Administrator') || sysRoles.includes('Manager');
+          const sessionToken = generateSessionToken();
+          const expires = new Date();
+          expires.setDate(expires.getDate() + 30);
+          
+          // Use a background-ish approach for metadata to speed up login
+          try {
+            await prisma.session.create({
+              data: { sessionToken, userId: Number(user.id), expires }
+            });
+            
+            const sysRoles = (user as any).systemRoles || [];
+            const isElevated = sysRoles.includes('Administrator') || sysRoles.includes('Manager');
 
-          // Non-blocking updates & alerts
-          prisma.user.update({
-            where: { id: Number(user.id) },
-            data: { lastLoginAt: new Date() }
-          }).catch(e => console.error("Last login update failed", e));
-          
-          prisma.auditLog.create({
-            data: {
-              userId: Number(user.id),
-              action: "LOGIN",
-              details: `User logged in with roles: ${sysRoles.join(', ')}`
+            // Non-blocking updates & alerts
+            prisma.user.update({
+              where: { id: Number(user.id) },
+              data: { lastLoginAt: new Date() }
+            }).catch(e => console.error("Last login update failed", e));
+            
+            prisma.auditLog.create({
+              data: {
+                userId: Number(user.id),
+                action: "LOGIN",
+                details: `User logged in with roles: ${sysRoles.join(', ')}`
+              }
+            }).catch(e => console.error("Audit log failed", e));
+
+            if (isElevated) {
+              const { sendManagerLoginAlert } = require('@/lib/email');
+              sendManagerLoginAlert(user).catch((e: any) => console.error("Login alert email failed", e));
             }
-          }).catch(e => console.error("Audit log failed", e));
-
-          // 🚨 Trigger Security Alert for Managers/Admins
-          if (isElevated) {
-            const { sendManagerLoginAlert } = require('@/lib/email');
-            sendManagerLoginAlert(user).catch((e: any) => console.error("Login alert email failed", e));
+          } catch (dbError) {
+            console.error("🚨 Critical DB error during JWT metadata creation:", dbError);
           }
-        } catch (dbError) {
-          console.error("🚨 Critical DB error during JWT metadata creation:", dbError);
-          // We still let the user in because the JWT itself is valid
+          
+          token.sessionId = sessionToken;
         }
-        
-        token.sessionId = sessionToken;
+      } catch (jwtError: any) {
+        console.error("🚨 jwt callback error:", jwtError.message, jwtError.stack);
       }
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-        (session.user as any).role = token.role;
-        (session.user as any).systemRoles = token.systemRoles;
-        (session as any).sessionId = token.sessionId; 
+      try {
+        if (session.user) {
+          session.user.id = token.id as string;
+          (session.user as any).role = token.role;
+          (session.user as any).systemRoles = token.systemRoles;
+          (session as any).sessionId = token.sessionId; 
+        }
+      } catch (sessionError: any) {
+        console.error("🚨 session callback error:", sessionError.message, sessionError.stack);
       }
       return session;
     }
