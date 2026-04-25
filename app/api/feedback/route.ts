@@ -3,9 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sendNewFeedbackEmail } from '@/lib/email';
-import { auth } from '@/auth'; // <-- Added Security
+import { auth } from '@/auth';
 
-// FIX: Explicitly tell Turbopack not to pre-render this file
 export const dynamic = 'force-dynamic';
 
 const feedbackSchema = z.object({
@@ -16,23 +15,27 @@ const feedbackSchema = z.object({
 
 export async function GET() {
   try {
-    // FIX: Require authentication
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const feedbacks = await prisma.feedback.findMany({
-      include: { user: true },
+      include: { 
+        user: true,
+        comments: {
+          include: { user: true },
+          orderBy: { createdAt: 'asc' }
+        }
+      },
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json(feedbacks);
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Failed to fetch' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    // FIX: Require authentication
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -49,7 +52,6 @@ export async function POST(request: Request) {
     });
 
     const user = await prisma.user.findUnique({ where: { id: data.userId } });
-    
     sendNewFeedbackEmail(newFeedback, user).catch(console.error);
 
     return NextResponse.json(newFeedback, { status: 201 });

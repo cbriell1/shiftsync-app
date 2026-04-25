@@ -13,8 +13,8 @@ export default function ReportsTab() {
   const sortedChecklists =[...(checklists || [])].sort((a: Checklist, b: Checklist) => {
     const tcA = timeCards.find((t: TimeCard) => t.id === a.timeCardId);
     const tcB = timeCards.find((t: TimeCard) => t.id === b.timeCardId);
-    const dateA = new Date(tcA?.clockIn || a.date).getTime();
-    const dateB = new Date(tcB?.clockIn || b.date).getTime();
+    const dateA = new Date(tcA?.clockIn || a.createdAt || 0).getTime();
+    const dateB = new Date(tcB?.clockIn || b.createdAt || 0).getTime();
     return dateB - dateA;
   });
 
@@ -35,7 +35,7 @@ export default function ReportsTab() {
               <div key={report.id} className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
                 <div className="bg-slate-800 text-white px-5 py-3 flex justify-between items-center">
                   <span className="font-black text-sm md:text-base uppercase tracking-wider">{report.user?.name || 'Unknown'} @ {report.location?.name || 'Facility'}</span>
-                  <span className="text-[10px] font-black bg-slate-900 px-2 py-1 rounded border border-slate-700">{tc ? new Date(tc.clockIn).toLocaleDateString() : new Date(report.date).toLocaleDateString()}</span>
+                  <span className="text-[10px] font-black bg-slate-900 px-2 py-1 rounded border border-slate-700">{tc ? new Date(tc.clockIn).toLocaleDateString() : new Date(report.createdAt).toLocaleDateString()}</span>
                 </div>
                 <div className="p-5 space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -51,18 +51,25 @@ export default function ReportsTab() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-100">
-                    <div>
-                      <p className="text-[10px] font-black text-green-700 uppercase tracking-widest mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500"></span> Completed ({report.completedTasks?.length || 0})</p>
-                      <ul className="text-xs font-bold text-slate-600 space-y-1.5 pl-5 list-disc">
-                        {report.completedTasks.map((t: string, i: number) => <li key={i}>{t}</li>)}
-                      </ul>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <h4 className="font-black text-slate-900 uppercase text-xs tracking-widest border-b border-slate-100 pb-1">Completed Tasks</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {report.completedTasks.map((t, i) => (
+                          <span key={i} className="bg-green-50 text-green-700 border border-green-200 px-3 py-1 rounded-full text-[10px] font-black uppercase shadow-sm">✓ {t}</span>
+                        ))}
+                        {report.completedTasks.length === 0 && <span className="text-slate-400 italic text-xs font-bold">No tasks completed.</span>}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] font-black text-red-700 uppercase tracking-widest mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500"></span> Missed / Unchecked ({report.missedTasks?.length || 0})</p>
-                      <ul className="text-xs font-bold text-slate-600 space-y-1.5 pl-5 list-disc">
-                        {report.missedTasks.map((t: string, i: number) => <li key={i}>{t}</li>)}
-                      </ul>
+
+                    <div className="space-y-3">
+                      <h4 className="font-black text-slate-900 uppercase text-xs tracking-widest border-b border-slate-100 pb-1">Missed / Partial</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {report.missedTasks.map((t, i) => (
+                          <span key={i} className="bg-red-50 text-red-700 border border-red-200 px-3 py-1 rounded-full text-[10px] font-black uppercase shadow-sm">✗ {t}</span>
+                        ))}
+                        {report.missedTasks.length === 0 && <span className="text-slate-400 italic text-xs font-bold">Everything completed!</span>}
+                      </div>
                     </div>
                   </div>
                 </div>

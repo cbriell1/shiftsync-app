@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./components/Providers";
 import { Toaster } from "react-hot-toast";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export const metadata: Metadata = {
   title: "ShiftSync",
@@ -20,6 +21,7 @@ export default function RootLayout({
         <Providers>
           <Toaster />
           {children}
+          <SpeedInsights />
         </Providers>
       </body>
     </html>

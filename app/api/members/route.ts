@@ -13,17 +13,56 @@ const memberPostSchema = z.object({
   notes: z.string().optional().default(''),
   family: z.string().optional().default(''),
   renewalDate: z.string().optional().default(''),
-  totalPasses: z.coerce.number().optional().default(12)
+  totalPasses: z.coerce.number().optional().default(12),
+  membershipLevel: z.string().optional().default('STANDARD')
 });
 
 const memberActionSchema = z.discriminatedUnion("action",[
   z.object({ action: z.literal("LOG_BEVERAGE"), memberId: z.coerce.number() }),
   z.object({ action: z.literal("UPDATE_RENEWAL"), memberId: z.coerce.number(), renewalDate: z.string() }),
-  z.object({ action: z.literal("UPDATE_TOTAL_PASSES"), memberId: z.coerce.number(), totalPasses: z.coerce.number(), bonusNotes: z.string().optional() }),
-  z.object({ action: z.literal("LOG_PASS_USAGE"), memberId: z.coerce.number(), dateUsed: z.string(), amount: z.coerce.number(), initials: z.string() })
+  z.object({ action: z.literal("GRANT_EXTRA_PASSES"), memberId: z.coerce.number(), amount: z.coerce.number(), description: z.string(), initials: z.string() }),
+  z.object({ action: z.literal("LOG_PASS_USAGE"), memberId: z.coerce.number(), dateUsed: z.string(), amount: z.coerce.number(), initials: z.string() }),
+  z.object({ action: z.literal("REVERT_PASS"), usageId: z.coerce.number() })
 ]);
 
-// FIX: Added (req: Request)
+// Helper to check for needed renewal resets
+async function processLazyResets(members: any[]) {
+  const now = new Date();
+  const currentStr = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }).replace(/\//g, '-');
+  
+  for (const m of members) {
+    if (!m.renewalDate) continue;
+    
+    // Simple reset check: if renewal date is today or has passed since lastResetDate
+    // and we haven't reset yet this year.
+    const lastResetYear = m.lastResetDate ? new Date(m.lastResetDate).getFullYear() : 0;
+    if (lastResetYear < now.getFullYear()) {
+       // Check if current date is past the month/day of renewal
+       const [rMonth, rDay] = m.renewalDate.split('-').map(Number);
+       const renewalThisYear = new Date(now.getFullYear(), rMonth - 1, rDay);
+       
+       if (now >= renewalThisYear) {
+          // Trigger Reset
+          await prisma.$transaction([
+            prisma.member.update({
+              where: { id: m.id },
+              data: { lastResetDate: now }
+            }),
+            prisma.passUsage.create({
+              data: {
+                memberId: m.id,
+                dateUsed: now.toISOString(),
+                amount: 0, // Informational log
+                initials: 'AUTO',
+                description: `Annual Renewal Reset - ${now.getFullYear()}`
+              }
+            })
+          ]);
+       }
+    }
+  }
+}
+
 export async function GET(req: Request) {
   try {
     const session = await auth();
@@ -33,6 +72,10 @@ export async function GET(req: Request) {
       include: { usages: true },
       orderBy: { lastName: 'asc' }
     });
+
+    // Check for needed resets in background
+    processLazyResets(members).catch(console.error);
+
     return NextResponse.json(members);
   } catch (error: any) {
     return NextResponse.json({ error: "Failed to fetch members" }, { status: 500 });
@@ -55,7 +98,8 @@ export async function POST(request: Request) {
         notes: data.notes,
         family: data.family,
         renewalDate: data.renewalDate,
-        totalPasses: data.totalPasses
+        totalPasses: data.totalPasses,
+        membershipLevel: data.membershipLevel
       }
     });
     return NextResponse.json(newMember);
@@ -89,12 +133,22 @@ export async function PUT(request: Request) {
       return NextResponse.json(updated);
     }
 
-    if (data.action === 'UPDATE_TOTAL_PASSES') {
+    if (data.action === 'GRANT_EXTRA_PASSES') {
+      // Granting extra passes adds a negative usage (adding back to balance)
+      // or we can update totalPasses. Best practice is to update totalPasses
+      // and log the audit.
       const updated = await prisma.member.update({
         where: { id: data.memberId },
         data: { 
-          totalPasses: data.totalPasses,
-          bonusNotes: data.bonusNotes || '' 
+          totalPasses: { increment: data.amount },
+          usages: {
+            create: {
+              dateUsed: new Date().toISOString(),
+              amount: 0,
+              initials: data.initials,
+              description: `GRANT: ${data.amount} Passes. Reason: ${data.description}`
+            }
+          }
         }
       });
       return NextResponse.json(updated);
@@ -111,6 +165,15 @@ export async function PUT(request: Request) {
       });
       return NextResponse.json(newUsage);
     }
+
+    if (data.action === 'REVERT_PASS') {
+      const deleted = await prisma.passUsage.delete({
+        where: { id: data.usageId }
+      });
+      return NextResponse.json({ success: true });
+    }
+
+    return NextResponse.json({ error: "Invalid Action" }, { status: 400 });
   } catch (error: any) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: error.issues }, { status: 400 });
     return NextResponse.json({ error: error.message }, { status: 500 });

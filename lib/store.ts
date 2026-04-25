@@ -1,7 +1,9 @@
 // filepath: lib/store.ts
 import { create } from 'zustand';
-import { User, Location, TimeCard, Shift, Member, ShiftTemplate, Checklist, GlobalTask, GiftCard, Feedback, Message, Announcement, AuditLog } from './types';
+import { User, Location, TimeCard, Shift, Member, ShiftTemplate, Checklist, GlobalTask, GiftCard, Feedback, Message, Announcement, AuditLog, Event } from './types';
 import { generatePeriods } from './common';
+import { customConfirm, notify } from './ui-utils';
+import { updateShiftAction, deleteShiftAction, bulkDeleteShiftsAction, saveTemplatesAction, deleteTemplateAction, bulkTemplatesFromShiftsAction, generateScheduleAction } from './actions';
 
 interface AppStore {
   activeTab: string;
@@ -28,6 +30,11 @@ interface AppStore {
   setManLocs: (ids: number[]) => void;
   manEmps: number[];
   setManEmps: (ids: number[]) => void;
+  
+  activePainterId: number | null;
+  setActivePainterId: (id: number | null) => void;
+  popoverTargetShiftId: number | null;
+  setPopoverTargetShiftId: (id: number | null) => void;
 
   showChecklistModal: boolean;
   setShowChecklistModal: (show: boolean) => void;
@@ -55,7 +62,8 @@ interface AppStore {
   messages: Message[];
   announcements: Announcement[];
   managerData: TimeCard[];
-  auditLogs: AuditLog[]; // NEW
+  auditLogs: AuditLog[];
+  events: Event[];
 
   isFeedbacksLoading: boolean;
   isGiftCardsLoading: boolean;
@@ -73,8 +81,18 @@ interface AppStore {
   fetchAnnouncements: (userId: string) => Promise<void>;
   fetchTimeCards: (userId: string) => Promise<void>;
   fetchManagerData: (isManager: boolean, userId: string) => Promise<void>;
-  fetchAuditLogs: () => Promise<void>; // NEW
-  logAction: (action: string, details: string) => Promise<void>; // NEW
+  fetchAuditLogs: () => Promise<void>;
+  fetchEvents: () => Promise<void>;
+  logAction: (action: string, details: string) => Promise<void>;
+  
+  // SERVER ACTIONS MIGRATED
+  updateShift: (shiftId: number, startTime: string, endTime: string, userId: number | null, action?: any) => Promise<void>;
+  deleteShift: (shiftId: number) => Promise<void>;
+  bulkDeleteShifts: (startDate: string, endDate: string, locationId?: number) => Promise<void>;
+  saveTemplates: (data: any) => Promise<void>;
+  deleteTemplate: (id: number) => Promise<void>;
+  bulkTemplatesFromShifts: (shifts: any[]) => Promise<void>;
+  generateSchedule: (startDate: string, endDate: string, locationId?: number | null) => Promise<void>;
   
   fetchAllCoreData: (userId: string) => Promise<void>;
 }
@@ -104,6 +122,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setManLocs: (ids) => set({ manLocs: ids }),
   manEmps:[],
   setManEmps: (ids) => set({ manEmps: ids }),
+  
+  activePainterId: null,
+  setActivePainterId: (id) => set({ activePainterId: id }),
+  popoverTargetShiftId: null,
+  setPopoverTargetShiftId: (id) => set({ popoverTargetShiftId: id }),
 
   showChecklistModal: false,
   setShowChecklistModal: (show) => set({ showChecklistModal: show }),
@@ -121,7 +144,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   users: [], locations:[], timeCards: [], shifts: [], members: [],
   templates: [], checklists:[], globalTasks: [], giftCards:[],
   feedbacks: [], messages: [], announcements: [], managerData:[],
-  auditLogs:[],
+  auditLogs:[], events: [],
 
   isFeedbacksLoading: true,
   isGiftCardsLoading: true,
@@ -139,12 +162,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
   fetchAnnouncements: async (userId: string) => { if (!userId) return; try { const res = await fetch(`/api/announcements?userId=${userId}&t=${Date.now()}`); const data = await res.json(); set({ announcements: Array.isArray(data) ? data :[] }); } catch (e) {} },
   fetchTimeCards: async (userId: string) => { if (!userId) return; try { const res = await fetch(`/api/timecards?userId=${userId}&t=${Date.now()}`); const data = await res.json(); set({ timeCards: Array.isArray(data) ? data :[] }); } catch (e) {} },
   
-  // NEW: Fetch and Log Audit Actions
   fetchAuditLogs: async () => {
     try { 
       const res = await fetch('/api/audit?t=' + Date.now()); 
       const data = await res.json(); 
       set({ auditLogs: Array.isArray(data) ? data :[] }); 
+    } catch (e) {}
+  },
+  fetchEvents: async () => {
+    try {
+      const res = await fetch('/api/events?t=' + Date.now());
+      const data = await res.json();
+      set({ events: Array.isArray(data) ? data : [] });
     } catch (e) {}
   },
   logAction: async (action: string, details: string) => {
@@ -157,17 +186,94 @@ export const useAppStore = create<AppStore>((set, get) => ({
     } catch (e) {}
   },
 
-  updateShift: async (shiftId, startTime, endTime, userId) => {
-    try {
-      const res = await fetch('/api/shifts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shiftId, userId, startTime, endTime, action: 'UPDATE' })
+  updateShift: async (shiftId, startTime, endTime, userId, action = 'UPDATE') => {
+    const { shifts, users } = get();
+    
+    // OVERLAP DETECTION
+    if (userId) {
+      const newStart = new Date(startTime).getTime();
+      const newEnd = new Date(endTime).getTime();
+      const user = users.find(u => u.id === userId);
+
+      const overlap = shifts.find(s => {
+        if (s.id === shiftId || s.userId !== userId) return false;
+        const sStart = new Date(s.startTime).getTime();
+        const sEnd = new Date(s.endTime).getTime();
+        return (newStart < sEnd && newEnd > sStart);
       });
-      if (res.ok) {
-        await get().fetchShifts();
+
+      if (overlap) {
+        const msg = `CONFLICT: ${user?.name} is already assigned to a shift from ${new Date(overlap.startTime).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})} to ${new Date(overlap.endTime).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}. Assign anyway?`;
+        if (!(await customConfirm(msg, "Shift Conflict Detected", true))) return;
       }
-    } catch (e) {}
+    }
+
+    const res = await updateShiftAction({ shiftId, userId, startTime, endTime, action });
+    if (res.success) {
+      await get().fetchShifts();
+    } else {
+      notify.error(res.error || "Failed to update shift");
+    }
+  },
+
+  deleteShift: async (shiftId) => {
+    const res = await deleteShiftAction(shiftId);
+    if (res.success) {
+      notify.success("Shift deleted");
+      await get().fetchShifts();
+    } else {
+      notify.error(res.error || "Failed to delete shift");
+    }
+  },
+
+  bulkDeleteShifts: async (startDate, endDate, locationId) => {
+    const res = await bulkDeleteShiftsAction({ startDate, endDate, locationId });
+    if (res.success) {
+      notify.success(`Successfully deleted ${res.count} shifts.`);
+      await get().fetchShifts();
+    } else {
+      notify.error(res.error || "Failed to clear shifts");
+    }
+  },
+
+  saveTemplates: async (data) => {
+    const res = await saveTemplatesAction(data);
+    if (res.success) {
+      notify.success(data.id ? "Template updated!" : "Templates created!");
+      await get().fetchTemplates();
+    } else {
+      notify.error(res.error || "Failed to save template");
+    }
+  },
+
+  deleteTemplate: async (id) => {
+    const res = await deleteTemplateAction(id);
+    if (res.success) {
+      notify.success("Template deleted");
+      await get().fetchTemplates();
+    } else {
+      notify.error(res.error || "Failed to delete template");
+    }
+  },
+
+  bulkTemplatesFromShifts: async (shifts) => {
+    const res = await bulkTemplatesFromShiftsAction(shifts);
+    if (res.success) {
+      notify.success(`Success! Created master templates.`);
+      await get().fetchTemplates();
+    } else {
+      notify.error(res.error || "Failed to save week as template");
+    }
+  },
+
+  generateSchedule: async (startDate, endDate, locationId) => {
+    const res = await generateScheduleAction({ startDate, endDate, locationId });
+    if (res.success) {
+      notify.success(`Success! Generated ${res.count} shifts.`);
+      await get().fetchShifts();
+    } else {
+      notify.error(res.error || "Failed to generate schedule");
+    }
   },
 
   fetchManagerData: async (isManager: boolean, userId: string) => {
@@ -189,11 +295,32 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   fetchAllCoreData: async (userId: string) => {
-    const { fetchUsers, fetchLocations, fetchShifts, fetchMembers, fetchTemplates, fetchChecklists, fetchGlobalTasks, fetchGiftCards, fetchFeedbacks, fetchMessages, fetchAnnouncements, fetchTimeCards } = get();
+    const { fetchUsers, fetchLocations, fetchShifts, fetchMembers, fetchTemplates, fetchChecklists, fetchGlobalTasks, fetchGiftCards, fetchFeedbacks, fetchMessages, fetchAnnouncements, fetchTimeCards, fetchEvents } = get();
+    
+    // Batch 1: Core static-ish data (Reduces initial DB connection spike)
     await Promise.all([
-      fetchUsers(), fetchLocations(), fetchShifts(), fetchMembers(), fetchTemplates(),
-      fetchChecklists(), fetchGlobalTasks(), fetchGiftCards(), fetchFeedbacks(),
-      fetchMessages(userId), fetchAnnouncements(userId), fetchTimeCards(userId)
+      fetchUsers(), 
+      fetchLocations(), 
+      fetchGlobalTasks(), 
+      fetchTemplates(),
+      fetchEvents()
+    ]);
+
+    // Batch 2: Dynamic / User-specific data
+    await Promise.all([
+      fetchShifts(), 
+      fetchMembers(),
+      fetchChecklists(), 
+      fetchGiftCards(), 
+      fetchFeedbacks(),
+      fetchMessages(userId), 
+      fetchAnnouncements(userId), 
+      fetchTimeCards(userId)
     ]);
   }
 }));
+
+// 🧪 EXPOSE STATE FOR AUTOMATED TESTING
+if (typeof window !== 'undefined') {
+  (window as any).__ZUSTAND_STATE__ = useAppStore.getState();
+}

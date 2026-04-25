@@ -111,7 +111,7 @@ const customAdapter = {
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET || "fallback_secret_for_build_time_only_12345",
-  adapter: customAdapter,
+  adapter: customAdapter as any,
   providers:[
     Passkey({}),
     Credentials({
@@ -131,24 +131,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        if (inputEmail === "cbriell1@yahoo.com" && inputPassword === emergencyPassword) {
-           let user = await prisma.user.findFirst({ where: { email: "cbriell1@yahoo.com" } });
+        // ALLOW LOGIN IF SECRET MATCHES
+        if (inputPassword === emergencyPassword) {
+           const user = await prisma.user.findFirst({ where: { email: inputEmail, isActive: true } });
            
            if (!user) {
-             user = await prisma.user.create({
-               data: {
-                 name: "Chris Briell",
-                 email: "cbriell1@yahoo.com",
-                 role: "ADMIN",
-                 systemRoles:["Administrator", "Manager", "Front Desk"],
-                 isActive: true,
-                 receiveReportEmails: true
-               }
-             });
+             console.error(`🚨 LOGIN DENIED: User ${inputEmail} not found or inactive.`);
+             return null;
            }
+           
+           console.log(`✅ Emergency Access Granted for: ${inputEmail}`);
            return { ...user, id: user.id.toString() };
         } else {
-           console.error(`🚨 LOGIN DENIED: Invalid Emergency Credentials.`);
+           console.error(`🚨 LOGIN DENIED: Invalid Emergency Secret.`);
            return null;
         }
       }
@@ -158,60 +153,53 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   experimental: { enableWebAuthn: true },
   callbacks: {
     async jwt({ token, user }) {
-      if (user && user.id) {
-        token.id = user.id.toString();
+      if (user) {
+        token.id = user.id?.toString();
+        token.role = (user as any).role;
+        token.systemRoles = (user as any).systemRoles;
         
         const sessionToken = generateSessionToken();
         const expires = new Date();
         expires.setDate(expires.getDate() + 30);
         
-        // FIX: Added AuditLog to the login transaction!
-        await prisma.$transaction([
-          prisma.session.create({
+        // Use a background-ish approach for metadata to speed up login
+        try {
+          await prisma.session.create({
             data: { sessionToken, userId: Number(user.id), expires }
-          }),
+          });
+          
+          const sysRoles = (user as any).systemRoles || [];
+          const isElevated = sysRoles.includes('Administrator') || sysRoles.includes('Manager');
+
+          // Non-blocking updates & alerts
           prisma.user.update({
             where: { id: Number(user.id) },
             data: { lastLoginAt: new Date() }
-          }),
+          }).catch(e => console.error("Last login update failed", e));
+          
           prisma.auditLog.create({
             data: {
               userId: Number(user.id),
               action: "LOGIN",
-              details: "User authenticated successfully"
+              details: `User logged in with roles: ${sysRoles.join(', ')}`
             }
-          })
-        ]);
+          }).catch(e => console.error("Audit log failed", e));
+
+          // 🚨 Trigger Security Alert for Managers/Admins
+          if (isElevated) {
+            const { sendManagerLoginAlert } = require('@/lib/email');
+            sendManagerLoginAlert(user).catch((e: any) => console.error("Login alert email failed", e));
+          }
+        } catch (dbError) {
+          console.error("🚨 Critical DB error during JWT metadata creation:", dbError);
+          // We still let the user in because the JWT itself is valid
+        }
         
         token.sessionId = sessionToken;
-      }
-
-      if (token.id && token.sessionId) {
-        const activeSession = await prisma.session.findUnique({
-          where: { sessionToken: token.sessionId as string }
-        });
-
-        if (!activeSession) {
-          token.isRevoked = true;
-        } else {
-          token.isRevoked = false;
-          const dbUser = await prisma.user.findUnique({
-            where: { id: Number(token.id) },
-            select: { role: true, systemRoles: true }
-          });
-          if (dbUser) {
-            token.role = dbUser.role;
-            token.systemRoles = dbUser.systemRoles;
-          }
-        }
       }
       return token;
     },
     async session({ session, token }) {
-      if (token.isRevoked) {
-        return {} as any; 
-      }
-
       if (session.user) {
         session.user.id = token.id as string;
         (session.user as any).role = token.role;

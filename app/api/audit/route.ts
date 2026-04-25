@@ -5,49 +5,54 @@ import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
-// GET: Fetch the last 200 logs (Administrators Only)
 export async function GET(req: Request) {
   try {
     const session = await auth();
-    // FIX: Restrict Audit logs completely to Administrators
-    const isAdmin = (session?.user as any)?.systemRoles?.includes('Administrator') || session?.user?.email === 'cbriell1@yahoo.com';
-    
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const userRoles = (session.user as any).systemRoles ||[];
+    if (!userRoles.includes('Administrator')) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const type = searchParams.get('type');
+
+    if (type === 'errors') {
+      const errors = await prisma.errorLog.findMany({
+        include: { user: true },
+        orderBy: { createdAt: 'desc' },
+        take: 100
+      });
+      return NextResponse.json(errors);
     }
 
     const logs = await prisma.auditLog.findMany({
-      include: { 
-        user: { select: { name: true, email: true } } 
-      },
+      include: { user: true },
       orderBy: { createdAt: 'desc' },
-      take: 200 // Keep payload lightweight
+      take: 100
     });
-    
     return NextResponse.json(logs);
   } catch (error: any) {
     return NextResponse.json({ error: "Failed to fetch logs" }, { status: 500 });
   }
 }
 
-// POST: Save a new log entry
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
     const session = await auth();
-    const userId = session?.user?.id ? Number(session.user.id) : null;
-    
-    const body = await req.json();
-    
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const body = await request.json();
     const log = await prisma.auditLog.create({
       data: {
-        userId: userId,
-        action: body.action || "SYSTEM_EVENT",
-        details: body.details || "Unknown event"
+        userId: Number(session.user?.id),
+        action: body.action,
+        details: body.details
       }
     });
-
     return NextResponse.json(log);
   } catch (error: any) {
-    return NextResponse.json({ error: "Failed to save log" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to log" }, { status: 500 });
   }
 }

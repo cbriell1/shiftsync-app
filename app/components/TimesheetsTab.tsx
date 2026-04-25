@@ -145,7 +145,7 @@ export default function TimesheetsTab({ appState }: any) {
   const toggleReport = (id: number) => setExpandedReports(prev => ({ ...prev, [id]: !prev[id] }));
 
   const handleManualSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     const targetUserId = isManager ? formUserId : selectedUserId;
     if (!targetUserId) return alert("Select an employee!");
     if (!selectedLocation) return alert("Select a location!");
@@ -167,6 +167,7 @@ export default function TimesheetsTab({ appState }: any) {
         setEditingCardId(null); setFormStartTime(''); setFormEndTime(''); setFormUserId(''); setFormDate(''); setSelectedLocation('');
         await fetchManagerData(!!isManager, selectedUserId); 
         await fetchTimeCards(selectedUserId);
+        notify.success("Timecard Saved");
       }
     } catch (err) { console.error(err); }
   };
@@ -181,7 +182,6 @@ export default function TimesheetsTab({ appState }: any) {
     setSelectedLocation(card.locationId.toString());
     setFormUserId(card.userId.toString());
     setEditingCardId(card.id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteClick = async (cardId: number) => {
@@ -189,6 +189,7 @@ export default function TimesheetsTab({ appState }: any) {
     await fetch('/api/timecards', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: cardId }) });
     await fetchManagerData(!!isManager, selectedUserId);
     await fetchTimeCards(selectedUserId);
+    notify.success("Timecard Deleted");
   };
 
   const togglePeriod = (idx: number) => {
@@ -256,7 +257,51 @@ export default function TimesheetsTab({ appState }: any) {
         </div>
       </div>
 
-      {/* 1. Multi-Period Selection & Filters */}
+      {/* 1. Log Missing Shift (Top) */}
+      <div className="bg-blue-50/40 p-5 md:p-7 rounded-2xl border-2 border-blue-100 shadow-inner print:hidden">
+        <h3 className="text-lg font-black text-blue-950 mb-5 flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Log Missing Shift
+        </h3>
+        <form onSubmit={handleManualSubmit}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-4 items-start">
+            {isManager && (
+              <div className="col-span-2 sm:col-span-4 lg:col-span-3">
+                <label className={labelClasses}>Staff Member</label>
+                <select value={formUserId} onChange={(e) => setFormUserId(e.target.value)} required className={inputClasses}>
+                  <option value="">-- Select Name --</option>
+                  {activeUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
+            )}
+            <div className={`col-span-2 sm:col-span-4 ${isManager ? 'lg:col-span-3' : 'lg:col-span-4'}`}>
+              <label className={labelClasses}>Facility</label>
+              <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} required className={inputClasses}>
+                <option value="">-- Select Location --</option>
+                {locations.filter(l => l.isActive !== false).map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
+              </select>
+            </div>
+            <div className={`col-span-2 sm:col-span-4 ${isManager ? 'lg:col-span-2' : 'lg:col-span-4'}`}>
+              <label className={labelClasses}>Date</label>
+              <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} required className={inputClasses} />
+            </div>
+            <div className="col-span-1 sm:col-span-2 lg:col-span-2">
+              <label className={labelClasses}>Clock In</label>
+              <input type="time" value={formStartTime} onChange={(e) => setFormStartTime(e.target.value)} required className={inputClasses} />
+            </div>
+            <div className="col-span-1 sm:col-span-2 lg:col-span-2">
+              <label className={labelClasses}>Clock Out</label>
+              <input type="time" value={formEndTime} onChange={(e) => setFormEndTime(e.target.value)} className={inputClasses} />
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-5 border-t border-blue-200/60">
+            <button type="submit" className="w-full sm:w-auto bg-slate-900 text-white font-black py-3.5 px-8 rounded-xl shadow-lg hover:bg-black transition-all text-sm uppercase tracking-widest">
+              Log Timecard
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* 2. Multi-Period Selection & Filters */}
       <div className="bg-white border-2 border-slate-200 rounded-2xl p-5 shadow-sm print:hidden">
         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-yellow-400"></span> Payroll Period Filters
@@ -272,12 +317,7 @@ export default function TimesheetsTab({ appState }: any) {
                 </label>
               ))}
             </div>
-            <div className="flex gap-2 mt-2">
-              <button onClick={() => setManPeriods(periods.map((_, i) => i))} className="text-[10px] font-black uppercase text-blue-600 hover:underline">Select All</button>
-              <button onClick={() => setManPeriods([0])} className="text-[10px] font-black uppercase text-slate-500 hover:underline">Current Only</button>
-            </div>
           </div>
-
           <div>
             <label className={labelClasses}>Facility Filter</label>
             <div className="border-2 border-slate-200 rounded-xl p-2 h-40 overflow-y-auto bg-slate-50 flex flex-col gap-1 shadow-inner">
@@ -288,9 +328,7 @@ export default function TimesheetsTab({ appState }: any) {
                 </label>
               ))}
             </div>
-            <button onClick={() => setManLocs([])} className="text-[10px] font-black uppercase text-slate-500 hover:underline mt-2">Clear Selection</button>
           </div>
-
           {isManager && (
             <div>
               <label className={labelClasses}>Staff Member Filter</label>
@@ -302,13 +340,12 @@ export default function TimesheetsTab({ appState }: any) {
                   </label>
                 ))}
               </div>
-              <button onClick={() => setManEmps([])} className="text-[10px] font-black uppercase text-slate-500 hover:underline mt-2">Clear Selection</button>
             </div>
           )}
         </div>
       </div>
 
-      {/* 2. Integrated Hours Matrix & Drill-Down */}
+      {/* 3. Integrated Hours Matrix & Drill-Down */}
       <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm">
         <div className="bg-slate-900 p-4 print:bg-white print:border-b-2 print:border-slate-300">
           <h3 className="text-sm font-black text-white uppercase tracking-widest print:text-slate-900 italic">Consolidated Hours Matrix</h3>
@@ -345,15 +382,15 @@ export default function TimesheetsTab({ appState }: any) {
                       <td className="p-4 text-center font-black bg-slate-50 text-slate-900">{row.totalRowHours.toFixed(2)}h</td>
                     </tr>
                     
-                    {/* INLINE DRILL DOWN */}
                     {expandedLocs[row.locId] && (
                       <tr className="bg-slate-100 border-b border-slate-300 shadow-inner print:bg-white">
                         <td colSpan={manPeriods.length + 2} className="p-4 md:p-6">
                           <div className="space-y-3 w-full lg:w-[95%] mx-auto">
-                            <h4 className="text-[10px] font-black uppercase text-blue-700 mb-2 tracking-widest">Shift Details: {row.locName}</h4>
                             {row.allCards.sort((a: any, b: any) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()).map((card: TimeCard) => {
                               const report = checklists.find(c => c.timeCardId === card.id);
                               const isRepExpanded = expandedReports[card.id];
+                              const isEditingInline = editingCardId === card.id;
+                              
                               const tcDate = new Date(card.clockIn);
                               const day = tcDate.getDay();
                               const mins = tcDate.getHours() * 60 + tcDate.getMinutes();
@@ -367,24 +404,57 @@ export default function TimesheetsTab({ appState }: any) {
                               const progress = assignedTasks.length > 0 ? Math.round(((report?.completedTasks?.length || 0) / assignedTasks.length) * 100) : (report ? 100 : 0);
 
                               return (
-                                <div key={card.id} className="bg-white border-2 border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                                  <div className="p-3 flex flex-col sm:flex-row justify-between items-center gap-3">
-                                    <div className="flex items-center gap-4">
-                                      <span className="font-black text-sm text-slate-900">{formatDateSafe(card.clockIn)}</span>
-                                      <div className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1 rounded-lg">
-                                        <span className="text-green-700">{formatTimeSafe(card.clockIn)}</span>
-                                        <span className="text-slate-300">→</span>
-                                        <span className={!card.clockOut ? 'text-red-500 animate-pulse' : 'text-slate-800'}>{card.clockOut ? formatTimeSafe(card.clockOut) : 'ACTIVE'}</span>
+                                <div key={card.id} className={`bg-white border-2 rounded-xl overflow-hidden shadow-sm transition-all ${isEditingInline ? 'border-blue-500 ring-2 ring-blue-100 scale-[1.01] z-10 relative' : 'border-slate-200'}`}>
+                                  <div className={`p-3 flex flex-col sm:flex-row justify-between items-center gap-3 ${isEditingInline ? 'bg-blue-50/30' : ''}`}>
+                                    {isEditingInline ? (
+                                      <div className="flex-1 flex flex-wrap items-center gap-3">
+                                        <div className="flex flex-col">
+                                          <span className="text-[9px] font-black text-blue-600 uppercase mb-0.5 ml-1">Date</span>
+                                          <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="bg-white border border-blue-300 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-900 outline-none" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                          <span className="text-[9px] font-black text-blue-600 uppercase mb-0.5 ml-1">Clock In</span>
+                                          <input type="time" value={formStartTime} onChange={(e) => setFormStartTime(e.target.value)} className="bg-white border border-blue-300 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-900 outline-none" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                          <span className="text-[9px] font-black text-blue-600 uppercase mb-0.5 ml-1">Clock Out</span>
+                                          <input type="time" value={formEndTime} onChange={(e) => setFormEndTime(e.target.value)} className="bg-white border border-blue-300 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-900 outline-none" />
+                                        </div>
+                                        <div className="flex flex-col min-w-[120px]">
+                                          <span className="text-[9px] font-black text-blue-600 uppercase mb-0.5 ml-1">Location</span>
+                                          <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} className="bg-white border border-blue-300 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-900 outline-none">
+                                            {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                          </select>
+                                        </div>
                                       </div>
-                                      <span className="text-xs font-black text-blue-700 bg-blue-50 px-2 py-1 rounded-md">{card.totalHours?.toFixed(2)}h</span>
-                                    </div>
-                                    <div className="flex gap-2 print:hidden">
-                                      <button onClick={(e) => { e.stopPropagation(); toggleReport(card.id); }} className={`px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-widest border transition-all ${isRepExpanded ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'}`}>Report ({progress}%)</button>
-                                      <button onClick={(e) => { e.stopPropagation(); handleEditClick(card); }} className="px-3 py-1.5 text-[10px] font-black bg-white text-blue-700 border border-blue-100 hover:bg-blue-50 rounded-lg uppercase transition-all">Edit</button>
-                                      <button onClick={(e) => { e.stopPropagation(); handleDeleteClick(card.id); }} className="px-3 py-1.5 text-[10px] font-black bg-white text-red-600 border border-red-100 hover:bg-red-50 rounded-lg uppercase transition-all">Delete</button>
+                                    ) : (
+                                      <div className="flex items-center gap-4">
+                                        <span className="font-black text-sm text-slate-900">{formatDateSafe(card.clockIn)}</span>
+                                        <div className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1 rounded-lg">
+                                          <span className="text-green-700">{formatTimeSafe(card.clockIn)}</span>
+                                          <span className="text-slate-300">→</span>
+                                          <span className={!card.clockOut ? 'text-red-500 animate-pulse' : 'text-slate-800'}>{card.clockOut ? formatTimeSafe(card.clockOut) : 'ACTIVE'}</span>
+                                        </div>
+                                        <span className="text-xs font-black text-blue-700 bg-blue-50 px-2 py-1 rounded-md">{card.totalHours?.toFixed(2)}h</span>
+                                      </div>
+                                    )}
+
+                                    <div className="flex gap-2 print:hidden shrink-0">
+                                      {isEditingInline ? (
+                                        <>
+                                          <button onClick={(e) => { e.stopPropagation(); handleManualSubmit(e); }} className="px-4 py-2 text-[10px] font-black bg-blue-600 text-white rounded-lg uppercase tracking-widest shadow-md hover:bg-blue-700 transition-all">Save</button>
+                                          <button onClick={(e) => { e.stopPropagation(); setEditingCardId(null); }} className="px-4 py-2 text-[10px] font-black bg-slate-200 text-slate-700 rounded-lg uppercase tracking-widest hover:bg-slate-300 transition-all">Cancel</button>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <button onClick={(e) => { e.stopPropagation(); toggleReport(card.id); }} className={`px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-widest border transition-all ${isRepExpanded ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'}`}>Report ({progress}%)</button>
+                                          <button onClick={(e) => { e.stopPropagation(); handleEditClick(card); }} className="px-3 py-1.5 text-[10px] font-black bg-white text-blue-700 border border-blue-100 hover:bg-blue-50 rounded-lg uppercase transition-all">Edit</button>
+                                          <button onClick={(e) => { e.stopPropagation(); handleDeleteClick(card.id); }} className="px-3 py-1.5 text-[10px] font-black bg-white text-red-600 border border-red-100 hover:bg-red-50 rounded-lg uppercase transition-all">Delete</button>
+                                        </>
+                                      )}
                                     </div>
                                   </div>
-                                  {isRepExpanded && (
+                                  {isRepExpanded && !isEditingInline && (
                                     <div className="border-t border-slate-100">
                                       <ShiftReportEditor card={card} globalReport={report} assignedTasks={assignedTasks} fetchChecklists={fetchChecklists} />
                                     </div>
@@ -410,51 +480,6 @@ export default function TimesheetsTab({ appState }: any) {
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* 3. Log Missing Shift (Remains at bottom or top as a tool) */}
-      <div className="bg-blue-50/40 p-5 md:p-7 rounded-2xl border-2 border-blue-100 shadow-inner print:hidden">
-        <h3 className="text-lg font-black text-blue-950 mb-5 flex items-center gap-2">
-          {editingCardId ? <><span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span> Edit Timecard</> : <><span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Log Missing Shift</>}
-        </h3>
-        <form onSubmit={handleManualSubmit}>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-4 items-start">
-            {isManager && (
-              <div className="col-span-2 sm:col-span-4 lg:col-span-3">
-                <label className={labelClasses}>Staff Member</label>
-                <select value={formUserId} onChange={(e) => setFormUserId(e.target.value)} required className={inputClasses}>
-                  <option value="">-- Select Name --</option>
-                  {activeUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select>
-              </div>
-            )}
-            <div className={`col-span-2 sm:col-span-4 ${isManager ? 'lg:col-span-3' : 'lg:col-span-4'}`}>
-              <label className={labelClasses}>Facility</label>
-              <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} required className={inputClasses}>
-                <option value="">-- Select Location --</option>
-                {locations.filter(l => l.isActive !== false || (editingCardId && l.id.toString() === selectedLocation)).map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
-              </select>
-            </div>
-            <div className={`col-span-2 sm:col-span-4 ${isManager ? 'lg:col-span-2' : 'lg:col-span-4'}`}>
-              <label className={labelClasses}>Date</label>
-              <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} required className={inputClasses} />
-            </div>
-            <div className="col-span-1 sm:col-span-2 lg:col-span-2">
-              <label className={labelClasses}>Clock In</label>
-              <input type="time" value={formStartTime} onChange={(e) => setFormStartTime(e.target.value)} required className={inputClasses} />
-            </div>
-            <div className="col-span-1 sm:col-span-2 lg:col-span-2">
-              <label className={labelClasses}>Clock Out</label>
-              <input type="time" value={formEndTime} onChange={(e) => setFormEndTime(e.target.value)} className={inputClasses} />
-            </div>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-5 border-t border-blue-200/60">
-            <button type="submit" className="w-full sm:w-auto bg-slate-900 text-white font-black py-3.5 px-8 rounded-xl shadow-lg hover:bg-black transition-all text-sm uppercase tracking-widest">
-              {editingCardId ? 'Save Changes' : 'Log Timecard'}
-            </button>
-            {editingCardId && <button type="button" onClick={() => { setEditingCardId(null); setFormUserId(''); setFormDate(''); setFormStartTime(''); setFormEndTime(''); setSelectedLocation(''); }} className="w-full sm:w-auto bg-white border-2 border-slate-300 text-slate-700 font-black py-3.5 px-8 rounded-xl hover:bg-slate-50 transition-colors text-sm uppercase tracking-widest shadow-sm">Cancel Edit</button>}
-          </div>
-        </form>
       </div>
     </div>
   );

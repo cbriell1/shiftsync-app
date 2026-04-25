@@ -111,32 +111,33 @@ export default function TimeClockTab({ appState }: any) {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] animate-in fade-in duration-500">
-      <div className="bg-white p-8 md:p-12 rounded-[32px] shadow-2xl border border-slate-200 w-full max-w-lg text-center relative overflow-hidden">
+    <div className="flex flex-col items-center justify-center min-h-[70vh] animate-in fade-in duration-700">
+      <div className={`p-8 md:p-12 rounded-[40px] shadow-2xl border-4 w-full max-w-lg text-center relative overflow-hidden transition-all duration-500 ${activeCard ? 'bg-slate-950 border-green-500/50 shadow-green-500/10' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
         
-        <div className={`absolute top-0 left-0 right-0 h-3 ${activeCard ? 'bg-red-500' : 'bg-green-600'}`} />
+        {/* Status Lamp */}
+        <div className={`absolute top-0 left-0 right-0 h-4 transition-colors duration-500 ${activeCard ? 'bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.8)]' : 'bg-slate-200'}`} />
 
-        <h2 className="text-xl font-black text-slate-800 tracking-tight uppercase mb-6">
-          My Time Clock
+        <h2 className={`text-sm font-black tracking-[0.2em] uppercase mb-8 sports-slant ${activeCard ? 'text-green-500/80' : 'text-slate-400'}`}>
+          {activeCard ? '• System Active •' : 'System Standby'}
         </h2>
 
-        <div className="mb-10 bg-slate-50 py-6 rounded-2xl border border-slate-200 shadow-inner">
-          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-1">
+        <div className={`mb-10 py-8 rounded-[32px] border-2 transition-all duration-500 ${activeCard ? 'bg-slate-900 border-slate-800 shadow-inner' : 'bg-slate-50 border-slate-100 shadow-inner'}`}>
+          <p className={`text-xs font-black uppercase tracking-widest mb-2 ${activeCard ? 'text-slate-500' : 'text-slate-400'}`}>
             {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric'})}
           </p>
-          <div className="text-5xl md:text-6xl font-black text-slate-900 tracking-tighter tabular-nums drop-shadow-sm">
+          <div className={`text-6xl md:text-7xl font-black tracking-tighter tabular-nums ${activeCard ? 'text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]' : 'text-slate-900'}`}>
             {currentTime.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', second: '2-digit'})}
           </div>
         </div>
 
         {activeCard ? (
-          <div className="space-y-6 animate-in slide-in-from-bottom-4">
-            <div className="bg-red-50 border border-red-200 text-red-900 p-4 rounded-xl">
-              <p className="text-xs font-black uppercase tracking-widest text-red-700 mb-1">Status</p>
-              <p className="text-lg font-bold">
-                Clocked in at <span className="font-black">{formatTimeSafe(activeCard.clockIn)}</span>
+          <div className="space-y-8 animate-in zoom-in-95 duration-500">
+            <div className="bg-green-500/10 border-2 border-green-500/20 py-4 px-6 rounded-2xl inline-block mx-auto">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-green-500 mb-1">Active Session</p>
+              <p className="text-xl font-black text-white sports-slant">
+                Since {formatTimeSafe(activeCard.clockIn)}
               </p>
-              <p className="text-xs font-bold text-red-700 mt-1">
+              <p className="text-[11px] font-bold text-green-400/80 mt-1 uppercase tracking-wider">
                 @ {locations.find(l => l.id === activeCard.locationId)?.name}
               </p>
             </div>
@@ -144,20 +145,20 @@ export default function TimeClockTab({ appState }: any) {
             <button 
               onClick={handleClockOut} 
               disabled={isProcessing}
-              className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-black text-2xl py-6 rounded-2xl shadow-xl shadow-red-600/20 transition-all transform hover:scale-[1.02]"
+              className="w-full bg-red-600 hover:bg-red-500 active:scale-95 disabled:opacity-50 text-white font-black text-3xl py-8 rounded-[24px] shadow-[0_15px_30px_rgba(220,38,38,0.3)] transition-all border-b-8 border-red-800 uppercase sports-slant tracking-tight"
             >
-              {isProcessing ? 'Processing...' : 'CLOCK OUT'}
+              {isProcessing ? 'Saving...' : 'End Shift'}
             </button>
-            <p className="text-xs text-slate-400 font-bold mt-4">Don't forget to fill out your shift report in the "My Time" tab!</p>
+            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest opacity-60">Session automatically logged to your timesheet</p>
           </div>
         ) : (
-          <div className="space-y-6 animate-in slide-in-from-bottom-4">
+          <div className="space-y-8 animate-in slide-in-from-bottom-6 duration-500">
             <div className="text-left">
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Select Facility</label>
+              <label className="block text-[11px] font-black text-slate-500 uppercase tracking-[0.15em] mb-3 ml-2 sports-slant">Station Select</label>
               <select 
                 value={selectedLocId} 
                 onChange={(e) => setSelectedLocId(e.target.value)} 
-                className="w-full border-2 border-slate-300 rounded-xl p-4 text-lg font-bold text-slate-900 focus:border-green-600 focus:ring-0 outline-none shadow-sm cursor-pointer"
+                className="w-full border-2 border-slate-200 rounded-2xl p-5 text-xl font-black text-slate-900 focus:border-blue-600 focus:ring-0 outline-none shadow-sm cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%23475569%22%20stroke-width%3D%223%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] bg-[length:20px_20px] bg-[right_20px_center] bg-no-repeat pr-12 transition-all hover:border-slate-300"
               >
                 {visibleLocations.map((loc) => (
                   <option key={loc.id} value={loc.id}>{loc.name}</option>
@@ -168,9 +169,9 @@ export default function TimeClockTab({ appState }: any) {
             <button 
               onClick={handleClockIn} 
               disabled={isProcessing || !selectedLocId}
-              className="w-full bg-green-700 hover:bg-green-800 disabled:opacity-50 text-white font-black text-2xl py-6 rounded-2xl shadow-xl shadow-green-700/20 transition-all transform hover:scale-[1.02]"
+              className="w-full bg-slate-900 hover:bg-black active:scale-95 disabled:opacity-50 text-white font-black text-3xl py-8 rounded-[24px] shadow-[0_15px_30px_rgba(0,0,0,0.2)] transition-all border-b-8 border-slate-800 uppercase sports-slant tracking-tight"
             >
-              {isProcessing ? 'Processing...' : 'CLOCK IN'}
+              {isProcessing ? 'Wait...' : 'Start Shift'}
             </button>
           </div>
         )}

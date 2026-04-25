@@ -182,7 +182,7 @@ export default function CalendarTab({ appState }: any) {
       if (selectedEmps.length > 0) {
         const isOpen = shift.status === 'OPEN';
         const hasOpenFilter = selectedEmps.includes(-1);
-        const hasEmpFilter = shift.userId !== null && selectedEmps.includes(shift.userId);
+        const hasEmpFilter = shift.userId !== null && selectedEmps.includes(shift.userId as number);
         if (!((isOpen && hasOpenFilter) || hasEmpFilter)) return false;
       }
       return true;

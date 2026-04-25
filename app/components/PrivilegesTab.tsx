@@ -1,406 +1,373 @@
 // filepath: app/components/PrivilegesTab.tsx
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Member, PassUsage } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
+import { notify, customConfirm } from '@/lib/ui-utils';
+import { Star, Coffee, Utensils, Users, History, Ticket, CreditCard, ChevronRight, CheckCircle2, ShieldAlert, XCircle, Search, UserPlus, Info, Trash2, Gift } from 'lucide-react';
+import { getFamilyAllotment, logSnackUsage } from '@/lib/actions';
 
-// Helper Component to handle the complex rendering of a single row/card
-const MemberRow = ({ 
+const MemberVIPRow = ({ 
   m, isManager, expandedMember, setExpandedMember, 
-  editingRenewalId, setEditingRenewalId, newRenewalDate, setNewRenewalDate, handleUpdateRenewal,
-  editingTotalId, setEditingTotalId, newTotalVal, setNewTotalVal, newBonusNotes, setNewBonusNotes, handleUpdateTotal,
-  handleRedeemBeverage, handleLogPass, pDate, setPDate, pAmt, setPAmt, pInitials, setPInitials,
-  viewMode // <-- Added viewMode to toggle between div and tr
+  handleRedeemBeverage, handleLogPass, fetchMembers
 }: any) => {
+  const [allotment, setAllotment] = useState<any>(null);
+  const [isLogging, setIsLogging] = useState(false);
+
+  useEffect(() => {
+    if (m.membershipLevel === 'PLATINUM') {
+      getFamilyAllotment(m.id).then(setAllotment);
+    }
+  }, [m.id, m.membershipLevel]);
+
+  const handlePunchSnack = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!allotment || allotment.remaining <= 0) return notify.error("Pool Depleted!");
+    setIsLogging(true);
+    const res = await logSnackUsage(m.id);
+    if (res.success) {
+        notify.success("Snack Logged!");
+        const updated = await getFamilyAllotment(m.id);
+        setAllotment(updated);
+    }
+    setIsLogging(false);
+  };
+
+  const handleRevert = async (usageId: number) => {
+    if (!(await customConfirm("Undo this pass transaction?", "Revert Log", true))) return;
+    try {
+      const res = await fetch('/api/members', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'REVERT_PASS', usageId })
+      });
+      if (res.ok) { notify.success("Transaction Reversed"); fetchMembers(); }
+    } catch (e) { notify.error("Revert failed."); }
+  };
+
+  const handleGrantBonus = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const amount = prompt("Bonus Passes to Grant:");
+    if (!amount || isNaN(Number(amount))) return;
+    const reason = prompt("Reason for Grant (Mandatory):");
+    if (!reason) return notify.error("Reason required!");
+    const initials = prompt("Manager Initials:");
+    if (!initials) return;
+
+    try {
+      const res = await fetch('/api/members', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            action: 'GRANT_EXTRA_PASSES', 
+            memberId: m.id, 
+            amount: Number(amount), 
+            description: reason,
+            initials 
+        })
+      });
+      if (res.ok) { notify.success("Passes Granted!"); fetchMembers(); }
+    } catch (e) { notify.error("Grant failed."); }
+  };
+
   let usedCount = 0;
   m.usages.forEach((u: PassUsage) => usedCount += u.amount);
   const remaining = m.totalPasses - usedCount;
 
-  let bevAvailable = true;
-  let bevDateStr = '';
-  if (m.lastBeverageDate) {
-    const bDate = new Date(m.lastBeverageDate);
-    const today = new Date();
-    if (bDate.getMonth() === today.getMonth() && bDate.getFullYear() === today.getFullYear()) {
-      bevAvailable = false;
-      bevDateStr = bDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
-  }
-
-  const isExpanded = expandedMember === m.id;
-
-  // ============================================
-  // MOBILE CARD RENDER
-  // ============================================
-  if (viewMode === 'mobile') {
-    return (
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 flex flex-col gap-3">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-          <span className="font-black text-lg text-slate-900">{m.lastName}, {m.firstName}</span>
-          <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded text-xs">{m.location || 'N/A'}</span>
-        </div>
-        
-        <div className="flex justify-between items-center text-sm">
-          <span className="font-bold text-slate-500 uppercase text-xs">Renewal</span>
-          {editingRenewalId === m.id ? (
-            <div className="flex gap-1">
-              <input type="text" value={newRenewalDate} onChange={(e) => setNewRenewalDate(e.target.value)} className="border border-slate-400 rounded px-2 py-1 text-xs w-20 outline-none font-bold text-slate-900" />
-              <button onClick={() => handleUpdateRenewal(m.id)} className="bg-green-600 text-white font-bold px-2 py-1 rounded text-xs">Save</button>
-              <button onClick={() => setEditingRenewalId(null)} className="bg-slate-200 text-slate-800 font-bold px-2 py-1 rounded text-xs">X</button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-800">{m.renewalDate || 'N/A'}</span>
-              {isManager && (
-                <button onClick={() => { setEditingRenewalId(m.id); setNewRenewalDate(m.renewalDate || ''); }} className="text-blue-600 text-xs font-bold underline">Edit</button>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-between items-center text-sm border-t border-slate-50 pt-2">
-          <span className="font-bold text-slate-500 uppercase text-xs">Total Passes</span>
-          {editingTotalId === m.id ? (
-            <div className="flex flex-col gap-1 w-32">
-              <div className="flex gap-1">
-                <input type="number" value={newTotalVal} onChange={(e) => setNewTotalVal(e.target.value)} className="border border-slate-400 rounded px-2 py-1 text-xs w-12 outline-none font-black text-slate-900" />
-                <button onClick={() => handleUpdateTotal(m.id)} className="bg-green-600 text-white font-bold px-2 py-1 rounded text-xs flex-1">✔</button>
-              </div>
-              <input type="text" placeholder="Notes" value={newBonusNotes} onChange={(e) => setNewBonusNotes(e.target.value)} className="border border-slate-400 rounded px-2 py-1 text-[10px] outline-none font-bold text-slate-700 w-full" />
-            </div>
-          ) : (
-            <div className="flex flex-col items-end">
-              <div className="flex items-center gap-2">
-                <span className="font-black text-slate-900 text-base">{m.totalPasses}</span>
-                {isManager && (
-                  <button onClick={() => { setEditingTotalId(m.id); setNewTotalVal(m.totalPasses); setNewBonusNotes(m.bonusNotes || ''); }} className="text-blue-600 text-[10px] font-bold uppercase underline">Edit</button>
-                )}
-              </div>
-              {m.bonusNotes && <span className="text-[9px] text-blue-700 font-bold italic mt-0.5 max-w-[120px] text-right leading-tight">Note: {m.bonusNotes}</span>}
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-2 pt-2 border-t border-slate-100">
-          <div className="flex-1 flex flex-col items-center justify-center p-2 rounded-lg bg-slate-50 border border-slate-100">
-             <span className="text-[10px] font-black text-slate-500 uppercase mb-1">Passes Left</span>
-             <span className={`font-black text-xl ${remaining <= 0 ? 'text-red-600' : 'text-green-700'}`}>{remaining}</span>
-          </div>
-          <div className="flex-1 flex flex-col items-center justify-center p-2 rounded-lg bg-slate-50 border border-slate-100">
-             <span className="text-[10px] font-black text-slate-500 uppercase mb-1">Monthly Bev</span>
-             {bevAvailable ? (
-                <button onClick={() => handleRedeemBeverage(m.id)} className="bg-yellow-400 text-slate-900 border border-yellow-500 text-xs font-black px-3 py-1 rounded shadow-sm w-full">Redeem</button>
-              ) : (
-                <span className="text-[10px] text-slate-500 font-bold bg-slate-200 px-2 py-1 rounded border border-slate-300">Used {bevDateStr}</span>
-              )}
-          </div>
-        </div>
-
-        <button onClick={() => setExpandedMember(isExpanded ? null : m.id)} className="mt-1 w-full bg-slate-900 text-white font-black py-3 rounded-lg text-sm shadow-md">
-          {isExpanded ? 'Close Management' : 'Manage Usage History'}
-        </button>
-
-        {isExpanded && (
-          <div className="mt-2 pt-4 border-t border-slate-200 flex flex-col gap-4">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner">
-              <h4 className="font-black text-slate-900 mb-3 border-b border-slate-200 pb-2 text-sm">Log Pass Usage</h4>
-              <form onSubmit={(e) => handleLogPass(e, m.id)} className="flex flex-col space-y-3 mt-3">
-                <input type="text" required placeholder="Date (e.g. 10-25)" value={pDate} onChange={(e) => setPDate(e.target.value)} className="border border-slate-400 p-2.5 rounded-lg text-sm text-slate-900 font-bold w-full outline-none focus:border-blue-500 shadow-sm" />
-                <div className="flex gap-2">
-                  <input type="number" required min="1" placeholder="Amt" value={pAmt} onChange={(e) => setPAmt(e.target.value)} className="border border-slate-400 p-2.5 rounded-lg text-sm text-slate-900 font-bold w-1/3 outline-none focus:border-blue-500 shadow-sm" />
-                  <input type="text" required placeholder="Initials" value={pInitials} onChange={(e) => setPInitials(e.target.value)} className="border border-slate-400 p-2.5 rounded-lg text-sm text-slate-900 font-bold w-2/3 outline-none focus:border-blue-500 shadow-sm" />
-                </div>
-                <button type="submit" className="bg-green-800 hover:bg-green-900 text-white font-black text-sm py-3 px-6 rounded-lg shadow-md w-full transition">Save</button>
-              </form>
-              <p className="text-xs text-slate-600 mt-4 font-medium bg-white p-3 border border-slate-200 rounded-lg">{m.notes || 'No special notes.'}</p>
-            </div>
-
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner">
-              <h4 className="font-black text-slate-900 mb-3 border-b border-slate-200 pb-2 text-sm">Usage History</h4>
-              {m.usages.length === 0 ? <p className="text-sm text-slate-500 italic mt-4 font-bold">No usage logged yet.</p> : (
-                <div className="space-y-2 mt-3 max-h-40 overflow-y-auto pr-2">
-                  {m.usages.map((u: PassUsage) => (
-                    <div key={u.id} className="flex justify-between border-b border-slate-200 pb-2 pt-1 text-sm font-bold text-slate-700 bg-white px-2 rounded mb-1">
-                      <span className="w-1/3">{u.dateUsed}</span>
-                      <span className="w-1/3 text-center text-red-700">Used {u.amount}</span>
-                      <span className="w-1/3 text-right text-slate-500">By: {u.initials}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ============================================
-  // DESKTOP ROW RENDER
-  // ============================================
   return (
-    <>
-      <tr className="border-b border-slate-200 hover:bg-slate-50 transition whitespace-nowrap bg-white">
-        <td className="p-3 font-black text-slate-900">{m.lastName}</td>
-        <td className="p-3 font-bold text-slate-800">{m.firstName}</td>
-        <td className="p-3 font-bold text-slate-700">{m.location}</td>
-        
-        <td className="p-3 font-bold text-slate-700">
-          {editingRenewalId === m.id ? (
-            <div className="flex space-x-1">
-              <input type="text" value={newRenewalDate} onChange={(e) => setNewRenewalDate(e.target.value)} className="border border-slate-400 rounded px-2 py-0.5 text-xs w-24 outline-none font-bold text-slate-900" />
-              <button onClick={() => handleUpdateRenewal(m.id)} className="bg-green-600 hover:bg-green-700 text-white font-bold px-2 py-0.5 rounded text-xs shadow-sm">Save</button>
-              <button onClick={() => setEditingRenewalId(null)} className="bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold px-2 py-0.5 rounded text-xs shadow-sm">X</button>
-            </div>
-          ) : (
-            <div className="flex items-center space-x-2">
-              <span>{m.renewalDate || 'N/A'}</span>
-              {isManager && (
-                <button onClick={() => { setEditingRenewalId(m.id); setNewRenewalDate(m.renewalDate || ''); }} className="bg-slate-200 hover:bg-slate-300 rounded p-1.5 transition shadow-sm" title="Edit Date">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-slate-700"><path d="M2.695 14.763l-1.262 3.152a.5.5 0 00.65.65l3.152-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" /></svg>
+    <div data-testid="member-row" className="flex flex-col w-full border-b-2 border-slate-200">
+      <div 
+        data-testid="member-row-header"
+        onClick={() => setExpandedMember(expandedMember === m.id ? null : m.id)}
+        className={`flex flex-col xl:flex-row items-start xl:items-center gap-4 p-3 hover:bg-slate-50 transition-all cursor-pointer group ${expandedMember === m.id ? 'bg-blue-50/50' : 'bg-white'}`}
+      >
+        {/* MEMBER IDENTITY */}
+        <div className="w-full xl:w-[22%] flex items-center gap-3 shrink-0">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-xs italic shrink-0 ${m.membershipLevel === 'PLATINUM' ? 'bg-brand-yellow text-slate-900 shadow-md' : 'bg-slate-900'}`}>
+            {m.membershipLevel === 'PLATINUM' ? <Star size={14} className="fill-slate-900" /> : m.lastName.charAt(0)}
+          </div>
+          <div className="min-w-0 flex-1">
+             <h3 className="text-sm font-black text-slate-900 uppercase sports-slant truncate">{m.lastName}, {m.firstName}</h3>
+             <div className="flex items-center gap-2">
+                <span className={`text-[8px] font-black uppercase tracking-tighter px-1 rounded border ${m.membershipLevel === 'PLATINUM' ? 'bg-slate-900 text-brand-yellow border-slate-900' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{m.membershipLevel}</span>
+                {m.family && <span className="text-[8px] font-bold text-slate-400 truncate max-w-[80px]">FAM: {m.family}</span>}
+             </div>
+          </div>
+        </div>
+
+        {/* PASS COUNT (Visual Anchor - Centered) */}
+        <div className="w-full xl:w-[12%] flex items-center justify-center gap-3 shrink-0 border-t xl:border-t-0 pt-2 xl:pt-0">
+           <div className="stadium-scoreboard text-2xl w-14 flex items-center justify-center">{remaining.toString().padStart(2, '0')}</div>
+           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Passes<br/>Left</span>
+        </div>
+
+        {/* PLATINUM SNACK POOL */}
+        <div className="w-full xl:w-[15%] shrink-0">
+           {m.membershipLevel === 'PLATINUM' && allotment && allotment.isPlatinum ? (
+             <div className="flex items-center justify-between bg-slate-900 text-white rounded-xl px-3 py-2 shadow-lg group-hover:ring-2 ring-brand-yellow/30 transition-all">
+                <div className="min-w-0">
+                   <p className="text-[8px] font-black text-brand-yellow uppercase tracking-tighter leading-none mb-0.5">Snack</p>
+                   <p className="text-xs font-black tabular-nums">{allotment.remaining} <span className="opacity-40 text-[10px]">/ {allotment.total}</span></p>
+                </div>
+                <button 
+                  onClick={handlePunchSnack}
+                  disabled={isLogging || allotment.remaining <= 0}
+                  className="bg-brand-yellow text-slate-900 p-1.5 rounded-lg hover:scale-110 active:scale-95 transition-all disabled:opacity-30 disabled:grayscale shadow-md"
+                >
+                   <Utensils size={14} />
                 </button>
-              )}
-            </div>
-          )}
-        </td>
+             </div>
+           ) : (
+             <div className="h-10 border-2 border-dashed border-slate-100 rounded-xl"></div>
+           )}
+        </div>
 
-        <td className="p-3 border-l border-slate-200">
-          {editingTotalId === m.id ? (
-            <div className="flex flex-col gap-1 w-48">
-              <div className="flex space-x-1">
-                <input type="number" value={newTotalVal} onChange={(e) => setNewTotalVal(e.target.value)} className="border border-slate-400 rounded px-2 py-0.5 text-xs w-16 outline-none font-black text-slate-900" />
-                <button onClick={() => handleUpdateTotal(m.id)} className="bg-green-600 hover:bg-green-700 text-white font-bold px-2 py-0.5 rounded text-xs shadow-sm">Save</button>
-                <button onClick={() => setEditingTotalId(null)} className="bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold px-2 py-0.5 rounded text-xs shadow-sm">X</button>
+        {/* ACTION STRIP */}
+        <div className="w-full xl:w-[35%] flex gap-2 shrink-0">
+           <button 
+             onClick={(e) => { e.stopPropagation(); handleLogPass(m.id); }}
+             disabled={remaining <= 0}
+             className="flex-1 bg-brand-green hover:bg-green-600 text-white font-black py-2.5 rounded-xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-md active:scale-95 disabled:opacity-40 transition-all"
+           >
+              <Ticket size={14} /> LOG PASSES
+           </button>
+           <button 
+             onClick={(e) => { e.stopPropagation(); handleRedeemBeverage(m.id); }}
+             className="flex-1 bg-slate-900 hover:bg-black text-brand-yellow font-black py-2.5 rounded-xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all border border-slate-700"
+           >
+              <Coffee size={14} /> BEVERAGE
+           </button>
+           {isManager && (
+             <button 
+               onClick={handleGrantBonus}
+               className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all border border-blue-100 shadow-sm"
+               title="Grant Bonus Passes"
+             >
+                <Gift size={16} />
+             </button>
+           )}
+        </div>
+
+        {/* INFO BUTTON */}
+        <div className="hidden xl:flex xl:flex-1 justify-end">
+           <div className={`p-2 rounded-full transition-colors ${expandedMember === m.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-300 hover:text-slate-600'}`}>
+              <ChevronRight size={18} className={`transition-transform duration-300 ${expandedMember === m.id ? 'rotate-90' : ''}`} />
+           </div>
+        </div>
+      </div>
+
+      {/* EXPANDED RECEIPT HISTORY */}
+      {expandedMember === m.id && (
+        <div className="bg-slate-50 p-4 border-t-2 border-slate-900/10 animate-in slide-in-from-top-2 duration-300">
+           <div className="max-w-xl mx-auto bg-white border-2 border-dashed border-slate-200 p-6 rounded-xl shadow-inner font-mono text-[10px] relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                 <ShieldAlert size={80} />
               </div>
-              <input type="text" placeholder="Manager Notes (Optional)" value={newBonusNotes} onChange={(e) => setNewBonusNotes(e.target.value)} className="border border-slate-400 rounded px-2 py-1 text-[10px] outline-none font-bold text-slate-700 w-full" />
-            </div>
-          ) : (
-            <div className="flex flex-col items-start">
-              <div className="flex items-center space-x-2">
-                <span className="font-black text-slate-800 text-base">{m.totalPasses}</span>
-                {isManager && (
-                  <button onClick={() => { setEditingTotalId(m.id); setNewTotalVal(m.totalPasses); setNewBonusNotes(m.bonusNotes || ''); }} className="bg-slate-200 hover:bg-slate-300 rounded p-1.5 transition shadow-sm" title="Edit Total Passes">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-slate-700"><path d="M2.695 14.763l-1.262 3.152a.5.5 0 00.65.65l3.152-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" /></svg>
-                  </button>
-                )}
+              <div className="text-center border-b-2 border-dashed border-slate-200 pb-3 mb-3">
+                 <p className="font-black text-sm uppercase tracking-tighter">VIP ACCESS AUDIT</p>
+                 <p className="text-slate-400 uppercase">{m.lastName}, {m.firstName} • RENEWS: {m.renewalDate || 'N/A'}</p>
               </div>
-              {m.bonusNotes && <span className="text-[10px] text-blue-700 font-bold italic mt-0.5 whitespace-normal break-words w-32 leading-tight">Note: {m.bonusNotes}</span>}
-            </div>
-          )}
-        </td>
-
-        <td className={`p-3 font-black text-center border-l border-slate-200 ${remaining <= 0 ? 'bg-red-100 text-red-800' : 'bg-green-50 text-green-800'}`}>
-          {remaining}
-        </td>
-        
-        <td className="p-3 text-center border-l border-slate-200">
-          {bevAvailable ? (
-            <button onClick={() => handleRedeemBeverage(m.id)} className="bg-yellow-400 text-slate-900 border border-yellow-500 text-xs font-black px-3 py-1.5 rounded shadow-sm hover:bg-yellow-500 transition">
-              Redeem
-            </button>
-          ) : (
-            <span className="text-xs text-slate-500 font-bold bg-slate-100 px-2 py-1.5 rounded border border-slate-300 shadow-inner">
-              Used {bevDateStr}
-            </span>
-          )}
-        </td>
-
-        <td className="p-3 text-center border-l border-slate-200">
-          <button onClick={() => setExpandedMember(isExpanded ? null : m.id)} className="bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded shadow-sm hover:bg-slate-300 w-full transition">
-            {isExpanded ? 'Close' : 'Manage'}
-          </button>
-        </td>
-      </tr>
-      
-      {/* EXPANDED DESKTOP VIEW */}
-      {isExpanded && (
-        <tr className="bg-slate-100/80 shadow-inner border-b border-slate-300">
-          <td colSpan={8} className="p-4">
-            <div className="flex flex-col lg:flex-row gap-6">
-              
-              <div className="bg-white p-4 rounded-xl border border-slate-300 shadow-sm flex-1">
-                <h4 className="font-black text-slate-900 mb-3 border-b border-slate-100 pb-2">Log Pass Usage</h4>
-                <form onSubmit={(e) => handleLogPass(e, m.id)} className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-2 mt-4">
-                  <input type="text" required placeholder="Date (e.g. 10-25)" value={pDate} onChange={(e) => setPDate(e.target.value)} className="border border-slate-400 p-2.5 rounded-lg text-sm text-slate-900 font-bold w-full sm:w-1/3 outline-none focus:border-blue-500 shadow-inner" />
-                  <input type="number" required min="1" placeholder="Amt" value={pAmt} onChange={(e) => setPAmt(e.target.value)} className="border border-slate-400 p-2.5 rounded-lg text-sm text-slate-900 font-bold w-full sm:w-1/4 outline-none focus:border-blue-500 shadow-inner" />
-                  <input type="text" required placeholder="Initials" value={pInitials} onChange={(e) => setPInitials(e.target.value)} className="border border-slate-400 p-2.5 rounded-lg text-sm text-slate-900 font-bold w-full sm:w-1/3 outline-none focus:border-blue-500 shadow-inner" />
-                  <button type="submit" className="bg-green-800 hover:bg-green-900 text-white font-black text-sm py-2.5 px-6 rounded-lg shadow-md w-full sm:w-auto transition">Save</button>
-                </form>
-                <p className="text-xs text-slate-600 mt-4 font-medium bg-slate-50 p-3 border border-slate-200 rounded-lg">{m.notes || 'No special notes.'}</p>
+              <div className="space-y-1.5">
+                 {m.usages.length === 0 ? (
+                    <p className="text-center py-4 text-slate-300 italic uppercase">No Transactions</p>
+                 ) : (
+                    m.usages.slice().reverse().map((u: any, idx: number) => (
+                       <div key={idx} className="flex justify-between items-center text-slate-600 border-b border-slate-50 pb-1 group/audit">
+                          <div className="flex flex-col">
+                             <span className="tabular-nums">{new Date(u.dateUsed).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}</span>
+                             {u.description && <span className="text-[8px] font-bold text-blue-600 uppercase tracking-tighter">{u.description}</span>}
+                          </div>
+                          <div className="flex items-center gap-3">
+                             <span data-testid="audit-entry-value" className="font-black text-slate-900 uppercase">
+                                {u.amount === 0 ? 'INFO' : `[-${u.amount}]`} {u.initials ? `[${u.initials}]` : ''}
+                             </span>
+                             <button 
+                                data-testid="revert-pass-btn"
+                                onClick={() => handleRevert(u.id)} 
+                                className="text-red-400 hover:text-red-600 transition-opacity"
+                             >
+                                <Trash2 size={12} />
+                             </button>
+                          </div>
+                       </div>
+                    ))
+                 )}
+                 {m.lastBeverageDate && (
+                    <div className="flex justify-between text-blue-600 border-t border-slate-100 pt-1 mt-1">
+                       <span>{new Date(m.lastBeverageDate).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}</span>
+                       <span className="font-black">[1] BEV_REDEEM</span>
+                    </div>
+                 )}
               </div>
-
-              <div className="bg-white p-4 rounded-xl border border-slate-300 shadow-sm flex-1">
-                <h4 className="font-black text-slate-900 mb-3 border-b border-slate-100 pb-2">Usage History</h4>
-                {m.usages.length === 0 ? <p className="text-sm text-slate-500 italic mt-4 font-bold">No usage logged yet.</p> : (
-                  <div className="space-y-2 mt-4 max-h-40 overflow-y-auto pr-2">
-                    {m.usages.map((u: PassUsage) => (
-                      <div key={u.id} className="flex justify-between border-b border-slate-100 pb-2 pt-1 text-sm font-bold text-slate-700 hover:bg-slate-50 px-1 rounded">
-                        <span className="w-1/3">{u.dateUsed}</span>
-                        <span className="w-1/3 text-center text-red-700">Used {u.amount}</span>
-                        <span className="w-1/3 text-right text-slate-500">By: {u.initials}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-            </div>
-          </td>
-        </tr>
+              <p className="mt-4 pt-3 border-t-2 border-dashed border-slate-200 text-center text-[8px] text-slate-400 uppercase tracking-widest">Efficiency Secured via ShiftSync v5</p>
+           </div>
+        </div>
       )}
-    </>
+    </div>
   );
 };
 
-export default function PrivilegesTab({ appState }: any) {
+export default function PrivilegesTab() {
   const members = useAppStore(state => state.members);
   const users = useAppStore(state => state.users);
-  const selectedUserId = useAppStore(state => state.selectedUserId);
   const fetchMembers = useAppStore(state => state.fetchMembers);
+  const selectedUserId = useAppStore(state => state.selectedUserId);
 
   const activeUserObj = users.find(u => u.id.toString() === selectedUserId);
-  const isAdmin = activeUserObj?.systemRoles?.includes('Administrator');
-  const isManager = activeUserObj?.systemRoles?.includes('Manager') || isAdmin;
+  const isManager = activeUserObj?.systemRoles?.includes('Administrator') || activeUserObj?.systemRoles?.includes('Manager');
 
   const [passSearch, setPassSearch] = useState('');
-  const[expandedMember, setExpandedMember] = useState<number | null>(null);
-  
-  const [pDate, setPDate] = useState('');
-  const [pAmt, setPAmt] = useState<number | string>(1);
-  const[pInitials, setPInitials] = useState('');
-  
-  const [editingRenewalId, setEditingRenewalId] = useState<number | null>(null);
-  const [newRenewalDate, setNewRenewalDate] = useState('');
-  
-  const[editingTotalId, setEditingTotalId] = useState<number | null>(null);
-  const [newTotalVal, setNewTotalVal] = useState<number | string>(12);
-  const [newBonusNotes, setNewBonusNotes] = useState('');
-
+  const [expandedMember, setExpandedMember] = useState<number | null>(null);
   const [showAddMember, setShowAddMember] = useState(false);
-  const [newMemLast, setNewMemLast] = useState('');
-  const[newMemFirst, setNewMemFirst] = useState('');
-  const [newMemLoc, setNewMemLoc] = useState('');
-  const[newMemDate, setNewMemDate] = useState('');
-  const [newMemTotal, setNewMemTotal] = useState<number | string>(12);
 
-  const filteredMembers = (members ||[]).filter(m => 
-    m.lastName.toLowerCase().includes(passSearch.toLowerCase()) || 
-    m.firstName.toLowerCase().includes(passSearch.toLowerCase())
-  );
+  // 🧪 SUPPORT DEEP-LINK EXPANSION FOR TESTING
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const expandId = params.get('expand');
+    if (expandId && members.length > 0) {
+      setExpandedMember(parseInt(expandId));
+    }
+  }, [members.length]);
+
+  // New Member Form
+  const [newMemFirst, setNewMemFirst] = useState('');
+  const [newMemLast, setNewMemLast] = useState('');
+  const [newMemLoc, setNewMemLoc] = useState('');
+  const [newMemDate, setNewMemDate] = useState('');
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMemLast) return alert("Last name is required!");
-    await fetch('/api/members', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lastName: newMemLast, firstName: newMemFirst, location: newMemLoc, renewalDate: newMemDate, totalPasses: newMemTotal })
-    });
-    setNewMemLast(''); setNewMemFirst(''); setNewMemLoc(''); setNewMemDate(''); setNewMemTotal(12);
-    setShowAddMember(false);
-    await fetchMembers();
+    try {
+      const res = await fetch('/api/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName: newMemFirst, lastName: newMemLast, location: newMemLoc, renewalDate: newMemDate })
+      });
+      if (res.ok) {
+        notify.success("VIP Enrolled!");
+        setNewMemFirst(''); setNewMemLast(''); setNewMemLoc(''); setNewMemDate('');
+        setShowAddMember(false);
+        fetchMembers();
+      }
+    } catch (e) { notify.error("Failed."); }
   };
 
-  const handleUpdateRenewal = async (memberId: number) => {
-    await fetch('/api/members', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'UPDATE_RENEWAL', memberId, renewalDate: newRenewalDate }) });
-    setEditingRenewalId(null); await fetchMembers();
-  };
+  const handleLogPass = async (memberId: number) => {
+    const amountStr = prompt("Number of passes to use:", "1");
+    if (!amountStr) return;
+    const amount = parseInt(amountStr);
+    if (isNaN(amount) || amount <= 0) return notify.error("Invalid amount.");
 
-  const handleUpdateTotal = async (memberId: number) => {
-    await fetch('/api/members', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'UPDATE_TOTAL_PASSES', memberId, totalPasses: newTotalVal, bonusNotes: newBonusNotes }) });
-    setEditingTotalId(null); await fetchMembers();
+    const initials = prompt("Staff Initials:");
+    if (!initials) return;
+    
+    try {
+      const res = await fetch('/api/members', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'LOG_PASS_USAGE', memberId, amount, dateUsed: new Date().toISOString(), initials })
+      });
+      if (res.ok) { notify.success("Logged!"); fetchMembers(); }
+    } catch (e) { notify.error("Failed."); }
   };
 
   const handleRedeemBeverage = async (memberId: number) => {
-    await fetch('/api/members', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId, action: 'LOG_BEVERAGE' }) });
-    await fetchMembers();
+    if (!confirm("Redeem complimentary beverage?")) return;
+    try {
+      const res = await fetch('/api/members', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId, action: 'LOG_BEVERAGE' })
+      });
+      if (res.ok) { notify.success("Logged!"); fetchMembers(); }
+    } catch (e) { notify.error("Failed."); }
   };
 
-  const handleLogPass = async (e: React.FormEvent, memberId: number) => {
-    e.preventDefault();
-    const res = await fetch('/api/members', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId, dateUsed: pDate, amount: pAmt, initials: pInitials }) });
-    if (res.ok) { setPDate(''); setPAmt(1); setPInitials(''); await fetchMembers(); }
-  };
+  const filteredMembers = (members || []).filter(m => 
+    m.lastName.toLowerCase().includes(passSearch.toLowerCase()) ||
+    m.firstName.toLowerCase().includes(passSearch.toLowerCase()) ||
+    m.family?.toLowerCase().includes(passSearch.toLowerCase())
+  ).sort((a,b) => a.lastName.localeCompare(b.lastName));
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 md:p-6 rounded-xl border border-slate-300 shadow-sm gap-4">
-        <div>
-          <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Platinum Privileges & Passes</h2>
-          <p className="text-sm font-bold text-slate-600 hidden md:block">Manage member access and benefits.</p>
-        </div>
-        <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full md:w-auto">
-          <input type="text" placeholder="Search Name..." value={passSearch} onChange={(e) => setPassSearch(e.target.value)} className="w-full sm:w-auto border-2 border-slate-300 rounded-lg px-4 py-2.5 text-slate-900 font-bold outline-none focus:border-blue-500 shadow-inner" />
-          {isManager && (
-            <button onClick={() => setShowAddMember(!showAddMember)} className="w-full sm:w-auto bg-slate-900 hover:bg-black text-white font-black py-2.5 px-6 rounded-lg shadow-md transition-colors whitespace-nowrap">
-              {showAddMember ? 'Cancel' : '+ Add Member'}
-            </button>
-          )}
-        </div>
+    <div className="space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto px-2 pb-20">
+      
+      {/* COMPACT STADIUM HEADER */}
+      <div className="bg-slate-900 p-6 rounded-[32px] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 border-b-8 border-brand-green">
+         <div className="flex items-center gap-4">
+            <div className="bg-brand-green text-white p-3 rounded-2xl shadow-lg rotate-3">
+               <Ticket size={24} />
+            </div>
+            <div className="text-left">
+               <h1 className="text-3xl font-black text-white uppercase sports-slant leading-none tracking-tighter">Stadium VIP <span className="text-brand-green">Registry</span></h1>
+               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">High-Speed Front Desk Gatekeeper</p>
+            </div>
+         </div>
+
+         <div className="relative w-full md:w-96 group">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-green transition-colors" />
+            <input 
+              type="text" 
+              placeholder="QUICK FIND MEMBER OR FAMILY..." 
+              value={passSearch} 
+              onChange={(e) => setPassSearch(e.target.value)} 
+              className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl pl-12 pr-4 py-3 font-black text-white text-xs uppercase outline-none focus:border-brand-green transition-all shadow-inner placeholder:text-slate-600"
+            />
+         </div>
+
+         {isManager && (
+           <button onClick={() => setShowAddMember(!showAddMember)} className="bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 shrink-0">
+             {showAddMember ? 'Cancel Add' : '+ Add VIP'}
+           </button>
+         )}
       </div>
 
       {showAddMember && (
-        <div className="bg-slate-50 border-2 border-slate-300 p-5 md:p-6 rounded-xl shadow-inner animate-in slide-in-from-top-4">
-          <h3 className="font-black text-slate-900 mb-4 text-lg">Add New Platinum Member</h3>
-          <form onSubmit={handleAddMember} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4">
-            <div className="sm:col-span-2"><label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Last Name *</label><input required value={newMemLast} onChange={(e) => setNewMemLast(e.target.value)} className="w-full border-2 border-slate-300 p-2.5 rounded-lg font-bold outline-none focus:border-blue-500" /></div>
-            <div className="sm:col-span-1"><label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">First Name</label><input value={newMemFirst} onChange={(e) => setNewMemFirst(e.target.value)} className="w-full border-2 border-slate-300 p-2.5 rounded-lg font-bold outline-none focus:border-blue-500" /></div>
-            <div className="sm:col-span-1"><label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Location</label><input placeholder="e.g. WF" value={newMemLoc} onChange={(e) => setNewMemLoc(e.target.value)} className="w-full border-2 border-slate-300 p-2.5 rounded-lg font-bold outline-none focus:border-blue-500" /></div>
-            <div className="sm:col-span-1"><label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Renewal</label><input placeholder="10-01-26" value={newMemDate} onChange={(e) => setNewMemDate(e.target.value)} className="w-full border-2 border-slate-300 p-2.5 rounded-lg font-bold outline-none focus:border-blue-500" /></div>
-            <div className="sm:col-span-1 flex items-end"><button type="submit" className="w-full bg-green-700 hover:bg-green-800 text-white font-black py-2.5 rounded-lg shadow-md transition-colors h-[44px]">Save</button></div>
+        <div className="bg-white p-6 border-4 border-slate-900 text-slate-900 animate-in zoom-in-95 duration-200 rounded-[32px] shadow-2xl">
+          <h3 className="font-black text-xl sports-slant mb-4 text-slate-900 uppercase">ENROLL NEW VIP</h3>
+          <form onSubmit={handleAddMember} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-2 flex gap-2">
+               <input required placeholder="LAST NAME" value={newMemLast} onChange={(e) => setNewMemLast(e.target.value)} className="flex-1 bg-slate-50 border-2 border-slate-200 p-3 font-black text-xs uppercase rounded-xl outline-none focus:border-brand-green" />
+               <input required placeholder="FIRST NAME" value={newMemFirst} onChange={(e) => setNewMemFirst(e.target.value)} className="flex-1 bg-slate-50 border-2 border-slate-200 p-3 font-black text-xs uppercase rounded-xl outline-none focus:border-brand-green" />
+            </div>
+            <input placeholder="LOC (WF, CH, G)" value={newMemLoc} onChange={(e) => setNewMemLoc(e.target.value)} className="bg-slate-50 border-2 border-slate-200 p-3 font-black text-xs uppercase rounded-xl outline-none focus:border-brand-green" />
+            <button type="submit" className="w-full bg-brand-green hover:bg-green-600 text-white font-black py-3 px-6 transition-all sports-slant uppercase rounded-xl shadow-lg active:scale-95">
+              Confirm Enrollment
+            </button>
           </form>
         </div>
       )}
 
-      {/* MOBILE LIST VIEW (< 768px) */}
-      <div className="md:hidden flex flex-col gap-4">
+      {/* ROW-BASED REGISTRY */}
+      <div className="bg-white border-4 border-slate-900 rounded-[40px] shadow-2xl overflow-hidden min-h-[50vh]">
          {filteredMembers.length === 0 ? (
-           <div className="p-8 text-center text-slate-500 font-bold italic bg-white border border-slate-200 rounded-xl">No members found.</div>
+           <div className="py-32 text-center">
+              <XCircle size={60} className="mx-auto text-slate-100 mb-4" />
+              <div className="text-2xl font-black text-slate-200 uppercase tracking-widest italic">No matches found.</div>
+           </div>
          ) : (
-           filteredMembers.map((m: Member) => (
-             <MemberRow 
-               key={m.id} m={m} isManager={isManager} expandedMember={expandedMember} setExpandedMember={setExpandedMember} viewMode="mobile"
-               editingRenewalId={editingRenewalId} setEditingRenewalId={setEditingRenewalId} newRenewalDate={newRenewalDate} setNewRenewalDate={setNewRenewalDate} handleUpdateRenewal={handleUpdateRenewal}
-               editingTotalId={editingTotalId} setEditingTotalId={setEditingTotalId} newTotalVal={newTotalVal} setNewTotalVal={setNewTotalVal} newBonusNotes={newBonusNotes} setNewBonusNotes={setNewBonusNotes} handleUpdateTotal={handleUpdateTotal}
-               handleRedeemBeverage={handleRedeemBeverage} handleLogPass={handleLogPass} pDate={pDate} setPDate={setPDate} pAmt={pAmt} setPAmt={setPAmt} pInitials={pInitials} setPInitials={setPInitials}
-             />
-           ))
+           <div className="flex flex-col">
+              {filteredMembers.map((m: Member) => (
+                <MemberVIPRow 
+                  key={m.id} m={m} isManager={isManager} expandedMember={expandedMember} setExpandedMember={setExpandedMember}
+                  fetchMembers={fetchMembers}
+                  handleLogPass={handleLogPass}
+                  handleRedeemBeverage={handleRedeemBeverage}
+                />
+              ))}
+           </div>
          )}
       </div>
 
-      {/* DESKTOP TABLE VIEW (>= 768px) */}
-      <div className="hidden md:block bg-white border border-slate-300 rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-slate-200 border-b-2 border-slate-300 text-slate-900 font-black text-xs uppercase tracking-wider sticky top-0 z-10 shadow-sm">
-              <tr>
-                <th className="p-4">Last Name</th>
-                <th className="p-4">First Name</th>
-                <th className="p-4">Location</th>
-                <th className="p-4">Renewal Date</th>
-                <th className="p-4 border-l border-slate-300">Total Passes</th>
-                <th className="p-4 bg-slate-300/50 text-center border-l border-slate-300">Remain</th>
-                <th className="p-4 text-center border-l border-slate-300">Bev/Snack</th>
-                <th className="p-4 text-center border-l border-slate-300">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredMembers.length === 0 ? (
-                <tr><td colSpan={8} className="p-8 text-center text-slate-500 font-bold italic bg-white border-b border-slate-200">No members found.</td></tr>
-              ) : (
-                filteredMembers.map((m: Member) => (
-                  <MemberRow 
-                    key={m.id} m={m} isManager={isManager} expandedMember={expandedMember} setExpandedMember={setExpandedMember} viewMode="desktop"
-                    editingRenewalId={editingRenewalId} setEditingRenewalId={setEditingRenewalId} newRenewalDate={newRenewalDate} setNewRenewalDate={setNewRenewalDate} handleUpdateRenewal={handleUpdateRenewal}
-                    editingTotalId={editingTotalId} setEditingTotalId={setEditingTotalId} newTotalVal={newTotalVal} setNewTotalVal={setNewTotalVal} newBonusNotes={newBonusNotes} setNewBonusNotes={setNewBonusNotes} handleUpdateTotal={handleUpdateTotal}
-                    handleRedeemBeverage={handleRedeemBeverage} handleLogPass={handleLogPass} pDate={pDate} setPDate={setPDate} pAmt={pAmt} setPAmt={setPAmt} pInitials={pInitials} setPInitials={setPInitials}
-                  />
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* REGISTRY STATS */}
+      <div className="flex flex-col md:flex-row justify-between items-center px-6 gap-4">
+         <div className="flex items-center gap-3">
+            <Info size={16} className="text-blue-500" />
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Showing {filteredMembers.length} Members • {new Date().toLocaleDateString()}</span>
+         </div>
+         <div className="stadium-scoreboard text-3xl text-slate-900 px-4 flex items-center justify-center min-w-[100px]">{filteredMembers.length.toString().padStart(3, '0')}</div>
       </div>
+
     </div>
   );
 }

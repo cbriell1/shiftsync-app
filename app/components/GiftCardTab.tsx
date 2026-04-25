@@ -1,25 +1,27 @@
 // filepath: app/components/GiftCardTab.tsx
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { GiftCard, Member } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { notify } from '@/lib/ui-utils';
+import { Plus, Search, CreditCard, User, History, Trash2, ArrowRight } from 'lucide-react';
 
 export default function GiftCardTab({ appState }: any) {
   const giftCards = useAppStore(state => state.giftCards);
   const members = useAppStore(state => state.members);
   const fetchGiftCards = useAppStore(state => state.fetchGiftCards);
-  const isGiftCardsLoading = useAppStore(state => state.isGiftCardsLoading); // <-- Added Loading State
+  const isGiftCardsLoading = useAppStore(state => state.isGiftCardsLoading);
 
-  const[isIssueOpen, setIsIssueOpen] = useState(false);
+  const [isIssueOpen, setIsIssueOpen] = useState(false);
   const [isRedeemOpen, setIsRedeemOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<GiftCard | null>(null);
-  const[redeemAmount, setRedeemAmount] = useState('');
+  const [redeemAmount, setRedeemAmount] = useState('');
+  const [searchQuery, setSearchSearchQuery] = useState('');
   
   const [isMemberMode, setIsMemberMode] = useState(true);
   const [showManualInput, setShowManualInput] = useState(false); 
   
-  const[issueForm, setIssueForm] = useState({
+  const [issueForm, setIssueForm] = useState({
     code: '',
     amount: '',
     memberId: '',
@@ -77,236 +79,204 @@ export default function GiftCardTab({ appState }: any) {
     }
   };
 
+  const filteredCards = useMemo(() => {
+    if (!searchQuery) return giftCards;
+    const s = searchQuery.toLowerCase();
+    return giftCards.filter(c => 
+      c.code.toLowerCase().includes(s) || 
+      (c.member && `${c.member.firstName} ${c.member.lastName}`.toLowerCase().includes(s)) ||
+      (c.recipientName && c.recipientName.toLowerCase().includes(s))
+    );
+  }, [giftCards, searchQuery]);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto">
+      
+      {/* Header & Quick Action */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 pb-8">
         <div>
-          <h3 className="text-2xl font-black text-slate-900">Gift Card Registry</h3>
-          <p className="text-sm font-bold text-slate-700">Manage all store credit issued to members and guests.</p>
+          <h2 className="text-4xl font-black text-slate-900 sports-slant tracking-tight uppercase italic mb-2">Gift Card Registry</h2>
+          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Manage store credits and member vouchers</p>
         </div>
-        <button onClick={() => setIsIssueOpen(true)} className="flex items-center justify-center gap-2 bg-green-800 hover:bg-green-900 text-white px-6 py-3 rounded-xl font-black transition-all shadow-lg w-full md:w-auto">
-          <span>➕</span> Issue Gift Card
+        <button 
+          onClick={() => setIsIssueOpen(true)} 
+          className="btn-sport bg-green-700 text-white border-b-4 border-green-900 px-8 py-4 text-base shadow-xl active:scale-95"
+        >
+          <Plus size={20} className="mr-2 stroke-[3px]" /> Issue New Card
         </button>
       </div>
 
-      {isGiftCardsLoading ? (
-        // SKELETON REPLACEMENT
-        <div className="bg-white rounded-2xl shadow-md border border-slate-300 overflow-hidden animate-pulse">
-          {/* Mobile Skeleton */}
-          <div className="md:hidden flex flex-col gap-4 p-4 bg-slate-50">
-            {[1,2,3].map(i => (
-              <div key={i} className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
-                 <div className="h-6 w-32 bg-slate-200 rounded"></div>
-                 <div className="h-4 w-full bg-slate-200 rounded"></div>
-                 <div className="h-4 w-2/3 bg-slate-200 rounded"></div>
-                 <div className="h-10 w-full bg-slate-200 rounded-lg mt-2"></div>
-              </div>
-            ))}
-          </div>
-          {/* Desktop Skeleton */}
-          <div className="hidden md:block">
-             <div className="h-12 bg-slate-200 w-full border-b border-slate-300"></div>
-             {[1,2,3,4].map(i => (
-               <div key={i} className="h-16 w-full border-b border-slate-100 flex items-center px-6 gap-4">
-                 <div className="h-6 w-24 bg-slate-200 rounded"></div>
-                 <div className="h-4 w-32 bg-slate-200 rounded"></div>
-                 <div className="h-6 w-16 bg-slate-200 rounded-full"></div>
-                 <div className="h-4 w-20 bg-slate-200 rounded ml-auto"></div>
-                 <div className="h-8 w-20 bg-slate-200 rounded-lg ml-auto"></div>
-               </div>
-             ))}
-          </div>
+      {/* Search & Filter Bar */}
+      <div className="relative group">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
         </div>
-      ) : giftCards?.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-300 p-16 text-center text-slate-600">
-          <div className="text-5xl mb-4 opacity-30 drop-shadow-sm">🎟️</div>
-          <p className="font-black text-lg">No gift cards issued yet.</p>
+        <input 
+          type="text" 
+          placeholder="SEARCH BY NAME OR CARD CODE..." 
+          value={searchQuery}
+          onChange={(e) => setSearchSearchQuery(e.target.value)}
+          className="w-full bg-white border-4 border-slate-200 rounded-2xl py-5 pl-12 pr-4 text-lg font-black text-slate-900 placeholder:text-slate-300 focus:border-blue-600 outline-none transition-all shadow-sm"
+        />
+      </div>
+
+      {isGiftCardsLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+          {[1,2,3,4,5,6].map(i => <div key={i} className="h-48 bg-slate-100 rounded-3xl border-4 border-slate-200" />)}
+        </div>
+      ) : filteredCards?.length === 0 ? (
+        <div className="bg-slate-50 rounded-[32px] border-4 border-dashed border-slate-200 p-20 text-center">
+          <CreditCard size={64} className="mx-auto text-slate-200 mb-4" />
+          <p className="font-black text-slate-400 uppercase tracking-widest text-xl sports-slant">No matching cards found</p>
         </div>
       ) : (
-        <>
-          {/* MOBILE CARD VIEW (< 768px) */}
-          <div className="md:hidden flex flex-col gap-4">
-            {giftCards?.map((card: GiftCard) => (
-              <div key={card.id} className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 flex flex-col gap-3 relative overflow-hidden">
-                <div className={`absolute top-0 left-0 w-1.5 h-full ${card.remainingBalance <= 0 ? 'bg-red-500' : 'bg-green-500'}`} />
-                
-                <div className="flex justify-between items-center border-b border-slate-100 pb-3 pl-2">
-                  <span className="font-mono font-black text-slate-900 bg-slate-100 border border-slate-300 px-3 py-1 rounded text-xs uppercase tracking-widest shadow-sm">
-                    {card.code}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase ${card.member ? 'bg-green-100 text-green-900 border border-green-300' : 'bg-slate-200 text-slate-800 border border-slate-300'}`}>
-                    {card.member ? 'MEMBER' : 'GUEST'}
-                  </span>
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-20">
+          {filteredCards?.map((card: GiftCard) => (
+            <div 
+              key={card.id} 
+              className={`group relative bg-white border-4 rounded-[32px] p-6 shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden ${card.remainingBalance <= 0 ? 'border-slate-100 grayscale' : 'border-slate-900 hover:-translate-y-1'}`}
+            >
+              {/* Card Status Indicator */}
+              <div className={`absolute top-0 right-0 px-4 py-1.5 rounded-bl-2xl font-black text-[10px] uppercase tracking-widest ${card.remainingBalance <= 0 ? 'bg-slate-200 text-slate-500' : 'bg-brand-yellow text-slate-900'}`}>
+                {card.remainingBalance <= 0 ? 'Exhausted' : 'Active'}
+              </div>
 
-                <div className="pl-2 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Holder</span>
-                    <span className="font-black text-sm text-slate-900">{card.member ? `${card.member.firstName} ${card.member.lastName}` : card.recipientName}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Issued</span>
-                    <span className="text-sm font-bold text-slate-700">{new Date(card.issuedAt).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Initial</span>
-                    <span className="text-sm font-bold text-slate-700">${card.initialAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100 mt-1">
-                    <span className="text-xs font-black text-slate-700 uppercase tracking-wider">Balance</span>
-                    {card.remainingBalance <= 0 ? (
-                      <span className="text-red-800 font-black bg-red-100 border border-red-300 px-2 py-0.5 rounded text-sm shadow-sm">$0.00</span>
-                    ) : (
-                      <span className="text-slate-900 font-black text-lg">${card.remainingBalance.toFixed(2)}</span>
-                    )}
+              <div className="flex flex-col h-full">
+                <div className="flex justify-between items-start mb-6">
+                  <div className="bg-slate-100 px-3 py-1 rounded-lg border-2 border-slate-200">
+                    <span className="font-mono font-black text-xs text-slate-600 uppercase tracking-tighter">{card.code}</span>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => { setSelectedCard(card); setIsRedeemOpen(true); }}
-                  disabled={card.remainingBalance <= 0}
-                  className="mt-2 w-full bg-slate-900 text-white py-3 rounded-lg text-sm font-black hover:bg-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-md"
-                >
-                  Redeem Funds
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* DESKTOP TABLE VIEW (>= 768px) */}
-          <div className="hidden md:block bg-white rounded-2xl shadow-md border border-slate-300 overflow-hidden">
-            <div className="overflow-x-auto overflow-y-auto max-h-[70vh]">
-              <table className="w-full text-left border-collapse whitespace-nowrap">
-                <thead className="bg-slate-200 border-b-2 border-slate-300 text-slate-900 font-black text-xs uppercase tracking-wider sticky top-0 z-10 shadow-sm">
-                  <tr>
-                    <th className="px-6 py-4">Card Code</th>
-                    <th className="px-6 py-4">Holder</th>
-                    <th className="px-6 py-4">Type</th>
-                    <th className="px-6 py-4">Date Issued</th>
-                    <th className="px-6 py-4 text-right">Original Amt</th>
-                    <th className="px-6 py-4 text-right">Balance</th>
-                    <th className="px-6 py-4 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {giftCards?.map((card: GiftCard) => (
-                    <tr key={card.id} className="hover:bg-slate-50 transition-colors bg-white">
-                      <td className="px-6 py-4">
-                        <span className="font-mono font-black text-slate-900 bg-slate-100 border border-slate-300 px-3 py-1.5 rounded-md text-xs uppercase tracking-widest shadow-sm">
-                          {card.code}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 font-black text-slate-900">
-                        {card.member ? `${card.member.firstName} ${card.member.lastName}` : card.recipientName}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest shadow-sm border ${card.member ? 'bg-green-100 text-green-900 border-green-300' : 'bg-slate-200 text-slate-800 border-slate-300'}`}>
-                          {card.member ? 'MEMBER' : 'GUEST'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-700">
-                        {new Date(card.issuedAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm font-bold text-slate-700">
-                        ${card.initialAmount.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        {card.remainingBalance <= 0 ? (
-                          <span className="text-red-800 font-black bg-red-100 border border-red-300 px-3 py-1 rounded-md text-sm shadow-sm">$0.00</span>
-                        ) : (
-                          <span className="text-slate-900 font-black text-base">${card.remainingBalance.toFixed(2)}</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={() => { setSelectedCard(card); setIsRedeemOpen(true); }}
-                          disabled={card.remainingBalance <= 0}
-                          className="bg-slate-900 text-white px-5 py-2 rounded-lg text-xs font-black hover:bg-black disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-md mx-auto block"
-                        >
-                          Redeem
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ISSUE MODAL */}
-      {isIssueOpen && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={(e) => { if(e.target === e.currentTarget) setIsIssueOpen(false); }}>
-          <div className="bg-white rounded-[32px] w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in duration-200 border border-slate-300">
-            <div className="p-6 md:p-8 border-b-2 border-slate-100 flex justify-between items-center bg-slate-50">
-              <h4 className="font-black text-slate-900 text-2xl">Issue Credit</h4>
-              <button onClick={() => setIsIssueOpen(false)} className="text-slate-600 hover:text-red-600 text-2xl font-black transition-colors">✕</button>
-            </div>
-            <form onSubmit={handleIssueSubmit} className="p-6 md:p-8 space-y-6">
-              <div className="flex p-1.5 bg-slate-200 rounded-xl shadow-inner">
-                <button type="button" onClick={() => { setIsMemberMode(true); setShowManualInput(false); setIssueForm({...issueForm, recipientName: '', memberId: ''}); }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-black rounded-lg transition-all ${isMemberMode ? 'bg-white shadow-md text-green-900' : 'text-slate-700 hover:text-slate-900'}`}>👤 Member</button>
-                <button type="button" onClick={() => { setIsMemberMode(false); setShowManualInput(false); setIssueForm({...issueForm, recipientName: '', memberId: ''}); }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-black rounded-lg transition-all ${!isMemberMode ? 'bg-white shadow-md text-green-900' : 'text-slate-700 hover:text-slate-900'}`}>👤+ Guest</button>
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-900 uppercase mb-2 ml-1">Card Code</label>
-                <div className="flex gap-2">
-                  <input required value={issueForm.code} onChange={(e) => setIssueForm({ ...issueForm, code: e.target.value.toUpperCase() })} className="flex-1 bg-white border-2 border-slate-300 rounded-xl px-4 py-3 text-sm font-mono focus:border-green-600 focus:ring-0 outline-none text-slate-900 font-bold placeholder-slate-500 shadow-sm" placeholder="SS-XXXXXX" />
-                  <button type="button" onClick={generateCode} className="text-sm font-black text-green-900 px-5 bg-green-100 hover:bg-green-200 rounded-xl transition-colors border-2 border-green-300 shadow-sm">Auto</button>
-                </div>
-              </div>
-              {isMemberMode ? (
-                <div>
-                  <label className="block text-xs font-black text-slate-900 uppercase mb-2 ml-1">Member</label>
-                  {showManualInput ? (
-                    <div className="flex gap-2 animate-in fade-in slide-in-from-right-2">
-                      <input required autoFocus className="flex-1 bg-white border-2 border-slate-300 rounded-xl px-4 py-3 text-sm focus:border-green-600 focus:ring-0 outline-none text-slate-900 font-bold placeholder-slate-500 shadow-sm" placeholder="Type member name manually..." value={issueForm.recipientName} onChange={(e) => setIssueForm({ ...issueForm, recipientName: e.target.value, memberId: '' })} />
-                      <button type="button" onClick={() => { setShowManualInput(false); setIssueForm({ ...issueForm, recipientName: '' }); }} className="text-xs font-black text-slate-800 bg-slate-200 hover:bg-slate-300 border-2 border-slate-300 rounded-xl px-4 transition-colors shadow-sm">Cancel</button>
-                    </div>
-                  ) : (
-                    <select required className="w-full bg-white border-2 border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:border-green-600 focus:ring-0 text-slate-900 font-bold cursor-pointer shadow-sm" value={issueForm.memberId} onChange={(e) => { if (e.target.value === 'MANUAL') { setShowManualInput(true); setIssueForm({ ...issueForm, memberId: '', recipientName: '' }); } else { setIssueForm({ ...issueForm, memberId: e.target.value, recipientName: '' }); } }}>
-                      <option value="" className="text-slate-700 font-bold">Select Member...</option>
-                      <option value="MANUAL" className="font-black text-green-800 bg-green-100">➕ Not listed? Type name manually...</option>
-                      {members?.map((m: Member) => <option key={m.id} value={m.id} className="text-slate-900 font-bold">{m.firstName} {m.lastName}</option>)}
-                    </select>
+                <div className="mb-auto">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Card Holder</p>
+                  <h4 className="text-xl font-black text-slate-900 truncate uppercase">
+                    {card.member ? `${card.member.firstName} ${card.member.lastName}` : (card.recipientName || 'Guest')}
+                  </h4>
+                  {card.member && (
+                    <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-black text-green-700 bg-green-50 px-2 py-0.5 rounded-full uppercase tracking-widest border border-green-100">
+                      Platinum Member
+                    </span>
                   )}
                 </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-black text-slate-900 uppercase mb-2 ml-1">Recipient Name</label>
-                  <input required className="w-full bg-white border-2 border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:border-green-600 focus:ring-0 text-slate-900 font-bold placeholder-slate-500 shadow-sm" placeholder="e.g. Guest Name" value={issueForm.recipientName} onChange={(e) => setIssueForm({ ...issueForm, recipientName: e.target.value, memberId: '' })} />
+
+                <div className="mt-8 flex items-end justify-between">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Balance</p>
+                    <div className="text-4xl font-black text-slate-900 sports-slant">
+                      ${card.remainingBalance.toFixed(2)}
+                    </div>
+                  </div>
+                  
+                  {card.remainingBalance > 0 && (
+                    <button 
+                      onClick={() => { setSelectedCard(card); setIsRedeemOpen(true); }}
+                      className="btn-sport bg-slate-900 text-white px-5 py-2.5 text-xs border-b-4 border-slate-700 hover:bg-black"
+                    >
+                      Redeem <ArrowRight size={14} className="ml-2" />
+                    </button>
+                  )}
                 </div>
-              )}
-              <div>
-                <label className="block text-xs font-black text-slate-900 uppercase mb-2 ml-1">Amount ($)</label>
-                <input required type="number" step="0.01" min="1" className="w-full bg-white border-2 border-slate-300 rounded-xl px-4 py-3 text-xl outline-none focus:border-green-600 focus:ring-0 text-slate-900 font-black placeholder-slate-400 shadow-sm" placeholder="0.00" value={issueForm.amount} onChange={(e) => setIssueForm({ ...issueForm, amount: e.target.value })} />
               </div>
-              <button type="submit" className="w-full bg-green-800 text-white py-4 rounded-xl font-black text-lg shadow-xl shadow-green-900/20 hover:bg-green-900 transition-all flex items-center justify-center gap-3 mt-4">Issue Gift Card <span className="text-2xl leading-none">→</span></button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Redemption Modal */}
+      {isRedeemOpen && selectedCard && (
+        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex justify-center items-center p-4">
+          <div className="bg-white rounded-[40px] shadow-2xl p-8 md:p-10 max-w-md w-full animate-in zoom-in duration-300 border-8 border-slate-900">
+            <div className="text-center mb-8">
+               <div className="w-20 h-20 bg-brand-yellow rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-slate-900 shadow-lg">
+                  <CreditCard size={32} className="text-slate-900" />
+               </div>
+               <h3 className="text-2xl font-black text-slate-900 uppercase sports-slant tracking-tighter">Redeem Credit</h3>
+               <p className="text-sm font-bold text-slate-500 mt-1">Current: <span className="text-slate-900">${selectedCard.remainingBalance.toFixed(2)}</span></p>
+            </div>
+            
+            <form onSubmit={handleRedeemSubmit} className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest ml-1">Purchase Amount ($)</label>
+                <input 
+                  type="number" step="0.01" required autoFocus
+                  value={redeemAmount} onChange={(e) => setRedeemAmount(e.target.value)}
+                  className="w-full border-4 border-slate-100 bg-slate-50 rounded-2xl p-5 text-3xl font-black text-slate-900 focus:border-blue-600 outline-none transition-all text-center"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => { setIsRedeemOpen(false); setSelectedCard(null); }} className="flex-1 btn-sport bg-slate-100 text-slate-500 border-b-4 border-slate-200">Cancel</button>
+                <button type="submit" className="flex-[2] btn-sport bg-green-700 text-white border-b-4 border-green-900">Confirm Use</button>
+              </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* REDEEM MODAL */}
-      {isRedeemOpen && selectedCard && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={(e) => { if(e.target === e.currentTarget) setIsRedeemOpen(false); }}>
-          <div className="bg-white rounded-[40px] w-full max-w-sm shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300 border border-slate-300">
-            <div className="bg-green-900 p-8 md:p-10 text-white text-center shadow-inner">
-              <div className="text-6xl opacity-70 mx-auto mb-4 drop-shadow-md">🎟️</div>
-              <h4 className="text-3xl font-black uppercase tracking-tight">Redeem</h4>
-              <p className="text-green-200 font-bold mt-2 text-lg">Available: ${selectedCard.remainingBalance.toFixed(2)}</p>
-            </div>
-            <form onSubmit={handleRedeemSubmit} className="p-8 md:p-10">
-              <div className="mb-8">
-                <label className="block text-center text-xs font-black text-slate-700 uppercase mb-3">Amount to Deduct</label>
-                <div className="relative">
-                  <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 font-black text-3xl">$</span>
-                  <input required autoFocus type="number" step="0.01" max={selectedCard.remainingBalance} className="w-full border-4 border-slate-300 rounded-[24px] py-6 px-12 text-4xl font-black text-center text-slate-900 focus:border-green-600 focus:ring-0 outline-none transition-all placeholder-slate-400 shadow-inner" placeholder="0.00" value={redeemAmount} onChange={(e) => setRedeemAmount(e.target.value)} />
+      {/* Issue Card Modal */}
+      {isIssueOpen && (
+        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex justify-center items-center p-4">
+          <div className="bg-white rounded-[40px] shadow-2xl p-8 md:p-12 max-w-xl w-full animate-in slide-in-from-bottom-10 duration-500 border-8 border-slate-900">
+            <h3 className="text-3xl font-black text-slate-900 uppercase sports-slant italic mb-8 border-b-4 border-slate-100 pb-4">Issue Gift Card</h3>
+            
+            <form onSubmit={handleIssueSubmit} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Card Number</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" required value={issueForm.code} 
+                      onChange={(e) => setIssueForm({...issueForm, code: e.target.value.toUpperCase()})}
+                      className="flex-1 border-4 border-slate-100 bg-slate-50 rounded-2xl p-4 font-mono font-black text-slate-900 focus:border-blue-600 outline-none"
+                      placeholder="SS-XXXXXXX"
+                    />
+                    <button type="button" onClick={generateCode} className="btn-sport bg-slate-900 text-white px-4 border-b-4 border-slate-700">Auto</button>
+                  </div>
+                </div>
+
+                <div className="col-span-1">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Initial Value ($)</label>
+                  <input 
+                    type="number" required value={issueForm.amount}
+                    onChange={(e) => setIssueForm({...issueForm, amount: e.target.value})}
+                    className="w-full border-4 border-slate-100 bg-slate-50 rounded-2xl p-4 text-xl font-black focus:border-blue-600 outline-none"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="col-span-1 flex flex-col justify-end">
+                   <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1">
+                      <button type="button" onClick={() => setIsMemberMode(true)} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${isMemberMode ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>Member</button>
+                      <button type="button" onClick={() => setIsMemberMode(false)} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${!isMemberMode ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>Guest</button>
+                   </div>
+                </div>
+
+                <div className="col-span-2 pt-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Recipient</label>
+                  {isMemberMode ? (
+                    <select 
+                      required value={issueForm.memberId}
+                      onChange={(e) => setIssueForm({...issueForm, memberId: e.target.value, recipientName: ''})}
+                      className="w-full border-4 border-slate-100 bg-slate-50 rounded-2xl p-4 text-sm font-black focus:border-blue-600 outline-none appearance-none"
+                    >
+                      <option value="">Select Member...</option>
+                      {members.map(m => <option key={m.id} value={m.id}>{m.firstName} {m.lastName}</option>)}
+                    </select>
+                  ) : (
+                    <input 
+                      type="text" required value={issueForm.recipientName}
+                      onChange={(e) => setIssueForm({...issueForm, recipientName: e.target.value, memberId: ''})}
+                      className="w-full border-4 border-slate-100 bg-slate-50 rounded-2xl p-4 text-sm font-black focus:border-blue-600 outline-none"
+                      placeholder="Enter Guest Name..."
+                    />
+                  )}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <button type="button" onClick={() => setIsRedeemOpen(false)} className="py-4 rounded-2xl font-black text-slate-800 bg-slate-200 border-2 border-slate-300 hover:bg-slate-300 transition-colors">Cancel</button>
-                <button type="submit" disabled={!redeemAmount || parseFloat(redeemAmount) <= 0 || parseFloat(redeemAmount) > parseFloat(selectedCard.remainingBalance.toFixed(2))} className="bg-green-800 text-white py-4 rounded-2xl font-black text-lg hover:bg-green-900 disabled:opacity-40 disabled:bg-slate-500 shadow-xl shadow-green-900/30 transition-all">Apply</button>
+
+              <div className="flex gap-4 pt-6">
+                <button type="button" onClick={() => setIsIssueOpen(false)} className="flex-1 btn-sport bg-slate-100 text-slate-500 border-b-4 border-slate-200">Discard</button>
+                <button type="submit" className="flex-[2] btn-sport bg-slate-900 text-white border-b-4 border-slate-700">Issue Voucher</button>
               </div>
             </form>
           </div>

@@ -147,48 +147,64 @@ export default function StaffTab({ appState }: any) {
     }
 
     return (
-      <div key={user.id} className={`bg-white border border-slate-200 rounded-xl p-3 flex flex-col xl:flex-row gap-3 items-start xl:items-center shadow-sm hover:shadow transition-all group relative ${isInactive ? 'opacity-60 grayscale' : ''}`}>
-        <div className="flex w-full xl:w-[22%] items-center gap-3">
+      <div key={user.id} className={`bg-white border border-slate-200 rounded-xl p-3 flex flex-col xl:flex-row gap-4 items-start xl:items-center shadow-sm hover:shadow transition-all group ${isInactive ? 'opacity-60 grayscale' : ''}`}>
+        {/* Name & Identity */}
+        <div className="flex w-full xl:w-[20%] items-center gap-3 shrink-0">
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-black text-lg shadow-inner shrink-0 ${isInactive ? 'bg-slate-400' : 'bg-slate-900'}`}>{user.name.charAt(0)}</div>
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0">
             <h3 className="text-sm font-black truncate text-slate-900">{user.name}</h3>
-            
-            {/* FIX: Bright, unmistakable Last Login Badge */}
-            <div className={`mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded border shadow-sm ${user.lastLoginAt ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${user.lastLoginAt ? 'bg-green-500' : 'bg-slate-400'}`}></span> 
-              <span className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">Login: {lastLoginDisplay}</span>
-            </div>
+            <span className="text-[9px] font-bold text-slate-400 block">ID:{user.id}</span>
+          </div>
+        </div>
 
+        {/* Login Status - Better alignment */}
+        <div className="w-full xl:w-[15%] flex flex-col gap-1 shrink-0">
+          <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border shadow-sm ${user.lastLoginAt ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${user.lastLoginAt ? 'bg-green-500' : 'bg-slate-400'}`}></span> 
+            <span className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">Last: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Never'}</span>
           </div>
+          {user.lastLoginAt && <span className="text-[8px] font-bold text-slate-400 ml-3">{new Date(user.lastLoginAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
         </div>
-        <div className="w-full xl:w-[18%] flex flex-col gap-2 border-t xl:border-t-0 xl:border-l pt-2 xl:pt-0 xl:pl-4">
-          <div className="flex items-center gap-2">
-             <span className="text-[9px] font-bold text-slate-400">ID:{user.id}</span>
-          </div>
-          <input type="email" defaultValue={user.email || ''} onBlur={(e) => handleUpdateUser(user.id, { email: e.target.value })} className="w-full bg-slate-50 border border-slate-400 rounded p-1.5 text-[10px] font-black text-slate-950 focus:bg-white focus:border-blue-500 outline-none" placeholder="Email" />
+
+        {/* Contact */}
+        <div className="w-full xl:w-[18%] shrink-0">
+          <input type="email" defaultValue={user.email || ''} onBlur={(e) => handleUpdateUser(user.id, { email: e.target.value })} className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-[10px] font-black text-slate-950 focus:bg-white focus:border-blue-500 outline-none transition-all" placeholder="Email Address" />
         </div>
-        <div className="w-full xl:w-[20%] border-t xl:border-t-0 xl:border-l pt-2 xl:pt-0 xl:pl-4">
-          <div className="flex flex-wrap gap-1">
-            {AVAILABLE_ROLES.map(role => (
-              <button key={role} onClick={() => handleRoleToggle(user.id, role)} className={`px-2 py-0.5 rounded text-[9px] font-black border ${user.systemRoles?.includes(role) ? 'bg-slate-800 text-white border-slate-900 shadow-sm' : 'bg-white text-slate-500 border-slate-200'}`}>{role}</button>
-            ))}
-          </div>
+
+        {/* Roles */}
+        <div className="w-full xl:w-[18%] flex flex-wrap gap-1 shrink-0">
+          {AVAILABLE_ROLES.map(role => (
+            <button key={role} onClick={() => handleRoleToggle(user.id, role)} className={`px-2 py-0.5 rounded text-[9px] font-black border transition-all ${user.systemRoles?.includes(role) ? 'bg-slate-800 text-white border-slate-900 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}>{role}</button>
+          ))}
         </div>
-        <div className="w-full xl:w-[15%] border-t xl:border-t-0 xl:border-l pt-2 xl:pt-0 xl:pl-4">
+
+        {/* Settings Toggles */}
+        <div className="w-full xl:w-[15%] flex flex-col gap-1 shrink-0">
           {isManagement && (
-            <button onClick={() => handleUpdateUser(user.id, { receiveReportEmails: !user.receiveReportEmails })} className={`flex items-center justify-between w-full px-2 py-1.5 rounded border text-[9px] font-black transition-all ${user.receiveReportEmails !== false ? 'bg-blue-100 border-blue-400 text-blue-900 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
-              <span>REPORTS</span><span>{user.receiveReportEmails !== false ? 'ON' : 'OFF'}</span>
-            </button>
+            <>
+              <button onClick={() => handleUpdateUser(user.id, { receiveReportEmails: !user.receiveReportEmails })} className={`flex items-center justify-between w-full px-2 py-1 rounded border text-[9px] font-black transition-all ${user.receiveReportEmails !== false ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                <span>REPORTS</span><span>{user.receiveReportEmails !== false ? 'ON' : 'OFF'}</span>
+              </button>
+              <button onClick={() => handleUpdateUser(user.id, { receiveChatEmails: !user.receiveChatEmails })} className={`flex items-center justify-between w-full px-2 py-1 rounded border text-[9px] font-black transition-all ${user.receiveChatEmails !== false ? 'bg-yellow-50 border-yellow-300 text-yellow-900' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                <span>CHAT</span><span>{user.receiveChatEmails !== false ? 'ON' : 'OFF'}</span>
+              </button>
+            </>
           )}
         </div>
-        <div className="w-full xl:w-[25%] border-t xl:border-t-0 xl:border-l pt-2 xl:pt-0 xl:pl-4">
-          <div className="flex flex-wrap gap-1">
-            {locations.map(loc => (
-              <button key={loc.id} onClick={() => toggleLocation(user, loc.id)} className={`px-2 py-0.5 rounded text-[9px] font-black border transition-all ${user.locationIds?.includes(loc.id) ? 'bg-blue-600 text-white border-blue-700 shadow-sm' : 'bg-white text-slate-500 border-slate-200'}`}>{loc.name}</button>
-            ))}
-          </div>
+
+        {/* Locations */}
+        <div className="w-full xl:flex-1 flex flex-wrap gap-1 min-w-[150px]">
+          {locations.map(loc => (
+            <button key={loc.id} onClick={() => toggleLocation(user, loc.id)} className={`px-2 py-0.5 rounded text-[9px] font-black border transition-all ${user.locationIds?.includes(loc.id) ? 'bg-blue-600 text-white border-blue-700 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}>{loc.name}</button>
+          ))}
         </div>
-        <button onClick={async () => { const newS = !user.isActive; await handleUpdateUser(user.id, { isActive: newS }); notify.success(newS ? "Restored" : "Archived"); }} className={`absolute top-2 right-2 text-[10px] font-black uppercase px-2 py-1 rounded shadow-sm border opacity-0 group-hover:opacity-100 ${isInactive ? 'bg-green-100 text-green-800 opacity-100' : 'bg-red-50 text-red-700'}`}>{isInactive ? 'Restore' : 'Archive'}</button>
+
+        {/* Final Actions - No longer absolute */}
+        <div className="w-full xl:w-[8%] flex justify-end">
+          <button onClick={async () => { const newS = !user.isActive; await handleUpdateUser(user.id, { isActive: newS }); notify.success(newS ? "Restored" : "Archived"); }} className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-lg shadow-sm border transition-all ${isInactive ? 'bg-green-100 text-green-800 border-green-300' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-600 hover:text-white'}`}>
+             {isInactive ? 'Restore' : 'Archive'}
+          </button>
+        </div>
       </div>
     );
   };

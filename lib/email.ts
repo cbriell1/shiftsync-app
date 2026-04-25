@@ -90,6 +90,117 @@ export async function sendFeedbackUpdateEmail(feedback: any) {
   });
 }
 
+export async function sendFeedbackCommentEmail(feedback: any, comment: string, sender: any) {
+  if (!resend) return;
+  const emails = await getAdminEmails();
+  if (emails.length === 0) return;
+
+  await resend.emails.send({
+    from: 'ShiftSync <onboarding@resend.dev>',
+    to: emails,
+    subject: `💬 New Comment on Feedback: ${feedback.title || 'Ticket #' + feedback.id}`,
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h3>New Comment from ${sender?.name || 'Unknown'}</h3>
+        <blockquote style="background: #f4f4f5; padding: 15px; border-left: 5px solid #3b82f6; border-radius: 4px;">
+          ${comment}
+        </blockquote>
+        <p><strong>Original Ticket:</strong> ${feedback.description}</p>
+        <br/>
+        <p>View this discussion in the ShiftSync Feedback tab.</p>
+      </div>
+    `
+  });
+}
+
+export async function sendNewMessageEmail(message: any, sender: any) {
+  if (!resend) return;
+  
+  let recipientEmails: string[] = [];
+
+  if (message.isGlobal) {
+    // Notify all Admins/Managers for global messages
+    recipientEmails = await getAdminEmails();
+  } else if (message.targetUserIds && message.targetUserIds.length > 0) {
+    // Notify specific recipients if they are Managers/Admins
+    const recipients = await prisma.user.findMany({
+      where: { 
+        id: { in: message.targetUserIds },
+        systemRoles: { hasSome: ['Administrator', 'Manager'] }
+      },
+      select: { email: true }
+    });
+    recipientEmails = recipients.map(r => r.email).filter(Boolean) as string[];
+  }
+
+  if (recipientEmails.length === 0) return;
+
+  await resend.emails.send({
+    from: 'ShiftSync Messages <onboarding@resend.dev>',
+    to: recipientEmails,
+    subject: `📩 New Message from ${sender?.name || 'Staff'}`,
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+        <h3 style="margin-top: 0;">Internal Message Received</h3>
+        <p><strong>From:</strong> ${sender?.name || 'Unknown'}</p>
+        <div style="background: #eff6ff; padding: 15px; border-radius: 6px; color: #1e40af;">
+          ${message.content}
+        </div>
+        <br/>
+        <p style="font-size: 12px; color: #64748b;">Log in to the Messages tab to reply.</p>
+      </div>
+    `
+  });
+}
+
+export async function sendChatNotificationEmail(message: any, sender: any, recipients: string[]) {
+  if (!resend || recipients.length === 0) return;
+
+  await resend.emails.send({
+    from: 'ShiftSync Chat <onboarding@resend.dev>',
+    to: recipients,
+    subject: `💬 New Team Message from ${sender.name}`,
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+        <h3 style="color: #0f172a; margin-top: 0;">New Message in ShiftSync</h3>
+        <p><strong>${sender.name}</strong> just posted a new message to the team.</p>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; border-left: 4px solid #facc15; margin: 20px 0;">
+          <p style="margin: 0; color: #334155; font-style: italic;">"${message.content}"</p>
+        </div>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #64748b;">
+          This message was sent because you have <strong>Chat Email Alerts</strong> enabled in your profile.<br/>
+          Log in to <a href="https://picklesandplay-shiftsync.vercel.app">ShiftSync</a> to reply.
+        </p>
+      </div>
+    `
+  });
+}
+
+export async function sendManagerLoginAlert(manager: any) {
+  if (!resend) return;
+  const emails = await getAdminEmails();
+  if (emails.length === 0) return;
+
+  await resend.emails.send({
+    from: 'ShiftSync Security <onboarding@resend.dev>',
+    to: emails,
+    subject: `🔐 Security Alert: Manager Login - ${manager.name}`,
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+        <h3 style="color: #0f172a; margin-top: 0;">Security Notification</h3>
+        <p>A user with <strong>Manager/Admin</strong> privileges has just logged into the system.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+        <p><strong>User:</strong> ${manager.name}</p>
+        <p><strong>Email:</strong> ${manager.email}</p>
+        <p><strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })} EST</p>
+        <br/>
+        <p style="font-size: 12px; color: #64748b;">If this was not expected, please review the audit logs in ShiftSync.</p>
+      </div>
+    `
+  });
+}
+
 export async function sendShiftReportEmail(checklist: any, timeCard: any, location: any, user: any) {
   if (!resend) return;
   

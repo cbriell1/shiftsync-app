@@ -28,6 +28,24 @@ model Location {
   timeCards        TimeCard[] 
   templates        ShiftTemplate[] 
   checklists       Checklist[]     
+  events           Event[]
+}
+
+model Event {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  type        String    @default("TOURNAMENT") // TOURNAMENT, BLACKOUT, HOLIDAY, etc.
+  locationId  Int?      // Null means all locations
+  location    Location? @relation(fields: [locationId], references: [id])
+  impact      String    @default("NORMAL")     // NORMAL, SKIP_GENERATION
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([startDate, endDate])
+  @@index([locationId])
 }
 
 model User {
@@ -38,6 +56,7 @@ model User {
   systemRoles         String[]   @default(["Front Desk"]) 
   isActive            Boolean    @default(true)
   receiveReportEmails Boolean    @default(true) 
+  receiveChatEmails   Boolean    @default(true) 
   lastLoginAt         DateTime?  
   
   locationIds    Int[]      @default([])
@@ -60,13 +79,17 @@ model User {
   
   messages       Message[]
   announcements  Announcement[]
-  auditLogs      AuditLog[]      // NEW: Relation to Audit Logs
+  auditLogs      AuditLog[]      
+  errorLogs      ErrorLog[]
+  feedbackComments FeedbackComment[]
 
   accounts       Account[]
   sessions       Session[]
   Authenticator  Authenticator[]
-}
 
+  @@index([isActive])
+}
+ 
 model Account {
   id                String  @id @default(cuid())
   userId            Int
@@ -94,6 +117,7 @@ model Session {
   user         User     @relation(fields:[userId], references:[id], onDelete: Cascade)
   
   @@index([userId]) 
+  @@index([expires])
 }
  
 model Authenticator {
@@ -163,25 +187,40 @@ model Member {
   location         String?
   notes            String?     
   bonusNotes       String?     
-  family           String?
-  renewalDate      String?
+  family           String?     // Used as the grouping key for family allotments
+  membershipLevel  String      @default("STANDARD") // STANDARD, PLATINUM
+  renewalDate      String?     // MM-DD-YY
+  lastResetDate    DateTime?   // Tracks the last time passes were reset for the period
   totalPasses      Int         @default(12)
   lastBeverageDate DateTime?   
   usages           PassUsage[]
+  snackUsages      SnackUsage[]
   giftCards        GiftCard[]  
 
   @@index([lastName])
+  @@index([family])
 }
 
 model PassUsage {
-  id         Int      @id @default(autoincrement())
-  dateUsed   String
-  amount     Int
-  initials   String?
-  memberId   Int
-  member     Member   @relation(fields: [ memberId ], references:[ id ])
+  id          Int      @id @default(autoincrement())
+  dateUsed    String
+  amount      Int      // Negative for "reverts" or "grants"
+  initials    String?
+  description String?  // Optional note for grants or corrections
+  memberId    Int
+  member      Member   @relation(fields: [ memberId ], references:[ id ], onDelete: Cascade)
 
   @@index([memberId])
+}
+
+model SnackUsage {
+  id        Int      @id @default(autoincrement())
+  memberId  Int
+  member    Member   @relation(fields: [memberId], references: [id])
+  dateUsed  DateTime @default(now())
+
+  @@index([memberId])
+  @@index([dateUsed])
 }
 
 model GiftCard {
@@ -232,6 +271,7 @@ model Checklist {
 
   @@index([timeCardId])
   @@index([userId])
+  @@index([date])
 }
 
 model GlobalTask {
@@ -247,11 +287,24 @@ model Feedback {
   description String
   status      String   @default("OPEN") 
   devNotes    String?
+  comments    FeedbackComment[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 
   @@index([userId])
   @@index([status])
+}
+
+model FeedbackComment {
+  id          Int      @id @default(autoincrement())
+  content     String
+  feedbackId  Int
+  feedback    Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([feedbackId])
 }
 
 model Message {
@@ -282,16 +335,29 @@ model Announcement {
   @@index([authorId])
 }
 
-// NEW: Audit & Error Logging Table
 model AuditLog {
   id        Int      @id @default(autoincrement())
   userId    Int?
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action    String   // e.g., "LOGIN", "ERROR", "SHIFT_CREATED"
-  details   String   // Text description of the action or error stack trace
+  action    String   // e.g., "TRANSACTION", "LOGIN", "DELETE"
+  details   String   // Text description
   createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+}
+
+model ErrorLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  message   String
+  stack     String?
+  path      String?
+  severity  String   @default("ERROR") // ERROR, FATAL, WARNING
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([severity])
 }

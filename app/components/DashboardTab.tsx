@@ -28,7 +28,7 @@ export default function DashboardTab({ appState }: any) {
 
   // FIX: Force the data to re-fetch automatically if any filters are changed
   useEffect(() => {
-    fetchManagerData(isManager, selectedUserId);
+    fetchManagerData(!!isManager, selectedUserId);
   },[manPeriods, manLocs, manEmps, isManager, selectedUserId, fetchManagerData]);
 
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -113,9 +113,9 @@ export default function DashboardTab({ appState }: any) {
   };
 
   return (
-    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-300 shadow-md animate-in fade-in duration-300">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-gray-200 pb-4 gap-4">
-        <h2 className="text-lg md:text-xl font-black text-slate-900 text-center md:text-left">
+    <div className="card-modern p-4 md:p-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-slate-100 pb-6 gap-4">
+        <h2 className="text-2xl font-black text-slate-900 sports-slant">
           {isManager ? 'Payroll Dashboard' : 'My Payroll Summary'}
         </h2>
         
@@ -123,7 +123,7 @@ export default function DashboardTab({ appState }: any) {
           {isManager && (
             <button 
               onClick={handleExportCSV} 
-              className="w-full sm:w-auto bg-green-800 hover:bg-green-900 text-white text-sm font-bold py-2.5 px-5 rounded-lg shadow-sm transition"
+              className="btn-sport bg-brand-green text-white"
             >
               Export Matrix CSV
             </button>
@@ -132,28 +132,29 @@ export default function DashboardTab({ appState }: any) {
       </div>
 
       {suspiciousCards.length > 0 && (
-        <div className="mb-8 bg-red-50 border-l-4 border-red-600 p-4 md:p-6 rounded-r-xl shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 pt-0.5">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <div className="mb-8 bg-red-50 border-2 border-red-200 p-6 rounded-2xl shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1.5 h-full bg-red-600"></div>
+          <div className="flex items-start gap-4">
+            <div className="bg-red-600 p-2 rounded-lg text-white shadow-md">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
             <div className="w-full">
-              <h3 className="text-sm md:text-base font-black text-red-900 mb-1">
-                {isManager ? "SUSPICIOUS SHIFTS DETECTED" : "PLEASE REVIEW THESE SHIFTS"}
+              <h3 className="text-lg font-black text-red-900 mb-1 sports-slant">
+                🚨 {isManager ? "SUSPICIOUS SHIFTS DETECTED" : "ACTION REQUIRED"}
               </h3>
-              <p className="text-xs md:text-sm text-red-800 font-bold mb-3">
+              <p className="text-sm text-red-800 font-bold mb-4 opacity-80">
                 {isManager 
-                  ? "The following shifts are unusually long (>10 hrs) or short (<1 hr) and require your attention:"
-                  : "You have shifts that are unusually long (>10 hrs) or short (<1 hr). Please contact your manager to edit these if they are incorrect:"}
+                  ? "Unusual shift durations (>10 hrs or <1 hr) flagged for review:"
+                  : "Flagged shifts found. Contact your manager if these durations are incorrect:"}
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {suspiciousCards.map((warn, i) => (
-                  <div key={i} className="bg-white border border-red-200 p-2.5 rounded-lg shadow-sm text-xs font-bold text-slate-800 flex justify-between items-center">
-                    <span className="truncate pr-2">{formatDateSafe(warn.clockIn)} | {warn.user?.name}</span>
-                    <span className="text-red-600 bg-red-50 px-2 py-1 rounded shadow-inner border border-red-100 whitespace-nowrap">
-                      {warn.totalHours?.toFixed(2)} hrs
+                  <div key={i} className="bg-white border-2 border-red-100 p-3 rounded-xl shadow-sm flex justify-between items-center group hover:border-red-300 transition-colors">
+                    <span className="text-xs font-black text-slate-700 truncate">{formatDateSafe(warn.clockIn)} • {warn.user?.name}</span>
+                    <span className="text-xs font-black text-white bg-red-600 px-2.5 py-1 rounded-lg shadow-inner">
+                      {warn.totalHours?.toFixed(2)}h
                     </span>
                   </div>
                 ))}

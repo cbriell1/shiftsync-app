@@ -1,13 +1,14 @@
 // filepath: app/page.tsx
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Image from 'next/image';
 import { signOut, useSession, signIn as signInReact } from "next-auth/react";
 import { signIn as signInPasskey } from "next-auth/webauthn"; 
+import { useSearchParams } from 'next/navigation';
 import { notify, useEscapeKey } from '@/lib/ui-utils';
 import { useAppStore } from '@/lib/store';
 import { getMonday } from '@/lib/common';
-import { Menu, X, Clock, Calendar, FileText, Settings, Users, MessageSquare, MapPin, LayoutDashboard, CalendarDays, Gift, AlertCircle, LogOut, Smartphone, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Menu, X, Clock, Calendar, FileText, Settings, Users, MessageSquare, MapPin, LayoutDashboard, CalendarDays, Gift, AlertCircle, LogOut, Smartphone, ChevronLeft, ChevronRight, BookOpen, Layout } from 'lucide-react';
 
 import CalendarTab from './components/CalendarTab';
 import DashboardTab from './components/DashboardTab';
@@ -20,6 +21,8 @@ import GiftCardTab from './components/GiftCardTab';
 import FeedbackTab from './components/FeedbackTab'; 
 import MessagesTab from './components/MessagesTab';
 import TimeClockTab from './components/TimeClockTab';
+import HelpTab from './components/HelpTab';
+import StadiumAssistant from './components/StadiumAssistant';
 
 // ==================================================================
 // GLOBAL LOGOUT HANDLER (Prevents Ghost Sessions)
@@ -230,6 +233,7 @@ const NavItem = ({ id, icon: Icon, label, badge = 0, activeTab, isCollapsed, set
 // 2. MAIN DASHBOARD APP
 // ==================================================================
 function MainDashboard({ session }: { session: any }) {
+  const searchParams = useSearchParams();
   const activeTab = useAppStore(s => s.activeTab);
   const setActiveTab = useAppStore(s => s.setActiveTab);
   const sidebarOpen = useAppStore(s => s.sidebarOpen);
@@ -314,10 +318,16 @@ function MainDashboard({ session }: { session: any }) {
 
   useEffect(() => {
     if (isMounted && authenticatedUserId) {
-      // If the saved tab was "builder", default them to "setup" now since it merged
-      const savedTab = localStorage.getItem('lastActiveTab_' + authenticatedUserId);
-      if (savedTab === 'builder') setActiveTab('setup');
-      else if (savedTab) setActiveTab(savedTab);
+      // 1. Check URL Parameters for Deep Links
+      const tabParam = searchParams.get('tab');
+      if (tabParam) {
+        setActiveTab(tabParam);
+      } else {
+        // 2. Fallback to LocalStorage
+        const savedTab = localStorage.getItem('lastActiveTab_' + authenticatedUserId);
+        if (savedTab === 'builder') setActiveTab('setup');
+        else if (savedTab) setActiveTab(savedTab);
+      }
 
       const savedCollapse = localStorage.getItem('sidebarCollapsed');
       if (savedCollapse === 'true') setIsCollapsed(true);
@@ -325,7 +335,7 @@ function MainDashboard({ session }: { session: any }) {
       setLastViewedFeedback(localStorage.getItem('lastViewedFeedback_' + selectedUserId) || '1970-01-01T00:00:00.000Z');
       setLastViewedMessages(localStorage.getItem('lastViewedMessages_' + selectedUserId) || '1970-01-01T00:00:00.000Z');
     }
-  },[isMounted, authenticatedUserId, selectedUserId]);
+  },[isMounted, authenticatedUserId, selectedUserId, searchParams]);
 
   useEffect(() => {
     if (isMounted && authenticatedUserId && users.length > 0) {
@@ -404,10 +414,10 @@ function MainDashboard({ session }: { session: any }) {
         {/* Brand Header with Collapse Toggle */}
         <div className={`p-4 md:p-6 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} border-b border-slate-800 shrink-0 transition-all`}>
           <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-            <Image src="/logo.png" alt="Logo" width={32} height={32} priority className={`h-8 w-auto shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} style={{ width: 'auto', height: 'auto' }} />
+            <Image src="/logo.png" alt="Logo" width={32} height={32} priority className={`h-10 w-auto shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} style={{ width: 'auto', height: 'auto' }} />
             {!isCollapsed && (
-              <h1 className="text-xl font-black italic uppercase tracking-widest leading-none text-white">
-                <span className="text-yellow-400">Pickles</span><br/>& Play
+              <h1 className="text-xl font-black sports-slant leading-[0.85] text-white">
+                <span className="text-brand-yellow">Pickles</span><br/>& Play
               </h1>
             )}
           </div>
@@ -437,6 +447,21 @@ function MainDashboard({ session }: { session: any }) {
 
         {/* Navigation Area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
+          {/* USER PROFILE CARD (Expanded Only) */}
+          {!isCollapsed && (
+            <div className="mx-3 mb-8 p-5 bg-slate-800/40 rounded-[24px] border-2 border-slate-700/30 flex items-center gap-4 animate-in slide-in-from-left-4 duration-500 shadow-inner">
+               <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-brand-yellow font-black shadow-2xl border-2 border-slate-700 rotate-3">
+                  {authenticatedUserObj?.name?.charAt(0)}
+               </div>
+               <div className="flex flex-col min-w-0">
+                  <span data-testid="profile-name" className="font-black text-white text-xs truncate uppercase tracking-wider">{authenticatedUserObj?.name}</span>
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter break-words whitespace-normal leading-tight mt-1 opacity-80">
+                    Last Session:<br/>{authenticatedUserObj?.lastLoginAt ? new Date(authenticatedUserObj.lastLoginAt).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : 'Initializing...'}
+                  </span>
+               </div>
+            </div>
+          )}
+
           <div>
             {!isCollapsed ? (
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 px-4">Your Workspace</p>
@@ -458,8 +483,9 @@ function MainDashboard({ session }: { session: any }) {
               <div className="w-8 h-px bg-slate-700 mx-auto mb-3"></div>
             )}
             <div className="space-y-1">
-              <NavItem id="messages" icon={MessageSquare} label="Messages" badge={unreadMessagesCount} activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
-              <NavItem id="feedback" icon={AlertCircle} label="Feedback" badge={unreadFeedbackCount} activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
+              <NavItem id="messages" icon={MessageSquare} label="Team Chat" badge={unreadMessagesCount} activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
+              <NavItem id="feedback" icon={AlertCircle} label="Dev Request" badge={unreadFeedbackCount} activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
+              <NavItem id="help" icon={BookOpen} label="Help & Training" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
             </div>
           </div>
           {isManager && (
@@ -516,13 +542,14 @@ function MainDashboard({ session }: { session: any }) {
             {activeTab === 'calendar' && <CalendarTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'dashboard' && <DashboardTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'timesheets' && <TimesheetsTab appState={legacyAppStatePlaceholder} />}
-            {activeTab === 'privileges' && <PrivilegesTab appState={legacyAppStatePlaceholder} />}
+            {activeTab === 'privileges' && <PrivilegesTab />}
             {activeTab === 'setup' && <SetupTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'staff' && <StaffTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'locations' && <LocationsTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'giftcards' && <GiftCardTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'feedback' && <FeedbackTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'messages' && <MessagesTab appState={legacyAppStatePlaceholder} />}
+            {activeTab === 'help' && <HelpTab />}
           </div>
         </div>
 
@@ -569,5 +596,10 @@ export default function SchedulingAppRoot() {
   if (status === "loading") return <LoginSkeleton />;
   if (status === "unauthenticated" || !session || !session.user) return <LoginScreen sessionData={session} />;
   
-  return <MainDashboard session={session} />;
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <MainDashboard session={session} />
+      <StadiumAssistant />
+    </Suspense>
+  );
 }

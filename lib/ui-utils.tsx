@@ -44,6 +44,7 @@ export const customConfirm = (message: string, confirmText = "Confirm", isDanger
               Cancel
             </button>
             <button
+              data-testid="confirm-button"
               onClick={() => {
                 toast.dismiss(t.id);
                 resolve(true);
