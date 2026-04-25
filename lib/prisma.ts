@@ -1,31 +1,32 @@
 // filepath: lib/prisma.ts
 import { PrismaClient } from '@prisma/client';
-import { Pool as NeonPool, neonConfig } from '@neondatabase/serverless';
+import { Pool as NeonPool } from '@neondatabase/serverless';
 import { PrismaNeon } from '@prisma/adapter-neon';
 
-// 🛡️ HYBRID DRIVER STRATEGY
-// Local/Test: Direct TCP for speed and stability
-// Production: Neon HTTP for serverless efficiency
+// 🛡️ STADIUM-GRADE DATABASE INITIALIZATION
+// This singleton ensures we only have one connection pool active.
 
 const prismaClientSingleton = () => {
-  const url = process.env.DATABASE_URL;
+  const rawUrl = process.env.DATABASE_URL;
   
-  if (!url) {
-    console.error("🚨 CRITICAL: DATABASE_URL is missing in environment!");
+  if (!rawUrl) {
+    // 🚨 This error will now show up clearly in your Vercel logs
+    console.error("🚨 STADIUM OFFLINE: DATABASE_URL is missing from Vercel Environment Variables.");
     return new PrismaClient();
   }
 
-  // Always use the standard driver in development/test to avoid local runtime conflicts
-  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-    return new PrismaClient();
+  // ⚡ Optimization: Neon HTTP Adapter works best without pgbouncer=true in the string
+  const url = rawUrl.replace('pgbouncer=true', 'sslmode=require');
+
+  // 🏗️ PRODUCTION: Use Neon Serverless HTTP (Zero-overhead connection)
+  if (process.env.NODE_ENV === 'production') {
+    const pool = new NeonPool({ connectionString: url });
+    const adapter = new PrismaNeon(pool as any);
+    return new PrismaClient({ adapter });
   }
 
-  // Use Neon HTTP Adapter for Production
-  // Skip ws polyfill in serverless env as fetch is globally available
-  const pool = new NeonPool({ connectionString: url });
-  const adapter = new PrismaNeon(pool as any);
-  
-  return new PrismaClient({ adapter });
+  // 💻 LOCAL/TEST: Use standard PG Driver for speed/stability
+  return new PrismaClient();
 };
 
 declare const globalThis: {
