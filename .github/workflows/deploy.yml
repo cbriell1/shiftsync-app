@@ -69,9 +69,18 @@ jobs:
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
+      - name: Verify Database Secret
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "🚨 ERROR: DATABASE_URL secret is missing in GitHub Actions!"
+            exit 1
+          fi
+
       - name: Run Database Synchronization (Production)
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
-        run: npx prisma db push --skip-generate
+        run: |
+          npx prisma generate
+          npx prisma db push --skip-generate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
