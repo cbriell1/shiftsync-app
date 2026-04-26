@@ -548,8 +548,10 @@ export async function cloneShiftsAction(data: {
     const targetRangeEnd = new Date(new Date(data.sourceEnd).getTime() + offsetMs);
     const existingTargetShifts = await prisma.shift.findMany({
       where: {
-        startTime: { gte: tStart },
-        endTime: { lte: targetRangeEnd }
+        startTime: { 
+            gte: tStart,
+            lte: new Date(targetRangeEnd.getTime() + (24 * 60 * 60 * 1000)) // Wide check for overnight
+        }
       },
       select: { locationId: true, startTime: true, endTime: true }
     });
@@ -563,11 +565,6 @@ export async function cloneShiftsAction(data: {
         const newStart = new Date(s.startTime.getTime() + offsetMs);
         const newEnd = new Date(s.endTime.getTime() + offsetMs);
         
-        // Skip if 31st mapping to 30th month (basic safety)
-        if (newStart.getMonth() !== tStart.getMonth() && newStart.getDate() < s.startTime.getDate()) {
-            return null;
-        }
-
         const key = `${s.locationId}_${newStart.getTime()}_${newEnd.getTime()}`;
         if (shiftLookup.has(key)) return null;
 
