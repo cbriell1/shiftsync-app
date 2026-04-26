@@ -432,8 +432,8 @@ export async function generateScheduleAction(data: {
   const offset = data.tzOffset || 0;
 
   try {
-     const periodStart = new Date(data.startDate); periodStart.setHours(0,0,0,0);
-     const periodEnd = new Date(data.endDate); periodEnd.setHours(23,59,59,999);
+     const periodStart = new Date(data.startDate); periodStart.setUTCHours(0,0,0,0);
+     const periodEnd = new Date(data.endDate); periodEnd.setUTCHours(23,59,59,999);
 
      const targetLocations = data.locationIds && data.locationIds.length > 0
         ? await prisma.location.findMany({ where: { id: { in: data.locationIds } } })
