@@ -465,25 +465,24 @@ export async function generateScheduleAction(data: {
 
         while (currentDate <= periodEnd) {
            const isSkipped = locSkipEvents.some(e => {
-             const eStart = new Date(e.startDate); eStart.setHours(0,0,0,0);
-             const eEnd = new Date(e.endDate); eEnd.setHours(23,59,59,999);
+             const eStart = new Date(e.startDate); eStart.setUTCHours(0,0,0,0);
+             const eEnd = new Date(e.endDate); eEnd.setUTCHours(23,59,59,999);
              return currentDate >= eStart && currentDate <= eEnd;
            });
 
            if (!isSkipped) {
-              const currentDayOfWeek = currentDate.getDay();
+              const currentDayOfWeek = currentDate.getUTCDay();
               const dailyTemplates = locTemplates.filter(t => t.dayOfWeek === currentDayOfWeek);
               const dateStr = currentDate.toISOString().split('T')[0];
 
               for (const t of dailyTemplates) {
-                 // Construct UTC date assuming the string is local, then adjust by offset
                  const st = new Date(`${dateStr}T${t.startTime}:00Z`);
                  st.setMinutes(st.getMinutes() + offset);
 
                  const et = new Date(`${dateStr}T${t.endTime}:00Z`);
                  et.setMinutes(et.getMinutes() + offset);
 
-                 if (et <= st) et.setDate(et.getDate() + 1);
+                 if (et <= st) et.setUTCDate(et.getUTCDate() + 1);
 
                  const key = `${loc.id}_${st.toISOString()}_${et.toISOString()}`;
                  if (!shiftLookup.has(key)) {
@@ -492,7 +491,7 @@ export async function generateScheduleAction(data: {
                  }
               }
            }
-           currentDate.setDate(currentDate.getDate() + 1);
+           currentDate.setUTCDate(currentDate.getUTCDate() + 1);
         }
      }
 
