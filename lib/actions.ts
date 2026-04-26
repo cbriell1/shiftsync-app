@@ -186,8 +186,10 @@ export async function bulkDeleteShiftsAction(data: {
 
   try {
     const whereClause: any = {
-      startTime: { gte: new Date(data.startDate) },
-      endTime: { lte: new Date(data.endDate) }
+      startTime: { 
+        gte: new Date(data.startDate),
+        lte: new Date(data.endDate)
+      }
     };
     if (data.locationIds && data.locationIds.length > 0) {
       whereClause.locationId = { in: data.locationIds };
