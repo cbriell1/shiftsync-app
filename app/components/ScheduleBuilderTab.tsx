@@ -473,22 +473,35 @@ export default function ScheduleBuilderTab() {
                ) : (
                  <button
                    onClick={async () => {
-                      const [y, m, d] = builderWeekStart.split('-').map(Number);
-                      const ws = new Date(y, m - 1, d); ws.setDate(ws.getDate() - ws.getDay());
-                      const we = new Date(ws); we.setDate(we.getDate() + 6);
-                      const startStr = ws.toISOString().split('T')[0];
-                      const endStr = we.toISOString().split('T')[0];
+                      let start: string, end: string, label: string, rangeStr: string;
                       const offset = new Date().getTimezoneOffset();
 
-                      const msg = `Deploy all Master Patterns for this week (${ws.toLocaleDateString()} - ${we.toLocaleDateString()}) to the Live Grid? Existing identical shifts will be skipped.`;
+                      if (activeView === 'month') {
+                         const first = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1);
+                         const last = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth() + 1, 0);
+                         start = first.toISOString().split('T')[0];
+                         end = last.toISOString().split('T')[0];
+                         label = `the entire month of ${MONTHS[currentBaseDate.getMonth()]}`;
+                         rangeStr = `${first.toLocaleDateString()} - ${last.toLocaleDateString()}`;
+                      } else {
+                         const [y, m, d] = builderWeekStart.split('-').map(Number);
+                         const ws = new Date(y, m - 1, d); ws.setDate(ws.getDate() - ws.getDay());
+                         const we = new Date(ws); we.setDate(we.getDate() + 6);
+                         start = ws.toISOString().split('T')[0];
+                         end = we.toISOString().split('T')[0];
+                         label = "this week";
+                         rangeStr = `${ws.toLocaleDateString()} - ${we.toLocaleDateString()}`;
+                      }
+
+                      const msg = `Deploy all Master Patterns for ${label} (${rangeStr}) to the Live Grid? Existing identical shifts will be skipped.`;
                       if (await customConfirm(msg, "Deploy Patterns to Live", true)) {
-                        await generateSchedule(startStr, endStr, calLocFilter, offset);
+                        await generateSchedule(start, end, calLocFilter, offset);
                         setBuilderMode('live');
                       }
                    }}
                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-yellow text-slate-900 hover:bg-yellow-500 transition-all animate-pulse"
                  >
-                   <Zap size={12} /> Deploy Patterns to Live
+                   <Zap size={12} /> Deploy {activeView === 'month' ? 'Month' : 'Week'} Patterns
                  </button>
                )}
                <button onClick={() => handleOpenBuilder()} className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-green text-white hover:bg-green-700 transition-all"><Plus size={12} /> Add {builderMode === 'live' ? 'Shift' : 'Pattern'}</button>
