@@ -529,8 +529,10 @@ export async function cloneShiftsAction(data: {
     const offsetMs = tStart.getTime() - sStart.getTime();
 
     const whereClause: any = {
-      startTime: { gte: new Date(data.sourceStart) },
-      endTime: { lte: new Date(data.sourceEnd) }
+      startTime: { 
+        gte: new Date(data.sourceStart),
+        lte: new Date(data.sourceEnd)
+      }
     };
     if (data.locationIds && data.locationIds.length > 0) {
       whereClause.locationId = { in: data.locationIds };
