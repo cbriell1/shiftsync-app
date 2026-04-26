@@ -172,7 +172,7 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart }: any) {
 // MAIN UNIFIED SCHEDULER
 // ==================================================================
 export default function ScheduleBuilderTab() {
-  const { shifts, templates, users, locations, globalTasks, builderMode, setBuilderMode, builderWeekStart, setBuilderWeekStart, calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter, sidebarBuilderOpen, setSidebarBuilderOpen, editingShiftId, setEditingShiftId, generateSchedule, saveTemplates, deleteTemplate, deleteShift, updateShift, selectedUserId, selectedShiftIds, setSelectedShiftIds, toggleShiftSelection, bulkDeleteByIds, bulkDeleteShifts } = useAppStore();
+  const { shifts, templates, users, locations, globalTasks, builderMode, setBuilderMode, builderWeekStart, setBuilderWeekStart, calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter, sidebarBuilderOpen, setSidebarBuilderOpen, editingShiftId, setEditingShiftId, generateSchedule, saveTemplates, deleteTemplate, deleteShift, updateShift, selectedUserId, selectedShiftIds, setSelectedShiftIds, toggleShiftSelection, bulkDeleteByIds, bulkDeleteShifts, cloneShifts } = useAppStore();
 
   const activeUser = users.find(u => u.id.toString() === selectedUserId);
   const isManager = activeUser?.systemRoles?.includes('Manager') || activeUser?.systemRoles?.includes('Administrator');
