@@ -350,105 +350,129 @@ export default function ScheduleBuilderTab() {
           </div>
 
           <div className="flex items-center space-x-1 w-full sm:w-auto justify-center">
-            <button onClick={() => changeDate(-1)} className="w-9 h-9 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition">&lt;</button>
+            <button onClick={() => changeDate(-1)} title="Previous" className="w-9 h-9 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition">&lt;</button>
+            <button onClick={jumpToToday} className="px-3 h-9 bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-[10px] text-slate-600 uppercase tracking-widest transition">Today</button>
             <select value={currentBaseDate.getMonth()} onChange={handleMonthDropdown} className="w-28 sm:w-32 h-9 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer text-xs">
               {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
             </select>
             <select value={currentBaseDate.getFullYear()} onChange={handleYearDropdown} className="w-20 sm:w-24 h-9 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer text-xs">
               {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
-            <button onClick={() => changeDate(1)} className="w-9 h-9 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition">&gt;</button>
+            <button onClick={() => changeDate(1)} title="Next" className="w-9 h-9 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition">&gt;</button>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-2 w-full xl:w-auto">
-         {isManager && builderMode === 'live' && (
+         {isManager && (
              <div className="flex items-center gap-2 bg-slate-200/50 p-1 rounded-xl border border-slate-300">
-               <button
-                 onClick={() => {
-                    setIsSelectionMode(!isSelectionMode);
-                    if (isSelectionMode) setSelectedShiftIds([]);
-                 }}
-                 title="Select multiple shifts to delete"
-                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm transition-all ${isSelectionMode ? 'bg-blue-600 text-white ring-2 ring-blue-200' : 'bg-white border border-slate-300 text-slate-500 hover:border-blue-400'}`}
-               >
-                 <ListChecks size={12} /> {isSelectionMode ? 'Cancel' : 'Select'}
-               </button>
+               {builderMode === 'live' ? (
+                 <>
+                    <button
+                        onClick={() => {
+                            setIsSelectionMode(!isSelectionMode);
+                            if (isSelectionMode) setSelectedShiftIds([]);
+                        }}
+                        title="Select multiple shifts to delete"
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm transition-all ${isSelectionMode ? 'bg-blue-600 text-white ring-2 ring-blue-200' : 'bg-white border border-slate-300 text-slate-500 hover:border-blue-400'}`}
+                    >
+                        <ListChecks size={12} /> {isSelectionMode ? 'Cancel' : 'Select'}
+                    </button>
 
-               {isSelectionMode && selectedShiftIds.length > 0 && (
-                   <button
-                     onClick={async () => {
-                        const msg = `Permanently delete ${selectedShiftIds.length} selected shifts?`;
-                        if (await customConfirm(msg, "Bulk Delete", true)) {
-                            await bulkDeleteByIds(selectedShiftIds);
-                            setIsSelectionMode(false);
+                    {isSelectionMode && selectedShiftIds.length > 0 && (
+                        <button
+                            onClick={async () => {
+                                const msg = `Permanently delete ${selectedShiftIds.length} selected shifts?`;
+                                if (await customConfirm(msg, "Bulk Delete", true)) {
+                                    await bulkDeleteByIds(selectedShiftIds);
+                                    setIsSelectionMode(false);
+                                }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-red-600 text-white hover:bg-red-700 animate-in zoom-in-95"
+                        >
+                            <Trash2 size={12} /> Delete ({selectedShiftIds.length})
+                        </button>
+                    )}
+
+                    {!isSelectionMode && (
+                        <button
+                        onClick={async () => {
+                            let start: string, end: string, periodName: string;
+                            if (activeView === 'month') {
+                            const first = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1, 0, 0, 0);
+                            const last = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth() + 1, 0, 23, 59, 59);
+                            start = first.toISOString(); end = last.toISOString();
+                            periodName = "Month";
+                            } else {
+                            const [y, m, d] = builderWeekStart.split('-').map(Number);
+                            const ws = new Date(y, m - 1, d, 0, 0, 0);
+                            ws.setDate(ws.getDate() - ws.getDay());
+                            const we = new Date(ws); 
+                            we.setDate(we.getDate() + 6);
+                            we.setHours(23, 59, 59);
+                            start = ws.toISOString(); end = we.toISOString();
+                            periodName = "Week";
+                            }
+                            const locNames = calLocFilter.length > 0 
+                            ? locations.filter(l => calLocFilter.includes(l.id)).map(l => l.name.replace('PnP ', '')).join(', ')
+                            : "All Facilities";
+                            const msg = `Clear all shifts for ${periodName} at ${locNames}?`;
+                            if (await customConfirm(msg, `Clear ${periodName}`, true)) {
+                                await bulkDeleteShifts(start, end, calLocFilter);
+                            }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-white border border-red-200 text-red-600 hover:bg-red-50 transition-all"
+                        >
+                        <Trash2 size={12} /> Clear {activeView === 'month' ? 'Month' : 'Week'}
+                        </button>
+                    )}
+
+                    <button
+                        onClick={async () => {
+                        let sourceStart: Date, sourceEnd: Date, targetStart: Date, periodName: string;
+                        if (activeView === 'month') {
+                            targetStart = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1);
+                            sourceStart = new Date(targetStart); sourceStart.setMonth(sourceStart.getMonth() - 1);
+                            sourceEnd = new Date(targetStart); sourceEnd.setDate(sourceEnd.getDate() - 1);
+                            periodName = "Month";
+                        } else {
+                            const [y, m, d] = builderWeekStart.split('-').map(Number);
+                            targetStart = new Date(y, m - 1, d); targetStart.setDate(targetStart.getDate() - targetStart.getDay());
+                            sourceStart = new Date(targetStart); sourceStart.setDate(sourceStart.getDate() - 7);
+                            sourceEnd = new Date(targetStart); sourceEnd.setDate(sourceEnd.getDate() - 1);
+                            periodName = "Week";
                         }
-                     }}
-                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-red-600 text-white hover:bg-red-700 animate-in zoom-in-95"
-                   >
-                     <Trash2 size={12} /> Delete ({selectedShiftIds.length})
-                   </button>
-               )}
-
-               {!isSelectionMode && (
+                        const msg = `Clone all shifts from last ${periodName.toLowerCase()}?`;
+                        if (await customConfirm(msg, `Clone Previous ${periodName}`, true)) {
+                            await cloneShifts({ sourceStart: sourceStart.toISOString(), sourceEnd: sourceEnd.toISOString(), targetStart: targetStart.toISOString(), locationIds: calLocFilter });
+                        }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-all"
+                    >
+                        <Calendar size={12} /> Clone {activeView === 'month' ? 'Month' : 'Week'}
+                    </button>
+                 </>
+               ) : (
                  <button
                    onClick={async () => {
-                     let start: string, end: string, periodName: string;
-                     if (activeView === 'month') {
-                       const first = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1, 0, 0, 0);
-                       const last = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth() + 1, 0, 23, 59, 59);
-                       start = first.toISOString(); end = last.toISOString();
-                       periodName = "Month";
-                     } else {
-                       const [y, m, d] = builderWeekStart.split('-').map(Number);
-                       const ws = new Date(y, m - 1, d, 0, 0, 0);
-                       ws.setDate(ws.getDate() - ws.getDay());
-                       const we = new Date(ws); 
-                       we.setDate(we.getDate() + 6);
-                       we.setHours(23, 59, 59);
-                       start = ws.toISOString(); end = we.toISOString();
-                       periodName = "Week";
-                     }
+                      const [y, m, d] = builderWeekStart.split('-').map(Number);
+                      const ws = new Date(y, m - 1, d); ws.setDate(ws.getDate() - ws.getDay());
+                      const we = new Date(ws); we.setDate(we.getDate() + 6);
+                      const startStr = ws.toISOString().split('T')[0];
+                      const endStr = we.toISOString().split('T')[0];
+                      const offset = new Date().getTimezoneOffset();
 
-                     const locNames = calLocFilter.length > 0 
-                       ? locations.filter(l => calLocFilter.includes(l.id)).map(l => l.name.replace('PnP ', '')).join(', ')
-                       : "All Facilities";
-                     const msg = `Clear all shifts for ${periodName} at ${locNames}?`;
-                     if (await customConfirm(msg, `Clear ${periodName}`, true)) {
-                        await bulkDeleteShifts(start, end, calLocFilter);
-                     }
+                      const msg = `Deploy all Master Patterns for this week (${ws.toLocaleDateString()} - ${we.toLocaleDateString()}) to the Live Grid? Existing identical shifts will be skipped.`;
+                      if (await customConfirm(msg, "Deploy Patterns to Live", true)) {
+                        await generateSchedule(startStr, endStr, calLocFilter, offset);
+                        setBuilderMode('live');
+                      }
                    }}
-                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-white border border-red-200 text-red-600 hover:bg-red-50 transition-all"
+                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-yellow text-slate-900 hover:bg-yellow-500 transition-all animate-pulse"
                  >
-                   <Trash2 size={12} /> Clear {activeView === 'month' ? 'Month' : 'Week'}
+                   <Zap size={12} /> Deploy Patterns to Live
                  </button>
                )}
-
-               <button
-                 onClick={async () => {
-                   let sourceStart: Date, sourceEnd: Date, targetStart: Date, periodName: string;
-                   if (activeView === 'month') {
-                      targetStart = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1);
-                      sourceStart = new Date(targetStart); sourceStart.setMonth(sourceStart.getMonth() - 1);
-                      sourceEnd = new Date(targetStart); sourceEnd.setDate(sourceEnd.getDate() - 1);
-                      periodName = "Month";
-                   } else {
-                      const [y, m, d] = builderWeekStart.split('-').map(Number);
-                      targetStart = new Date(y, m - 1, d); targetStart.setDate(targetStart.getDate() - targetStart.getDay());
-                      sourceStart = new Date(targetStart); sourceStart.setDate(sourceStart.getDate() - 7);
-                      sourceEnd = new Date(targetStart); sourceEnd.setDate(sourceEnd.getDate() - 1);
-                      periodName = "Week";
-                   }
-                   const msg = `Clone all shifts from last ${periodName.toLowerCase()}?`;
-                   if (await customConfirm(msg, `Clone Previous ${periodName}`, true)) {
-                      await cloneShifts({ sourceStart: sourceStart.toISOString(), sourceEnd: sourceEnd.toISOString(), targetStart: targetStart.toISOString(), locationIds: calLocFilter });
-                   }
-                 }}
-                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-all"
-               >
-                 <Calendar size={12} /> Clone {activeView === 'month' ? 'Month' : 'Week'}
-               </button>
-               <button onClick={() => handleOpenBuilder()} className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-green text-white hover:bg-green-700 transition-all"><Plus size={12} /> Add Shift</button>
+               <button onClick={() => handleOpenBuilder()} className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-green text-white hover:bg-green-700 transition-all"><Plus size={12} /> Add {builderMode === 'live' ? 'Shift' : 'Pattern'}</button>
              </div>
          )}
 
