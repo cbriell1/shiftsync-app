@@ -395,18 +395,21 @@ export default function ScheduleBuilderTab() {
                    onClick={async () => {
                      let start: string, end: string, periodName: string;
                      if (activeView === 'month') {
-                       const first = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1);
-                       const last = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth() + 1, 0);
+                       const first = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1, 0, 0, 0);
+                       const last = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth() + 1, 0, 23, 59, 59);
                        start = first.toISOString(); end = last.toISOString();
                        periodName = "Month";
                      } else {
                        const [y, m, d] = builderWeekStart.split('-').map(Number);
-                       const ws = new Date(y, m - 1, d);
+                       const ws = new Date(y, m - 1, d, 0, 0, 0);
                        ws.setDate(ws.getDate() - ws.getDay());
-                       const we = new Date(ws); we.setDate(we.getDate() + 6);
+                       const we = new Date(ws); 
+                       we.setDate(we.getDate() + 6);
+                       we.setHours(23, 59, 59);
                        start = ws.toISOString(); end = we.toISOString();
                        periodName = "Week";
                      }
+
                      const locNames = calLocFilter.length > 0 
                        ? locations.filter(l => calLocFilter.includes(l.id)).map(l => l.name.replace('PnP ', '')).join(', ')
                        : "All Facilities";
