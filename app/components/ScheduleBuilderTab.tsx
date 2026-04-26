@@ -203,13 +203,14 @@ export default function ScheduleBuilderTab() {
     const targetDate = new Date(y, m - 1, d);
     
     if (viewMode === 'day') return [targetDate];
-    if (viewMode === 'week' || builderMode === 'blueprint') {
-        // Special case: if we are in blueprint mode but NOT in day view, default to week
+    
+    if (viewMode === 'week') {
         const startOfWeek = new Date(targetDate);
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
         return Array.from({ length: 7 }, (_, i) => { const day = new Date(startOfWeek); day.setDate(day.getDate() + i); return day; });
     }
-    // Month View
+    
+    // Month View (Live or Master)
     const firstOfMonth = new Date(y, m - 1, 1);
     const startOfGrid = new Date(firstOfMonth);
     startOfGrid.setDate(startOfGrid.getDate() - startOfGrid.getDay()); 
@@ -218,7 +219,7 @@ export default function ScheduleBuilderTab() {
         const d = new Date(startOfGrid); d.setDate(d.getDate() + i); cells.push(d);
     }
     return cells;
-  }, [builderWeekStart, viewMode, builderMode]);
+  }, [builderWeekStart, viewMode]);
 
   const changeDate = (direction: number) => {
     const [year, month, day] = builderWeekStart.split('-').map(Number);
