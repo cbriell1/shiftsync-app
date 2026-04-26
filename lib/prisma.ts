@@ -1,39 +1,25 @@
 // filepath: lib/prisma.ts
 import { PrismaClient } from '@prisma/client';
-import { Pool as NeonPool } from '@neondatabase/serverless';
-import { PrismaNeon } from '@prisma/adapter-neon';
 
-// 🛡️ STADIUM-GRADE DATABASE INITIALIZATION
-// Optimized for Vercel Serverless + Neon HTTP
+// 🛡️ STADIUM-GRADE DATABASE INITIALIZATION (SAFE MODE)
+// This version uses the standard driver for maximum reliability in production.
 
 const prismaClientSingleton = () => {
-  const rawUrl = process.env.DATABASE_URL;
+  const url = process.env.DATABASE_URL;
   
-  if (!rawUrl || rawUrl.trim().length === 0) {
-    // 🚨 This will show up clearly in Vercel logs if the variable is missing
-    console.error("🚨 DATABASE_URL IS MISSING! Dashboard will remain blank. Please add it to Vercel Settings.");
+  if (!url || url.trim().length === 0) {
+    console.error("🚨 STADIUM OFFLINE: DATABASE_URL is missing from Vercel Environment Variables.");
     return new PrismaClient();
   }
 
-  console.log(`📡 Database Secret Detected. Length: ${rawUrl.length} characters.`);
+  // Log the character count to verify Vercel secret injection
+  console.log(`📡 Database Secret Active. Length: ${url.length} characters.`);
 
-  // ⚡ Advanced Optimization: Clean the connection string for Neon HTTP
-  let url = rawUrl.replace('pgbouncer=true', 'sslmode=require');
-
-  // 🏗️ PRODUCTION: Use Neon Serverless HTTP (Zero-overhead connection)
-  if (process.env.NODE_ENV === 'production') {
-    try {
-        const pool = new NeonPool({ connectionString: url });
-        const adapter = new PrismaNeon(pool as any);
-        return new PrismaClient({ adapter });
-    } catch (e: any) {
-        console.error("❌ Neon HTTP Adapter Initialization Failed:", e.message);
-        return new PrismaClient();
-    }
-  }
-
-  // 💻 LOCAL/TEST: Use standard PG Driver
-  return new PrismaClient();
+  // Return a standard Prisma Client. 
+  // It will handle the postgresql:// or postgres:// protocol automatically.
+  return new PrismaClient({
+    log: ['error', 'warn'],
+  });
 };
 
 declare const globalThis: {

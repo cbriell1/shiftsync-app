@@ -188,92 +188,54 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   updateShift: async (shiftId, startTime, endTime, userId, action = 'UPDATE') => {
     const { shifts, users } = get();
-    
-    // OVERLAP DETECTION
     if (userId) {
       const newStart = new Date(startTime).getTime();
       const newEnd = new Date(endTime).getTime();
       const user = users.find(u => u.id === userId);
-
       const overlap = shifts.find(s => {
         if (s.id === shiftId || s.userId !== userId) return false;
         const sStart = new Date(s.startTime).getTime();
         const sEnd = new Date(s.endTime).getTime();
         return (newStart < sEnd && newEnd > sStart);
       });
-
       if (overlap) {
         const msg = `CONFLICT: ${user?.name} is already assigned to a shift from ${new Date(overlap.startTime).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})} to ${new Date(overlap.endTime).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}. Assign anyway?`;
         if (!(await customConfirm(msg, "Shift Conflict Detected", true))) return;
       }
     }
-
     const res = await updateShiftAction({ shiftId, userId, startTime, endTime, action });
-    if (res.success) {
-      await get().fetchShifts();
-    } else {
-      notify.error(res.error || "Failed to update shift");
-    }
+    if (res.success) { await get().fetchShifts(); } else { notify.error(res.error || "Failed to update shift"); }
   },
 
   deleteShift: async (shiftId) => {
     const res = await deleteShiftAction(shiftId);
-    if (res.success) {
-      notify.success("Shift deleted");
-      await get().fetchShifts();
-    } else {
-      notify.error(res.error || "Failed to delete shift");
-    }
+    if (res.success) { notify.success("Shift deleted"); await get().fetchShifts(); } else { notify.error(res.error || "Failed to delete shift"); }
   },
 
   bulkDeleteShifts: async (startDate, endDate, locationId) => {
     const res = await bulkDeleteShiftsAction({ startDate, endDate, locationId });
-    if (res.success) {
-      notify.success(`Successfully deleted ${res.count} shifts.`);
-      await get().fetchShifts();
-    } else {
-      notify.error(res.error || "Failed to clear shifts");
-    }
+    if (res.success) { notify.success(`Successfully deleted ${res.count} shifts.`); await get().fetchShifts(); } else { notify.error(res.error || "Failed to clear shifts"); }
   },
 
   saveTemplates: async (data) => {
     const res = await saveTemplatesAction(data);
-    if (res.success) {
-      notify.success(data.id ? "Template updated!" : "Templates created!");
-      await get().fetchTemplates();
-    } else {
-      notify.error(res.error || "Failed to save template");
-    }
+    if (res.success) { notify.success(data.id ? "Template updated!" : "Templates created!"); await get().fetchTemplates(); } else { notify.error(res.error || "Failed to save template"); }
   },
 
   deleteTemplate: async (id) => {
+    const { deleteTemplateAction } = await import('./actions');
     const res = await deleteTemplateAction(id);
-    if (res.success) {
-      notify.success("Template deleted");
-      await get().fetchTemplates();
-    } else {
-      notify.error(res.error || "Failed to delete template");
-    }
+    if (res.success) { notify.success("Template deleted"); await get().fetchTemplates(); } else { notify.error(res.error || "Failed to delete template"); }
   },
 
   bulkTemplatesFromShifts: async (shifts) => {
     const res = await bulkTemplatesFromShiftsAction(shifts);
-    if (res.success) {
-      notify.success(`Success! Created master templates.`);
-      await get().fetchTemplates();
-    } else {
-      notify.error(res.error || "Failed to save week as template");
-    }
+    if (res.success) { notify.success(`Success! Created master templates.`); await get().fetchTemplates(); } else { notify.error(res.error || "Failed to save week as template"); }
   },
 
   generateSchedule: async (startDate, endDate, locationId) => {
     const res = await generateScheduleAction({ startDate, endDate, locationId });
-    if (res.success) {
-      notify.success(`Success! Generated ${res.count} shifts.`);
-      await get().fetchShifts();
-    } else {
-      notify.error(res.error || "Failed to generate schedule");
-    }
+    if (res.success) { notify.success(`Success! Generated ${res.count} shifts.`); await get().fetchShifts(); } else { notify.error(res.error || "Failed to generate schedule"); }
   },
 
   fetchManagerData: async (isManager: boolean, userId: string) => {
@@ -282,13 +244,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const selectedPeriods = manPeriods.map(idx => periodsList[idx]);
     let targetEmployees = manEmps;
     if (!isManager && userId) targetEmployees = [parseInt(userId)];
-    
     try {
-      const res = await fetch('/api/manager?t=' + Date.now(), { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ periods: selectedPeriods, userIds: targetEmployees }) 
-      });
+      const res = await fetch('/api/manager?t=' + Date.now(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ periods: selectedPeriods, userIds: targetEmployees }) });
       const data = await res.json();
       set({ managerData: Array.isArray(data) ? data :[] });
     } catch (err) {}
@@ -297,26 +254,31 @@ export const useAppStore = create<AppStore>((set, get) => ({
   fetchAllCoreData: async (userId: string) => {
     const { fetchUsers, fetchLocations, fetchShifts, fetchMembers, fetchTemplates, fetchChecklists, fetchGlobalTasks, fetchGiftCards, fetchFeedbacks, fetchMessages, fetchAnnouncements, fetchTimeCards, fetchEvents } = get();
     
-    // Batch 1: Core static-ish data (Reduces initial DB connection spike)
-    await Promise.all([
-      fetchUsers(), 
-      fetchLocations(), 
-      fetchGlobalTasks(), 
-      fetchTemplates(),
-      fetchEvents()
-    ]);
+    // 🛡️ STAGGERED FETCH (Prevents DB pool saturation on production cold starts)
+    console.log("🚦 Starting Sequential Data Hydration...");
+    
+    // Batch 1: Crucial permission/layout data
+    await fetchUsers();
+    await fetchLocations();
 
-    // Batch 2: Dynamic / User-specific data
-    await Promise.all([
-      fetchShifts(), 
-      fetchMembers(),
-      fetchChecklists(), 
-      fetchGiftCards(), 
-      fetchFeedbacks(),
-      fetchMessages(userId), 
-      fetchAnnouncements(userId), 
-      fetchTimeCards(userId)
-    ]);
+    // Batch 2: Background infrastructure
+    await fetchGlobalTasks();
+    await fetchTemplates();
+    await fetchEvents();
+
+    // Batch 3: User-specific & High-volume data
+    await fetchShifts();
+    await fetchMembers();
+    await fetchChecklists();
+    await fetchGiftCards();
+    await fetchFeedbacks();
+
+    // Batch 4: Comms
+    await fetchMessages(userId);
+    await fetchAnnouncements(userId);
+    await fetchTimeCards(userId);
+    
+    console.log("🏁 Data Hydration Complete.");
   }
 }));
 
