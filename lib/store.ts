@@ -26,6 +26,10 @@ interface AppStore {
   calEmpFilter: number[];
   setCalEmpFilter: (ids: number[]) => void;
 
+  selectedShiftIds: number[];
+  setSelectedShiftIds: (ids: number[]) => void;
+  toggleShiftSelection: (id: number) => void;
+
   sidebarBuilderOpen: boolean;
   setSidebarBuilderOpen: (open: boolean) => void;
   editingShiftId: number | null;
@@ -91,7 +95,8 @@ interface AppStore {
   updateShift: (shiftId: number, startTime: string, endTime: string, userId: number | null, action?: any) => Promise<void>;
   createShift: (locationId: number, userId: number | null, startTime: string, endTime: string, tzOffset?: number) => Promise<void>;
   deleteShift: (shiftId: number) => Promise<void>;
-  bulkDeleteShifts: (startDate: string, endDate: string, locationId?: number) => Promise<void>;
+  bulkDeleteShifts: (startDate: string, endDate: string, locationIds?: number[]) => Promise<void>;
+  bulkDeleteByIds: (ids: number[]) => Promise<void>;
   saveTemplates: (data: any) => Promise<void>;
   deleteTemplate: (id: number) => Promise<void>;
   bulkTemplatesFromShifts: (shifts: any[]) => Promise<void>;
@@ -120,6 +125,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setCalLocFilter: (ids) => set({ calLocFilter: ids }),
   calEmpFilter: [],
   setCalEmpFilter: (ids) => set({ calEmpFilter: ids }),
+
+  selectedShiftIds: [],
+  setSelectedShiftIds: (ids) => set({ selectedShiftIds: ids }),
+  toggleShiftSelection: (id) => {
+    const { selectedShiftIds } = get();
+    if (selectedShiftIds.includes(id)) set({ selectedShiftIds: selectedShiftIds.filter(x => x !== id) });
+    else set({ selectedShiftIds: [...selectedShiftIds, id] });
+  },
 
   sidebarBuilderOpen: false,
   setSidebarBuilderOpen: (open) => set({ sidebarBuilderOpen: open }),
@@ -232,9 +245,21 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (res.success) { notify.success("Shift deleted"); await get().fetchShifts(); } else { notify.error(res.error || "Failed to delete shift"); }
   },
 
-  bulkDeleteShifts: async (startDate, endDate, locationId) => {
-    const res = await bulkDeleteShiftsAction({ startDate, endDate, locationId });
+  bulkDeleteShifts: async (startDate, endDate, locationIds) => {
+    const res = await bulkDeleteShiftsAction({ startDate, endDate, locationIds });
     if (res.success) { notify.success(`Successfully deleted ${res.count} shifts.`); await get().fetchShifts(); } else { notify.error(res.error || "Failed to clear shifts"); }
+  },
+
+  bulkDeleteByIds: async (ids) => {
+    const { bulkDeleteShiftsByIdsAction } = await import('./actions');
+    const res = await bulkDeleteShiftsByIdsAction(ids);
+    if (res.success) { 
+        notify.success(`Successfully deleted ${res.count} selected shifts.`); 
+        set({ selectedShiftIds: [] });
+        await get().fetchShifts(); 
+    } else { 
+        notify.error(res.error || "Failed to delete selected shifts"); 
+    }
   },
 
   saveTemplates: async (data) => {

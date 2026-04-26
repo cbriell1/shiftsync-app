@@ -174,7 +174,7 @@ export async function deleteShiftAction(shiftId: number) {
 export async function bulkDeleteShiftsAction(data: {
   startDate: string;
   endDate: string;
-  locationId?: number;
+  locationIds?: number[];
 }) {
   const user = await getSessionUser();
   if (!user) throw new Error("Unauthorized");
@@ -189,15 +189,40 @@ export async function bulkDeleteShiftsAction(data: {
       startTime: { gte: new Date(data.startDate) },
       endTime: { lte: new Date(data.endDate) }
     };
-    if (data.locationId) whereClause.locationId = data.locationId;
+    if (data.locationIds && data.locationIds.length > 0) {
+      whereClause.locationId = { in: data.locationIds };
+    }
 
     const result = await prisma.shift.deleteMany({ where: whereClause });
 
-    await logAudit(authUserId, "DELETE", `Bulk delete: ${result.count} shifts cleared from ${data.startDate}`);
+    await logAudit(authUserId, "DELETE", `Bulk delete: ${result.count} shifts cleared from ${data.startDate} to ${data.endDate}`);
     revalidatePath('/');
     return { success: true, count: result.count };
   } catch (err: any) {
     await logError(authUserId, err.message, "bulkDeleteShiftsAction", err.stack);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function bulkDeleteShiftsByIdsAction(shiftIds: number[]) {
+  const user = await getSessionUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const userRoles = (user as any)?.systemRoles || [];
+  if (!userRoles.includes('Administrator') && !userRoles.includes('Manager')) throw new Error("Forbidden");
+
+  const authUserId = Number(user.id);
+
+  try {
+    const result = await prisma.shift.deleteMany({
+      where: { id: { in: shiftIds } }
+    });
+
+    await logAudit(authUserId, "DELETE", `Multiple select delete: ${result.count} shifts removed.`);
+    revalidatePath('/');
+    return { success: true, count: result.count };
+  } catch (err: any) {
+    await logError(authUserId, err.message, "bulkDeleteShiftsByIdsAction", err.stack);
     return { success: false, error: err.message };
   }
 }

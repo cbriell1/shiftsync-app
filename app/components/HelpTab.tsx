@@ -257,8 +257,9 @@ export default function HelpTab() {
                       <h2 className="text-3xl font-black uppercase sports-slant italic mb-2">Move 4: Roster Cleanup</h2>
                       <p className="text-red-100 font-bold opacity-80">Precision grid-side deletion.</p>
                    </div>
-                   <DetailCard title="1. Instant Removal" text="Click the Red Trash Can icon on any card to permanently remove it from the roster." icon={Trash2} onClick={() => setZoomOpen(true)} />
-                   <DetailCard title="2. Master Deletion" text="Patterns deleted from the master grid are removed from future Zaps automatically." icon={ShieldAlert} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="1. Individual Removal" text="Click the Red Trash Can icon on any card to permanently remove it from the roster." icon={Trash2} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="2. Multiple Select" text="Hit 'Select Shifts' to enter batch mode. Click multiple cards to highlight them in blue, then hit 'Delete Selected' to prune in bulk." icon={ListChecks} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="3. Safety Shield" text="Every bulk action requires a secondary confirmation, ensuring your live roster remains accurate and safe." icon={ShieldAlert} onClick={() => setZoomOpen(true)} />
                 </div>
                 <ZoomableMain src="/Images/Training/v11-pro-cleanup.png" alt="Grid Deletion UI" isOpen={zoomOpen} setIsOpen={setZoomOpen} />
              </div>

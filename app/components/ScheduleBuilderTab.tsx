@@ -172,12 +172,13 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart }: any) {
 // MAIN UNIFIED SCHEDULER
 // ==================================================================
 export default function ScheduleBuilderTab() {
-  const { shifts, templates, users, locations, globalTasks, builderMode, setBuilderMode, builderWeekStart, setBuilderWeekStart, calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter, sidebarBuilderOpen, setSidebarBuilderOpen, editingShiftId, setEditingShiftId, generateSchedule, saveTemplates, deleteTemplate, deleteShift, updateShift, selectedUserId } = useAppStore();
+  const { shifts, templates, users, locations, globalTasks, builderMode, setBuilderMode, builderWeekStart, setBuilderWeekStart, calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter, sidebarBuilderOpen, setSidebarBuilderOpen, editingShiftId, setEditingShiftId, generateSchedule, saveTemplates, deleteTemplate, deleteShift, updateShift, selectedUserId, selectedShiftIds, setSelectedShiftIds, toggleShiftSelection, bulkDeleteByIds, bulkDeleteShifts } = useAppStore();
 
   const activeUser = users.find(u => u.id.toString() === selectedUserId);
   const isManager = activeUser?.systemRoles?.includes('Manager') || activeUser?.systemRoles?.includes('Administrator');
 
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('week');
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [genStart, setGenStart] = useState('');
   const [genEnd, setGenEnd] = useState('');
   const [preFill, setPreFill] = useState({ date: '', start: '' });
@@ -312,24 +313,24 @@ export default function ScheduleBuilderTab() {
   };
 
   return (
-    <div className="flex flex-col h-full space-y-4">
+    <div className="flex flex-col h-full space-y-3">
       
-      {/* HEADER: MATCHING CALENDAR TAB DESIGN */}
-      <div className="flex flex-col xl:flex-row justify-between items-center bg-slate-100 p-3 rounded-xl border border-gray-300 gap-4 shadow-inner text-sm">
+      {/* HEADER: COMPACT & PROFESSIONAL GROUPING */}
+      <div className="flex flex-col xl:flex-row justify-between items-center bg-slate-100 p-2.5 rounded-xl border border-gray-300 gap-3 shadow-inner text-sm">
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <div className="flex bg-slate-200 p-1 rounded-lg border border-slate-300 shadow-sm w-full sm:w-auto">
                 <button 
                     data-testid="live-mode-btn"
                     onClick={() => setBuilderMode('live')} 
-                    className={`px-4 py-1.5 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-md transition-all ${builderMode === 'live' ? 'bg-brand-green text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}
+                    className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${builderMode === 'live' ? 'bg-brand-green text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}
                 >
                     Live
                 </button>
                 <button 
                     data-testid="master-mode-btn"
                     onClick={() => setBuilderMode('blueprint')} 
-                    className={`px-4 py-1.5 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-md transition-all ${builderMode === 'blueprint' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}
+                    className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${builderMode === 'blueprint' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}
                 >
                     Master
                 </button>
@@ -340,7 +341,7 @@ export default function ScheduleBuilderTab() {
                     key={mode} 
                     data-testid={`${mode}-view-btn`}
                     onClick={() => setViewMode(mode as any)} 
-                    className={`flex-1 sm:flex-none px-4 py-1.5 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-md transition-all ${activeView === mode ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}
+                    className={`flex-1 sm:flex-none px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${activeView === mode ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}
                 >
                     {mode}
                 </button>
@@ -349,120 +350,160 @@ export default function ScheduleBuilderTab() {
           </div>
 
           <div className="flex items-center space-x-1 w-full sm:w-auto justify-center">
-            <button onClick={() => changeDate(-1)} className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition">&lt;</button>
-            <select value={currentBaseDate.getMonth()} onChange={handleMonthDropdown} className="w-28 sm:w-32 h-10 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer">
+            <button onClick={() => changeDate(-1)} className="w-9 h-9 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition">&lt;</button>
+            <select value={currentBaseDate.getMonth()} onChange={handleMonthDropdown} className="w-28 sm:w-32 h-9 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer text-xs">
               {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
             </select>
-            <select value={currentBaseDate.getFullYear()} onChange={handleYearDropdown} className="w-20 sm:w-24 h-10 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer">
+            <select value={currentBaseDate.getFullYear()} onChange={handleYearDropdown} className="w-20 sm:w-24 h-9 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer text-xs">
               {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
-            <button onClick={() => changeDate(1)} className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition">&gt;</button>
-            <button onClick={jumpToToday} className="ml-2 h-10 px-3 bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-[10px] text-slate-600 uppercase tracking-widest transition">Today</button>
+            <button onClick={() => changeDate(1)} className="w-9 h-9 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition">&gt;</button>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full xl:w-auto items-center">
+        <div className="flex flex-wrap items-center justify-center gap-2 w-full xl:w-auto">
          {isManager && builderMode === 'live' && (
-             <>
+             <div className="flex items-center gap-2 bg-slate-200/50 p-1 rounded-xl border border-slate-300">
+               <button
+                 onClick={() => {
+                    setIsSelectionMode(!isSelectionMode);
+                    if (isSelectionMode) setSelectedShiftIds([]);
+                 }}
+                 title="Select multiple shifts to delete"
+                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm transition-all ${isSelectionMode ? 'bg-blue-600 text-white ring-2 ring-blue-200' : 'bg-white border border-slate-300 text-slate-500 hover:border-blue-400'}`}
+               >
+                 <ListChecks size={12} /> {isSelectionMode ? 'Cancel' : 'Select'}
+               </button>
+
+               {isSelectionMode && selectedShiftIds.length > 0 && (
+                   <button
+                     onClick={async () => {
+                        const msg = `Permanently delete ${selectedShiftIds.length} selected shifts?`;
+                        if (await customConfirm(msg, "Bulk Delete", true)) {
+                            await bulkDeleteByIds(selectedShiftIds);
+                            setIsSelectionMode(false);
+                        }
+                     }}
+                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-red-600 text-white hover:bg-red-700 animate-in zoom-in-95"
+                   >
+                     <Trash2 size={12} /> Delete ({selectedShiftIds.length})
+                   </button>
+               )}
+
+               {!isSelectionMode && (
+                 <button
+                   onClick={async () => {
+                     let start: string, end: string, periodName: string;
+                     if (activeView === 'month') {
+                       const first = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1);
+                       const last = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth() + 1, 0);
+                       start = first.toISOString(); end = last.toISOString();
+                       periodName = "Month";
+                     } else {
+                       const [y, m, d] = builderWeekStart.split('-').map(Number);
+                       const ws = new Date(y, m - 1, d);
+                       ws.setDate(ws.getDate() - ws.getDay());
+                       const we = new Date(ws); we.setDate(we.getDate() + 6);
+                       start = ws.toISOString(); end = we.toISOString();
+                       periodName = "Week";
+                     }
+                     const locNames = calLocFilter.length > 0 
+                       ? locations.filter(l => calLocFilter.includes(l.id)).map(l => l.name.replace('PnP ', '')).join(', ')
+                       : "All Facilities";
+                     const msg = `Clear all shifts for ${periodName} at ${locNames}?`;
+                     if (await customConfirm(msg, `Clear ${periodName}`, true)) {
+                        await bulkDeleteShifts(start, end, calLocFilter);
+                     }
+                   }}
+                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-white border border-red-200 text-red-600 hover:bg-red-50 transition-all"
+                 >
+                   <Trash2 size={12} /> Clear {activeView === 'month' ? 'Month' : 'Week'}
+                 </button>
+               )}
+
                <button
                  onClick={async () => {
                    let sourceStart: Date, sourceEnd: Date, targetStart: Date, periodName: string;
-
                    if (activeView === 'month') {
-                      // Current month target
                       targetStart = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1);
-                      // Prev month source
-                      sourceStart = new Date(targetStart);
-                      sourceStart.setMonth(sourceStart.getMonth() - 1);
-                      sourceEnd = new Date(targetStart);
-                      sourceEnd.setDate(sourceEnd.getDate() - 1);
+                      sourceStart = new Date(targetStart); sourceStart.setMonth(sourceStart.getMonth() - 1);
+                      sourceEnd = new Date(targetStart); sourceEnd.setDate(sourceEnd.getDate() - 1);
                       periodName = "Month";
                    } else {
-                      // Week target
                       const [y, m, d] = builderWeekStart.split('-').map(Number);
-                      targetStart = new Date(y, m - 1, d);
-                      targetStart.setDate(targetStart.getDate() - targetStart.getDay());
-                      // Prev week source
-                      sourceStart = new Date(targetStart);
-                      sourceStart.setDate(sourceStart.getDate() - 7);
-                      sourceEnd = new Date(targetStart);
-                      sourceEnd.setDate(sourceEnd.getDate() - 1);
+                      targetStart = new Date(y, m - 1, d); targetStart.setDate(targetStart.getDate() - targetStart.getDay());
+                      sourceStart = new Date(targetStart); sourceStart.setDate(sourceStart.getDate() - 7);
+                      sourceEnd = new Date(targetStart); sourceEnd.setDate(sourceEnd.getDate() - 1);
                       periodName = "Week";
                    }
-
-                   const msg = `Clone all shifts from last ${periodName.toLowerCase()} (${sourceStart.toLocaleDateString()} - ${sourceEnd.toLocaleDateString()}) to this ${periodName.toLowerCase()}? Existing identical shifts will be skipped.`;
-
+                   const msg = `Clone all shifts from last ${periodName.toLowerCase()}?`;
                    if (await customConfirm(msg, `Clone Previous ${periodName}`, true)) {
-                      const res = await cloneShiftsAction({
-                          sourceStart: sourceStart.toISOString(),
-                          sourceEnd: sourceEnd.toISOString(),
-                          targetStart: targetStart.toISOString(),
-                          locationIds: calLocFilter
-                      });
-
-                      if (res.success) {
-                          notify.success(`Successfully cloned ${res.count} shifts!`);
-                      } else {
-                          notify.error("Cloning failed: " + res.error);
-                      }
+                      const res = await cloneShiftsAction({ sourceStart: sourceStart.toISOString(), sourceEnd: sourceEnd.toISOString(), targetStart: targetStart.toISOString(), locationIds: calLocFilter });
+                      if (res.success) notify.success(`Successfully cloned ${res.count} shifts!`);
+                      else notify.error("Cloning failed: " + res.error);
                    }
                  }}
-                 className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest shadow-md bg-blue-600 text-white hover:bg-blue-700 transition-all"
+                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-all"
                >
-                 <Calendar size={14} /> Clone Prev {activeView === 'month' ? 'Month' : 'Week'}
+                 <Calendar size={12} /> Clone {activeView === 'month' ? 'Month' : 'Week'}
                </button>
-               <button onClick={() => handleOpenBuilder()} className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest shadow-md bg-brand-green text-white hover:bg-green-700 transition-all"><Plus size={14} /> Add Shift</button>
-             </>
+               <button onClick={() => handleOpenBuilder()} className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-green text-white hover:bg-green-700 transition-all"><Plus size={12} /> Add Shift</button>
+             </div>
          )}
-          <div className="relative w-full sm:w-auto">
-            <button onClick={() => setShowLocDropdown(!showLocDropdown)} className="w-full sm:w-auto bg-white border border-blue-400 rounded-lg p-2.5 font-bold text-slate-900 shadow-sm flex items-center justify-between gap-2">
-              <span>Locs ({calLocFilter.length === 0 ? 'All' : calLocFilter.length})</span>
-              <ChevronDown size={14} />
-            </button>
-            {showLocDropdown && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowLocDropdown(false)} />
-                <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-300 rounded-lg shadow-xl z-50 p-2 max-h-60 overflow-y-auto flex flex-col gap-1">
-                  <label className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer border-b border-slate-200 mb-1 transition-colors">
-                    <input type="checkbox" checked={calLocFilter.length === 0} onChange={() => setCalLocFilter([])} className="w-4 h-4" />
-                    <span className="font-black text-sm text-slate-900">All Active</span>
-                  </label>
-                  {locations.map(l => (
-                    <label key={l.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
-                      <input type="checkbox" checked={calLocFilter.includes(l.id)} onChange={() => toggleLocFilter(l.id)} className="w-4 h-4" />
-                      <span className="font-bold text-sm text-slate-700">{l.name}</span>
-                    </label>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
 
-          <div className="relative w-full sm:w-auto">
-            <button onClick={() => setShowEmpDropdown(!showEmpDropdown)} className="w-full sm:w-auto bg-white border border-blue-400 rounded-lg p-2.5 font-bold text-slate-900 shadow-sm flex items-center justify-between gap-2">
-              <span>Staff ({calEmpFilter.length === 0 ? 'All' : calEmpFilter.length})</span>
-              <ChevronDown size={14} />
-            </button>
-            {showEmpDropdown && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowEmpDropdown(false)} />
-                <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-300 rounded-lg shadow-xl z-50 p-2 max-h-60 overflow-y-auto flex flex-col gap-1">
-                  <label className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer border-b border-slate-200 mb-1 transition-colors">
-                    <input type="checkbox" checked={calEmpFilter.length === 0} onChange={() => setCalEmpFilter([])} className="w-4 h-4" />
-                    <span className="font-black text-sm text-slate-900">All Staff</span>
-                  </label>
-                  {users.map(u => (
-                    <label key={u.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
-                      <input type="checkbox" checked={calEmpFilter.includes(u.id)} onChange={() => toggleEmpFilter(u.id)} className="w-4 h-4" />
-                      <span className="font-bold text-sm text-slate-700">{u.name}</span>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+                <button onClick={() => setShowLocDropdown(!showLocDropdown)} className="bg-white border border-blue-400 rounded-lg px-2.5 py-2 font-bold text-slate-900 shadow-sm flex items-center gap-2 text-[10px]">
+                <span>Locs ({calLocFilter.length === 0 ? 'All' : calLocFilter.length})</span>
+                <ChevronDown size={12} />
+                </button>
+                {showLocDropdown && (
+                <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowLocDropdown(false)} />
+                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-300 rounded-lg shadow-xl z-50 p-2 max-h-60 overflow-y-auto flex flex-col gap-1">
+                    <label className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer border-b border-slate-200 mb-1 transition-colors">
+                        <input type="checkbox" checked={calLocFilter.length === 0} onChange={() => setCalLocFilter([])} className="w-3.5 h-3.5" />
+                        <span className="font-black text-xs text-slate-900">All Active</span>
                     </label>
-                  ))}
-                </div>
-              </>
-            )}
+                    {locations.map(l => (
+                        <label key={l.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
+                        <input type="checkbox" checked={calLocFilter.includes(l.id)} onChange={() => toggleLocFilter(l.id)} className="w-3.5 h-3.5" />
+                        <span className="font-bold text-xs text-slate-700">{l.name}</span>
+                        </label>
+                    ))}
+                    </div>
+                </>
+                )}
+            </div>
+
+            <div className="relative">
+                <button onClick={() => setShowEmpDropdown(!showEmpDropdown)} className="bg-white border border-blue-400 rounded-lg px-2.5 py-2 font-bold text-slate-900 shadow-sm flex items-center gap-2 text-[10px]">
+                <span>Staff ({calEmpFilter.length === 0 ? 'All' : calEmpFilter.length})</span>
+                <ChevronDown size={12} />
+                </button>
+                {showEmpDropdown && (
+                <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowEmpDropdown(false)} />
+                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-300 rounded-lg shadow-xl z-50 p-2 max-h-60 overflow-y-auto flex flex-col gap-1">
+                    <label className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer border-b border-slate-200 mb-1 transition-colors">
+                        <input type="checkbox" checked={calEmpFilter.length === 0} onChange={() => setCalEmpFilter([])} className="w-3.5 h-3.5" />
+                        <span className="font-black text-xs text-slate-900">All Staff</span>
+                    </label>
+                    {users.map(u => (
+                        <label key={u.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
+                        <input type="checkbox" checked={calEmpFilter.includes(u.id)} onChange={() => toggleEmpFilter(u.id)} className="w-3.5 h-3.5" />
+                        <span className="font-bold text-xs text-slate-700">{u.name}</span>
+                        </label>
+                    ))}
+                    </div>
+                </>
+                )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* ... blueprint builder tray ... */}
 
       {/* BLUEPRINT BUILDER TRAY */}
       {builderMode === 'blueprint' && isManager && (
@@ -604,8 +645,17 @@ export default function ScheduleBuilderTab() {
                                         {sortedItems.map((item: any) => {
                                             const shiftColor = getLocationColor(item.locationId);
                                             return (
-                                            <div key={item.id} className={`relative p-2.5 rounded-xl border-l-[8px] shadow-lg transition-all hover:scale-105 group/card bg-white ${shiftColor.border.replace('500','600')}`}>
-                                                {isManager && (
+                                            <div 
+                                                key={item.id} 
+                                                onClick={(e) => {
+                                                    if (isSelectionMode) {
+                                                        e.stopPropagation();
+                                                        toggleShiftSelection(item.id);
+                                                    }
+                                                }}
+                                                className={`relative p-2.5 rounded-xl border-l-[8px] shadow-lg transition-all hover:scale-105 group/card bg-white ${selectedShiftIds.includes(item.id) ? 'ring-4 ring-blue-500 border-blue-600 scale-[1.02] z-20' : shiftColor.border.replace('500','600')}`}
+                                            >
+                                                {isManager && !isSelectionMode && (
                                                     <button 
                                                         onClick={async (e) => { 
                                                             e.stopPropagation(); 
@@ -618,6 +668,11 @@ export default function ScheduleBuilderTab() {
                                                     >
                                                         <Trash2 size={10} />
                                                     </button>
+                                                )}
+                                                {selectedShiftIds.includes(item.id) && (
+                                                    <div className="absolute -top-2 -right-2 bg-blue-600 text-white p-1 rounded-full shadow-lg z-30 animate-in zoom-in-50">
+                                                        <CheckCircle2 size={12} />
+                                                    </div>
                                                 )}
                                                 <div className="font-black text-slate-900 text-[11px] mb-1">{isLive ? `${formatTimeSafe(item.startTime)} - ${formatTimeSafe(item.endTime)}` : `${formatTimeString12h(item.startTime)} - ${formatTimeString12h(item.endTime)}`}</div>
                                                 <div className={`text-[10px] font-black uppercase tracking-widest mb-1.5 truncate ${shiftColor.text} brightness-50`}>{item.location?.name?.replace(/pnp\s+/i, '') || locations.find(l=>l.id===item.locationId)?.name?.replace(/pnp\s+/i, '')}</div>
@@ -715,9 +770,27 @@ export default function ScheduleBuilderTab() {
                                                     const widthPercent = 100 / lanes.length;
                                                     const leftPercent = laneIdx * widthPercent;
                                                     return (
-                                                        <div key={item.id} onClick={(e) => { e.stopPropagation(); handleOpenBuilder(item.id); }} style={{ top: `${topOffset}px`, height: `${duration * hourHeight}px`, width: `calc(${widthPercent}% - 4px)`, left: `${leftPercent}%` }} className={`absolute m-1 rounded-xl shadow-xl border-l-[10px] border border-slate-300 overflow-hidden pointer-events-auto cursor-pointer hover:scale-[1.02] active:scale-95 transition-all z-10 p-2 flex flex-col justify-center leading-none group/card ${shiftColor.bg} ${!isLive ? 'border-dashed' : ''} ${shiftColor.border.replace('500','600')}`}>
-                                                            {isManager && (
+                                                        <div 
+                                                            key={item.id} 
+                                                            onClick={(e) => { 
+                                                                if (isSelectionMode) {
+                                                                    e.stopPropagation();
+                                                                    toggleShiftSelection(item.id);
+                                                                } else {
+                                                                    e.stopPropagation(); 
+                                                                    handleOpenBuilder(item.id); 
+                                                                }
+                                                            }} 
+                                                            style={{ top: `${topOffset}px`, height: `${duration * hourHeight}px`, width: `calc(${widthPercent}% - 4px)`, left: `${leftPercent}%` }} 
+                                                            className={`absolute m-1 rounded-xl shadow-xl border-l-[10px] border border-slate-300 overflow-hidden pointer-events-auto cursor-pointer hover:scale-[1.02] active:scale-95 transition-all z-10 p-2 flex flex-col justify-center leading-none group/card ${selectedShiftIds.includes(item.id) ? 'ring-4 ring-blue-500 border-blue-600 scale-[1.02] z-30' : shiftColor.bg} ${!isLive ? 'border-dashed' : ''} ${shiftColor.border.replace('500','600')}`}
+                                                        >
+                                                            {isManager && !isSelectionMode && (
                                                                 <button onClick={async (e) => { e.stopPropagation(); if (await customConfirm("Delete this item?")) { if(isLive) deleteShift(item.id); else deleteTemplate(item.id); } }} className="absolute top-1 right-1 bg-white text-red-600 p-0.5 rounded-full shadow-md opacity-0 group-hover/card:opacity-100 transition-opacity z-20 border border-red-100 hover:bg-red-600 hover:text-white"><X size={8} /></button>
+                                                            )}
+                                                            {selectedShiftIds.includes(item.id) && (
+                                                                <div className="absolute top-1 right-1 bg-blue-600 text-white p-0.5 rounded-full shadow-md z-30 animate-in zoom-in-50">
+                                                                    <CheckCircle2 size={10} />
+                                                                </div>
                                                             )}
                                                             <div className="flex justify-between items-start mb-0.5">
                                                                 <span className="text-[8px] font-black uppercase tracking-tighter truncate text-slate-900 opacity-80">
