@@ -336,7 +336,7 @@ export default function ScheduleBuilderTab() {
                 </button>
             </div>
             <div className="flex bg-slate-200 p-1 rounded-lg border border-slate-300 shadow-sm w-full sm:w-auto">
-                {(builderMode === 'live' ? ['month', 'week', 'day'] : ['week', 'day']).map(mode => (
+                {['month', 'week', 'day'].map(mode => (
                 <button 
                     key={mode} 
                     data-testid={`${mode}-view-btn`}
@@ -450,6 +450,25 @@ export default function ScheduleBuilderTab() {
                     >
                         <Calendar size={12} /> Clone {activeView === 'month' ? 'Month' : 'Week'}
                     </button>
+
+                    {activeView === 'month' && (
+                        <button
+                          onClick={async () => {
+                             const first = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1);
+                             const last = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth() + 1, 0);
+                             const offset = new Date().getTimezoneOffset();
+                             const locNames = calLocFilter.length > 0 ? locations.filter(l=>calLocFilter.includes(l.id)).map(l=>l.name.replace('PnP ','')).join(', ') : "All Facilities";
+                             
+                             const msg = `Generate all Master Patterns for the entire month of ${MONTHS[currentBaseDate.getMonth()]} at ${locNames}?`;
+                             if (await customConfirm(msg, "Generate Month", true)) {
+                                await generateSchedule(first.toISOString().split('T')[0], last.toISOString().split('T')[0], calLocFilter, offset);
+                             }
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-yellow text-slate-900 hover:bg-yellow-500 transition-all"
+                        >
+                          <Zap size={12} /> Generate Month
+                        </button>
+                    )}
                  </>
                ) : (
                  <button
