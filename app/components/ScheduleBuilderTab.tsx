@@ -478,8 +478,8 @@ export default function ScheduleBuilderTab() {
                       const offset = new Date().getTimezoneOffset();
 
                       if (activeView === 'month') {
-                         const first = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1);
-                         const last = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth() + 1, 0);
+                         const first = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1, 12, 0, 0);
+                         const last = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth() + 1, 0, 12, 0, 0);
                          start = first.toISOString().split('T')[0];
                          end = last.toISOString().split('T')[0];
                          label = `the entire month of ${MONTHS[currentBaseDate.getMonth()]}`;
