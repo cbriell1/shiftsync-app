@@ -84,6 +84,69 @@ export async function updateShiftAction(data: {
   }
 }
 
+export async function createShiftAction(data: {
+  locationIds: number[];
+  userId: number | null;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  weeksToRepeat?: number;
+  checklistTasks?: string[];
+  tzOffset?: number;
+}) {
+  const user = await getSessionUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const userRoles = (user as any).systemRoles || [];
+  if (!userRoles.includes('Administrator') && !userRoles.includes('Manager')) {
+    throw new Error("Forbidden: Managers only");
+  }
+
+  const authUserId = Number(user.id);
+  const weeks = data.weeksToRepeat || 1;
+  const offset = data.tzOffset || 0;
+
+  try {
+    const shiftsToCreate: any[] = [];
+    
+    for (const locId of data.locationIds) {
+        for (let w = 0; w < weeks; w++) {
+            for (const dow of data.daysOfWeek) {
+                const targetDate = new Date();
+                targetDate.setDate(targetDate.getDate() - targetDate.getDay() + (w * 7) + dow);
+                const dateStr = targetDate.toISOString().split('T')[0];
+                
+                const shiftStart = new Date(`${dateStr}T${data.startTime}:00Z`);
+                shiftStart.setMinutes(shiftStart.getMinutes() + offset);
+                
+                const shiftEnd = new Date(`${dateStr}T${data.endTime}:00Z`);
+                shiftEnd.setMinutes(shiftEnd.getMinutes() + offset);
+                if (shiftEnd <= shiftStart) shiftEnd.setDate(shiftEnd.getDate() + 1);
+
+                shiftsToCreate.push({
+                    locationId: locId,
+                    userId: data.userId,
+                    startTime: shiftStart,
+                    endTime: shiftEnd,
+                    status: data.userId ? 'CLAIMED' : 'OPEN'
+                });
+            }
+        }
+    }
+
+    const result = await prisma.shift.createMany({
+        data: shiftsToCreate
+    });
+
+    await logAudit(authUserId, "TRANSACTION", `Bulk created ${result.count} shifts via unified pattern engine.`);
+    revalidatePath('/');
+    return { success: true, count: result.count };
+  } catch (err: any) {
+    await logError(authUserId, err.message, "createShiftAction", err.stack);
+    return { success: false, error: err.message };
+  }
+}
+
 export async function deleteShiftAction(shiftId: number) {
   const user = await getSessionUser();
   if (!user) throw new Error("Unauthorized");
@@ -327,9 +390,10 @@ export async function logSnackUsage(memberId: number) {
 }
 
 export async function generateScheduleAction(data: {
-  locationId?: number | null;
+  locationIds?: number[];
   startDate: string;
   endDate: string;
+  tzOffset?: number;
 }) {
   const user = await getSessionUser();
   if (!user) throw new Error("Unauthorized");
@@ -338,13 +402,14 @@ export async function generateScheduleAction(data: {
   if (!userRoles.includes('Administrator') && !userRoles.includes('Manager')) throw new Error("Forbidden");
 
   const authUserId = Number(user.id);
+  const offset = data.tzOffset || 0;
 
   try {
      const periodStart = new Date(data.startDate); periodStart.setHours(0,0,0,0);
      const periodEnd = new Date(data.endDate); periodEnd.setHours(23,59,59,999);
 
-     const targetLocations = data.locationId 
-        ? await prisma.location.findMany({ where: { id: data.locationId } })
+     const targetLocations = data.locationIds && data.locationIds.length > 0
+        ? await prisma.location.findMany({ where: { id: { in: data.locationIds } } })
         : await prisma.location.findMany();
 
      const allTemplates = await prisma.shiftTemplate.findMany();
@@ -378,25 +443,26 @@ export async function generateScheduleAction(data: {
              return currentDate >= eStart && currentDate <= eEnd;
            });
 
-           if (isSkipped) {
-             currentDate.setDate(currentDate.getDate() + 1);
-             continue;
-           }
+           if (!isSkipped) {
+              const currentDayOfWeek = currentDate.getDay();
+              const dailyTemplates = locTemplates.filter(t => t.dayOfWeek === currentDayOfWeek);
+              const dateStr = currentDate.toISOString().split('T')[0];
 
-           const currentDayOfWeek = currentDate.getDay();
-           const dailyTemplates = locTemplates.filter(t => t.dayOfWeek === currentDayOfWeek);
-           
-           for (const t of dailyTemplates) {
-              const [sHour, sMin] = t.startTime.split(':').map(Number);
-              const [eHour, eMin] = t.endTime.split(':').map(Number);
-              const st = new Date(currentDate); st.setHours(sHour, sMin, 0, 0);
-              const et = new Date(currentDate); et.setHours(eHour, eMin, 0, 0);
-              if (et <= st) et.setDate(et.getDate() + 1);
+              for (const t of dailyTemplates) {
+                 // Construct UTC date assuming the string is local, then adjust by offset
+                 const st = new Date(`${dateStr}T${t.startTime}:00Z`);
+                 st.setMinutes(st.getMinutes() + offset);
 
-              const key = `${loc.id}_${st.toISOString()}_${et.toISOString()}`;
-              if (!shiftLookup.has(key)) {
-                 shiftsToCreate.push({ locationId: loc.id, startTime: st, endTime: et, status: t.userId ? 'CLAIMED' : 'OPEN', userId: t.userId });
-                 shiftLookup.add(key);
+                 const et = new Date(`${dateStr}T${t.endTime}:00Z`);
+                 et.setMinutes(et.getMinutes() + offset);
+
+                 if (et <= st) et.setDate(et.getDate() + 1);
+
+                 const key = `${loc.id}_${st.toISOString()}_${et.toISOString()}`;
+                 if (!shiftLookup.has(key)) {
+                    shiftsToCreate.push({ locationId: loc.id, startTime: st, endTime: et, status: t.userId ? 'CLAIMED' : 'OPEN', userId: t.userId });
+                    shiftLookup.add(key);
+                 }
               }
            }
            currentDate.setDate(currentDate.getDate() + 1);
@@ -413,5 +479,88 @@ export async function generateScheduleAction(data: {
   } catch (err: any) {
      await logError(authUserId, err.message, "generateScheduleAction", err.stack);
      return { success: false, error: err.message };
+  }
+}
+
+export async function cloneShiftsAction(data: {
+  sourceStart: string;
+  sourceEnd: string;
+  targetStart: string;
+  locationIds?: number[];
+}) {
+  const user = await getSessionUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const userRoles = (user as any)?.systemRoles || [];
+  if (!userRoles.includes('Administrator') && !userRoles.includes('Manager')) throw new Error("Forbidden");
+
+  const authUserId = Number(user.id);
+
+  try {
+    const sStart = new Date(data.sourceStart);
+    const tStart = new Date(data.targetStart);
+    const offsetMs = tStart.getTime() - sStart.getTime();
+
+    const whereClause: any = {
+      startTime: { gte: new Date(data.sourceStart) },
+      endTime: { lte: new Date(data.sourceEnd) }
+    };
+    if (data.locationIds && data.locationIds.length > 0) {
+      whereClause.locationId = { in: data.locationIds };
+    }
+
+    const sourceShifts = await prisma.shift.findMany({
+      where: whereClause
+    });
+
+    if (sourceShifts.length === 0) return { success: true, count: 0 };
+
+    // 🛡️ Get existing shifts in target range to prevent duplicates
+    const targetRangeEnd = new Date(new Date(data.sourceEnd).getTime() + offsetMs);
+    const existingTargetShifts = await prisma.shift.findMany({
+      where: {
+        startTime: { gte: tStart },
+        endTime: { lte: targetRangeEnd }
+      },
+      select: { locationId: true, startTime: true, endTime: true }
+    });
+
+    const shiftLookup = new Set(existingTargetShifts.map(s => 
+      `${s.locationId}_${s.startTime.getTime()}_${s.endTime.getTime()}`
+    ));
+
+    const shiftsToCreate = sourceShifts
+      .map(s => {
+        const newStart = new Date(s.startTime.getTime() + offsetMs);
+        const newEnd = new Date(s.endTime.getTime() + offsetMs);
+        
+        // Skip if 31st mapping to 30th month (basic safety)
+        if (newStart.getMonth() !== tStart.getMonth() && newStart.getDate() < s.startTime.getDate()) {
+            return null;
+        }
+
+        const key = `${s.locationId}_${newStart.getTime()}_${newEnd.getTime()}`;
+        if (shiftLookup.has(key)) return null;
+
+        return {
+          locationId: s.locationId,
+          userId: s.userId,
+          startTime: newStart,
+          endTime: newEnd,
+          status: s.userId ? 'CLAIMED' : 'OPEN'
+        };
+      })
+      .filter(Boolean) as any[];
+
+    if (shiftsToCreate.length > 0) {
+      await prisma.shift.createMany({ data: shiftsToCreate });
+    }
+
+    await logAudit(authUserId, "TRANSACTION", `Cloned ${shiftsToCreate.length} shifts to ${data.targetStart}`);
+    revalidatePath('/');
+    return { success: true, count: shiftsToCreate.length };
+  } catch (err: any) {
+    await logError(authUserId, err.message, "cloneShiftsAction", err.stack);
+    return { success: false, error: err.message };
   }
 }

@@ -3,7 +3,7 @@ name: github-deployer
 description: Specialized in GitHub Actions, CI/CD pipelines, and Vercel/GitHub integration.
 tools:
   - "*"
-model: gemini-2.0-flash
+model: gemini-3-flash-preview
 ---
 
 You are a DevOps and Release Engineer. Your focus is the journey from `git commit` to Production.

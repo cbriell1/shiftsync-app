@@ -1,64 +1,70 @@
-# 🏓 Manager Training: The 3-Minute Morning Routine
+# 🏓 Manager Training: The V11 Absolute Authority Guide
 
-**Goal:** Master the Schedule Builder to keep our courts staffed and our team winning. This guide covers the essential "Pickles & Play" workflow for efficient weekly scheduling.
-
----
-
-### 1. Zero In: Location-Based Setup
-Don't let a busy roster distract you. Start by narrowing your focus to one facility at a time.
-
-![Schedule Builder Filter](/Images/Training/schedule-builder.png)
-
-*   **The Move:** Use the **Facility Dropdown** (top right of the Schedule Builder).
-*   **The Result:** The grid filters instantly. You'll only see the staff assigned to that location and the shifts they need to cover. 
-*   **Why it matters:** Focus is the key to accuracy. Handle one facility, lock it in, and then move to the next.
+**Goal:** Master the Unified Scheduler to keep our courts staffed and our team winning. This guide covers the high-precision V11 workflow for professional facility management.
 
 ---
 
-### 2. Speed Assign: Quick-Paint Mode 🎨
-Assigning staff one by one is for the other guys. We use **Quick-Paint** to fill the roster at pro speeds.
+### 1. Unified Navigation: Workspace Parity 💎
+The Shift Setup header now perfectly mirrors your "My Workspace" schedule.
 
-*   **The Move:** Click any **Staff Member's Name** on the left side of the grid.
-*   **The Active State:** A high-vis yellow **"Quick-Paint Active"** bar will appear at the bottom of your screen.
-*   **The Action:** Simply tap or click any **"Open" (Green)** shift on the grid. That staff member is now assigned!
-*   **Pro-Tip:** This is the ultimate efficiency gain. Use Quick-Paint to assign an entire week of shifts for a single employee in seconds rather than minutes. Tap "Stop" when you're ready to switch players.
+![Unified Header](/public/Images/Training/schedule-builder-header.png)
 
----
-
-### 3. Read the Court: Visual Cues
-We’ve built-in visual markers so you always know where the "Live Action" is happening.
-
-*   **The Yellow Highlight:** Look for the column glowing in **Yellow**. That’s the **Current Day**. It keeps you grounded in the "Now" so you can prioritize today's immediate needs.
-*   **The Live Horizon:** Notice the **Pulsing Marker** next to "Open Shifts." This "Live Horizon" indicates the line between assigned staff and coverage gaps. If you see a pulse, you’ve got a hole in your defense—get it filled!
+*   **View Toggles:** Use the grey capsule toggles to switch between **MONTH**, **WEEK**, and **DAY**. The active view is always highlighted and underlined.
+*   **Locs & Staff Dropdowns:** Multi-select specifically what you want to see. Toggle BC, GN, CH, or WF to see court overlaps side-by-side.
+*   **The "Today" Jump:** Hit **TODAY** to instantly snap the calendar back to the current date.
 
 ---
 
-### 4. Special Maneuvers: Tournaments & Events
-Major tournaments or facility closures require special planning.
+### 2. Month View: "Easy Entry" Day Boxes 🖱️
+Audit the high-level monthly roster and add shifts with a single click.
 
-![Tournament & Event Registry](/Images/Training/events.png)
+![Month View Easy Entry](/public/Images/Training/month-entry.png)
 
-*   **The Move:** Go to **Shift Setup** -> **Tournaments & Events**.
-*   **The Action:** Schedule your tournament and set the impact to **"Skip Template."**
-*   **The Result:** Your schedule grid will turn **Orange** for those dates, and the auto-generator will intelligently skip them.
-
----
-
-### 5. Lock in the Win: Master Patterns
-Once you’ve built the "Perfect Week," don't let that hard work go to waste. Turn it into a Master Template.
-
-*   **The Move:** Click the **Save (Disk) Icon** in the top toolbar.
-*   **The Action:** Select **"Save Week as Template."** 
-*   **The Result:** Every visible shift is saved as a master pattern. 
-*   **Pro-Tip:** When planning next month, go to the **Shift Templates** sub-tab and hit **"Generate Shifts."** The system will use your Master Patterns to build the entire month automatically. You just have to "Quick-Paint" the names!
+*   **The Action:** Click anywhere in a blank day-box on the Month grid.
+*   **The Result:** The **Slide-Out Builder** instantly opens on the right, pre-filled for that specific date. 
+*   **Pro-Tip:** Look for the right-aligned day numbers. They use professional low-opacity styling to keep the grid clean.
 
 ---
 
-### ⚡ The 3-Minute Routine Recap
-1.  **Filter** to your facility.
-2.  **Quick-Paint** assignments for your key staff.
-3.  **Check the Pulse** on the Live Horizon for any remaining gaps.
-4.  **Schedule Events** to protect your blackout dates.
-5.  **Save** your best weeks as Master Templates to save hours of work later.
+### 3. Shift Cards: Pro Interaction 🎨
+Shift cards now feature inline management tools for zero-friction scheduling.
+
+![Shift Card Details](/public/Images/Training/card-details.png)
+
+*   **Staff Dropdowns:** 
+    *   **Green Badge:** Indicates an **Open Shift**. Click the dropdown to assign someone.
+    *   **Purple Badge:** Indicates an **Assigned Shift**. Re-assign staff instantly without leaving the grid.
+*   **Instant Delete:** Hover over any card to reveal the **Red Trash Can** icon. Click it to permanently remove the shift (confirmation required).
+*   **Peach Badges:** The orange/peach **"Need Coverage"** label highlights staffing gaps that need your immediate attention.
+
+---
+
+### 4. The Planner: Smart Lane Overlaps 📐
+The Week and Day views function as a professional planner (6 AM - 10 PM).
+
+![Planner Grid Smart Lanes](/public/Images/Training/planner-grid.png)
+
+*   **Smart Lanes:** If multiple shifts overlap (e.g., at 1 PM), the grid automatically side-steps them. They appear side-by-side in clean columns, ensuring full visibility.
+*   **Click-to-Build:** Hover over an empty hour slot to see the **"+" button**, then click to launch the builder for that specific time.
+
+---
+
+### 5. Master Blueprints: The Gold Standard 📐
+Define your baseline facility patterns in Master Mode.
+
+![Master Blueprint Tray](/public/Images/Training/template-mgmt.png)
+
+*   **Master Mode:** Toggle to "Master" to edit recurring patterns. These cards use a professional **Dashed Border** to distinguish them from live reality.
+*   **Facility Checklist:** The checklist is now **collapsible**. Use the **"Select All"** button to quickly assign closing tasks to your patterns.
+*   **The Zap Action:** Once your patterns are set, use the **Zap (Deploy) button** in the tray to generate the live grid for the upcoming weeks.
+
+---
+
+### ⚡ The V11 Routine Recap
+1.  **Filter** your facilities and staff using the synced dropdowns.
+2.  **Click & Slide** to build or edit shifts in seconds via day-boxes or hour-slots.
+3.  **Audit the Lanes** to ensure full court coverage during peak hours.
+4.  **Zap** your gold-standard patterns into live reality.
+5.  **Clean the Grid** with the Trash Can tool for instant removal.
 
 *Stay athletic, stay professional. See you on the courts!*

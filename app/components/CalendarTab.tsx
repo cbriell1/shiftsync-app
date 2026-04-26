@@ -43,7 +43,7 @@ export default function CalendarTab({ appState }: any) {
     ? locations.filter(l => l.isActive !== false) 
     : locations.filter(loc => allowedLocationIds.includes(loc.id) && loc.isActive !== false);
 
-  const activeCalColor = calLocFilter ? getLocationColor(calLocFilter) : { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-800' };
+  const activeCalColor = calLocFilter.length > 0 ? getLocationColor(calLocFilter[0]) : { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-800' };
 
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInM = new Date(currentYear, currentMonth + 1, 0).getDate();

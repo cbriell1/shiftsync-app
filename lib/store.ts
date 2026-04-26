@@ -19,10 +19,17 @@ interface AppStore {
   setCurrentYear: (y: number) => void;
   builderWeekStart: string;
   setBuilderWeekStart: (d: string) => void;
-  calLocFilter: string;
-  setCalLocFilter: (id: string) => void;
-  calEmpFilter: string;
-  setCalEmpFilter: (id: string) => void;
+  builderMode: 'live' | 'blueprint';
+  setBuilderMode: (mode: 'live' | 'blueprint') => void;
+  calLocFilter: number[];
+  setCalLocFilter: (ids: number[]) => void;
+  calEmpFilter: number[];
+  setCalEmpFilter: (ids: number[]) => void;
+
+  sidebarBuilderOpen: boolean;
+  setSidebarBuilderOpen: (open: boolean) => void;
+  editingShiftId: number | null;
+  setEditingShiftId: (id: number | null) => void;
 
   manPeriods: number[];
   setManPeriods: (ids: number[]) => void;
@@ -30,11 +37,6 @@ interface AppStore {
   setManLocs: (ids: number[]) => void;
   manEmps: number[];
   setManEmps: (ids: number[]) => void;
-  
-  activePainterId: number | null;
-  setActivePainterId: (id: number | null) => void;
-  popoverTargetShiftId: number | null;
-  setPopoverTargetShiftId: (id: number | null) => void;
 
   showChecklistModal: boolean;
   setShowChecklistModal: (show: boolean) => void;
@@ -87,12 +89,13 @@ interface AppStore {
   
   // SERVER ACTIONS MIGRATED
   updateShift: (shiftId: number, startTime: string, endTime: string, userId: number | null, action?: any) => Promise<void>;
+  createShift: (locationId: number, userId: number | null, startTime: string, endTime: string, tzOffset?: number) => Promise<void>;
   deleteShift: (shiftId: number) => Promise<void>;
   bulkDeleteShifts: (startDate: string, endDate: string, locationId?: number) => Promise<void>;
   saveTemplates: (data: any) => Promise<void>;
   deleteTemplate: (id: number) => Promise<void>;
   bulkTemplatesFromShifts: (shifts: any[]) => Promise<void>;
-  generateSchedule: (startDate: string, endDate: string, locationId?: number | null) => Promise<void>;
+  generateSchedule: (startDate: string, endDate: string, locationIds?: number[], tzOffset?: number) => Promise<void>;
   
   fetchAllCoreData: (userId: string) => Promise<void>;
 }
@@ -111,10 +114,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setCurrentYear: (y) => set({ currentYear: y }),
   builderWeekStart: '', 
   setBuilderWeekStart: (d) => set({ builderWeekStart: d }),
-  calLocFilter: '',
-  setCalLocFilter: (id) => set({ calLocFilter: id }),
-  calEmpFilter: '',
-  setCalEmpFilter: (id) => set({ calEmpFilter: id }),
+  builderMode: 'live',
+  setBuilderMode: (mode) => set({ builderMode: mode }),
+  calLocFilter: [],
+  setCalLocFilter: (ids) => set({ calLocFilter: ids }),
+  calEmpFilter: [],
+  setCalEmpFilter: (ids) => set({ calEmpFilter: ids }),
+
+  sidebarBuilderOpen: false,
+  setSidebarBuilderOpen: (open) => set({ sidebarBuilderOpen: open }),
+  editingShiftId: null,
+  setEditingShiftId: (id) => set({ editingShiftId: id }),
 
   manPeriods: [0],
   setManPeriods: (ids) => set({ manPeriods: ids }),
@@ -123,11 +133,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
   manEmps:[],
   setManEmps: (ids) => set({ manEmps: ids }),
   
-  activePainterId: null,
-  setActivePainterId: (id) => set({ activePainterId: id }),
-  popoverTargetShiftId: null,
-  setPopoverTargetShiftId: (id) => set({ popoverTargetShiftId: id }),
-
   showChecklistModal: false,
   setShowChecklistModal: (show) => set({ showChecklistModal: show }),
   reportTargetCard: null,
@@ -207,6 +212,21 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (res.success) { await get().fetchShifts(); } else { notify.error(res.error || "Failed to update shift"); }
   },
 
+  createShift: async (locationId, userId, startTime, endTime, tzOffset) => {
+    const { createShiftAction } = await import('./actions');
+    // Using simple defaults for single-cell manual clicks
+    const res = await createShiftAction({ 
+        locationIds: [locationId], 
+        userId, 
+        daysOfWeek: [new Date(startTime).getDay()],
+        startTime: new Date(startTime).toTimeString().slice(0,5), 
+        endTime: new Date(endTime).toTimeString().slice(0,5),
+        weeksToRepeat: 1,
+        tzOffset
+    });
+    if (res.success) { notify.success("Shift created!"); await get().fetchShifts(); } else { notify.error(res.error || "Failed to create shift"); }
+  },
+
   deleteShift: async (shiftId) => {
     const res = await deleteShiftAction(shiftId);
     if (res.success) { notify.success("Shift deleted"); await get().fetchShifts(); } else { notify.error(res.error || "Failed to delete shift"); }
@@ -233,8 +253,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (res.success) { notify.success(`Success! Created master templates.`); await get().fetchTemplates(); } else { notify.error(res.error || "Failed to save week as template"); }
   },
 
-  generateSchedule: async (startDate, endDate, locationId) => {
-    const res = await generateScheduleAction({ startDate, endDate, locationId });
+  generateSchedule: async (startDate, endDate, locationIds, tzOffset) => {
+    const res = await generateScheduleAction({ startDate, endDate, locationIds, tzOffset });
     if (res.success) { notify.success(`Success! Generated ${res.count} shifts.`); await get().fetchShifts(); } else { notify.error(res.error || "Failed to generate schedule"); }
   },
 

@@ -1,7 +1,7 @@
 // filepath: app/components/HelpTab.tsx
 "use client";
 import React, { useState } from 'react';
-import { BookOpen, Target, ArrowUpDown, Search, Paintbrush, Trash2, ShieldAlert, CheckCircle2, ChevronRight, X, Maximize2, MousePointer2, Move, Layout, ListChecks, Clock, UserPlus, Zap, Filter, Ticket, CreditCard, History, Activity } from 'lucide-react';
+import { BookOpen, Target, Search, Trash2, ShieldAlert, CheckCircle2, X, Maximize2, MousePointer2, Move, Layout, ListChecks, Clock, Zap, Filter, Ticket, CreditCard, History, Activity, ChevronDown } from 'lucide-react';
 
 // ==================================================================
 // PRECISION DETAIL CARD
@@ -56,10 +56,10 @@ export default function HelpTab() {
   const [zoomOpen, setZoomOpen] = useState(false);
 
   const managerLessons = [
-    { id: 'templates', label: 'Move 1: The Blueprint', icon: Layout, category: 'Setup' },
-    { id: 'assign-popover', label: 'Move 2: Rapid Assign', icon: Search, category: 'Speed' },
-    { id: 'assign-paint', label: 'Move 3: Bulk Fill', icon: Paintbrush, category: 'Speed' },
-    { id: 'cleanup', label: 'Move 4: Surgical Cleanup', icon: Trash2, category: 'Control' },
+    { id: 'mastery', label: 'Move 1: Master Authority', icon: Layout, category: 'Setup' },
+    { id: 'builder', label: 'Move 2: Slide-Out Builder', icon: MousePointer2, category: 'Speed' },
+    { id: 'planner', label: 'Move 3: Daily Planner', icon: Activity, category: 'Precision' },
+    { id: 'cleanup', label: 'Move 4: Roster Cleanup', icon: Trash2, category: 'Control' },
   ];
 
   const staffLessons = [
@@ -75,7 +75,6 @@ export default function HelpTab() {
       
       {/* Sidebar Navigation */}
       <div className="lg:w-80 shrink-0 space-y-6">
-        {/* Course Switcher */}
         <div className="flex bg-slate-200 p-1 rounded-2xl border-4 border-slate-900 shadow-xl">
            <button 
              onClick={() => { setActiveCourse('staff'); setActiveLesson('clock'); }}
@@ -84,7 +83,7 @@ export default function HelpTab() {
              Staff Course
            </button>
            <button 
-             onClick={() => { setActiveCourse('manager'); setActiveLesson('templates'); }}
+             onClick={() => { setActiveCourse('manager'); setActiveLesson('mastery'); }}
              className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeCourse === 'manager' ? 'bg-slate-900 text-blue-400 shadow-lg scale-105' : 'text-slate-500 hover:text-slate-800'}`}
            >
              Manager Pro
@@ -120,14 +119,6 @@ export default function HelpTab() {
                 </div>
              ))}
           </nav>
-          
-          <div className="mt-12 p-6 bg-slate-900 rounded-[32px] border-b-8 border-yellow-400">
-             <div className="flex items-center gap-3 text-yellow-400 mb-2">
-                <Target size={18} />
-                <span className="text-[10px] font-black uppercase tracking-widest">Interactive Detail</span>
-             </div>
-             <p className="text-[11px] font-bold text-white opacity-80 leading-relaxed italic">"Click any training step to see high-res interface details."</p>
-          </div>
         </div>
       </div>
 
@@ -146,14 +137,11 @@ export default function HelpTab() {
                       {activeCourse === 'manager' ? '4 Power Moves' : 'Playbook'}
                   </span>
               </h1>
-              <p className="text-slate-400 font-bold max-w-xl mx-auto text-lg leading-relaxed italic">
-                  {activeCourse === 'manager' ? 'Stop managing the roster. Start mastering the system.' : 'Speed and accuracy at the front desk are the keys to the court.'}
-              </p>
            </div>
            <Layout size={400} className="absolute -bottom-20 -right-20 text-white/5 rotate-12 pointer-events-none" />
         </div>
 
-        {/* STAFF MODULE 1: CLOCK */}
+        {/* STAFF MODULES */}
         {activeCourse === 'staff' && activeLesson === 'clock' && (
           <div className="animate-in slide-in-from-right-12 duration-500 space-y-12">
              <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-start">
@@ -171,7 +159,6 @@ export default function HelpTab() {
           </div>
         )}
 
-        {/* STAFF MODULE 2: PASSES */}
         {activeCourse === 'staff' && activeLesson === 'passes' && (
           <div className="animate-in slide-in-from-right-12 duration-500 space-y-12">
              <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-start">
@@ -180,16 +167,15 @@ export default function HelpTab() {
                       <h2 className="text-3xl font-black text-slate-900 uppercase mb-2">Move 2: Guest Log</h2>
                       <p className="text-sm font-bold text-slate-500 italic">Managing renewals and logging visits.</p>
                    </div>
-                   <DetailCard title="1. Search Member" text="Use the top search bar to find the guest by name or last name." icon={Search} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="1. Search Member" text="Search by name or family to verify guest status." icon={Search} onClick={() => setZoomOpen(true)} />
                    <DetailCard title="2. Quick Log" text="Hit the '+1 Pass' button. This instantly subtracts from their total and logs the timestamp." icon={History} onClick={() => setZoomOpen(true)} />
-                   <DetailCard title="3. Full History" text="Click the member row to see a detailed audit of every visit they've had." icon={ListChecks} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="3. Family Pool" text="Platinum members share a family pool for snacks and drinks. Check the 'Family Balance' before serving." icon={ListChecks} onClick={() => setZoomOpen(true)} />
                 </div>
                 <ZoomableMain src="/Images/Training/privileges.png" alt="Guest Pass UI" isOpen={zoomOpen} setIsOpen={setZoomOpen} />
              </div>
           </div>
         )}
 
-        {/* STAFF MODULE 3: GIFT CARDS */}
         {activeCourse === 'staff' && activeLesson === 'giftcards' && (
           <div className="animate-in slide-in-from-right-12 duration-500 space-y-12">
              <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-start">
@@ -208,57 +194,57 @@ export default function HelpTab() {
         )}
 
         {/* MANAGER MODULES */}
-        {activeCourse === 'manager' && activeLesson === 'templates' && (
+        {activeCourse === 'manager' && activeLesson === 'mastery' && (
           <div className="animate-in slide-in-from-right-12 duration-500 space-y-12">
              <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-start">
                 <div className="space-y-4">
                    <div className="bg-blue-50 border-l-8 border-blue-600 p-8 rounded-r-[40px] mb-4">
-                      <h2 className="text-3xl font-black text-slate-900 uppercase mb-2 text-blue-700">Move 1: The Blueprint</h2>
-                      <p className="text-sm font-bold text-slate-500 italic">Mastering Templates & Filters.</p>
+                      <h2 className="text-3xl font-black text-slate-900 uppercase mb-2 text-blue-700">Move 1: Master Authority</h2>
+                      <p className="text-sm font-bold text-slate-500 italic">Unified Command & Control.</p>
                    </div>
-                   <DetailCard title="1. Templates Table" text="Navigate to 'Shift Templates' to see your master blueprints." icon={Clock} onClick={() => setZoomOpen(true)} />
-                   <DetailCard title="2. Filter (Funnel)" text="Use the funnel icon in the header to isolate a single facility's blueprints." icon={Filter} onClick={() => setZoomOpen(true)} />
-                   <DetailCard title="3. Deployment" text="Hit 'Generate Shifts' to push your blueprints live to the main calendar." icon={Zap} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="1. Consolidated Grid" text="Manage Live Reality and Master Patterns on a single grid. Use the grey capsule toggles to switch views." icon={Layout} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="2. Synced Filters" text="Multi-select facilities (BC, GN, CH, WF) to audit sid-by-side court coverage." icon={Filter} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="3. The Zap Action" text="Deploy your gold-standard patterns to the live grid instantly with the Yellow Zap button." icon={Zap} onClick={() => setZoomOpen(true)} />
                 </div>
-                <ZoomableMain src="/Images/Training/template-mgmt.png" alt="Master Templates UI" isOpen={zoomOpen} setIsOpen={setZoomOpen} />
+                <ZoomableMain src="/Images/Training/v11-pro-mastery.png" alt="Unified Navigation UI" isOpen={zoomOpen} setIsOpen={setZoomOpen} />
              </div>
           </div>
         )}
 
-        {activeCourse === 'manager' && activeLesson === 'assign-popover' && (
+        {activeCourse === 'manager' && activeLesson === 'builder' && (
           <div className="animate-in slide-in-from-right-12 duration-500 space-y-12">
              <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-center">
                 <div className="space-y-4">
                    <div className="bg-blue-600 text-white p-10 rounded-[48px] shadow-2xl relative overflow-hidden mb-4 border-b-8 border-blue-900">
-                      <h2 className="text-3xl font-black uppercase sports-slant italic mb-2">Move 2: Rapid Assign</h2>
-                      <p className="text-blue-100 font-bold opacity-80 italic">Shift-First assignment logic.</p>
-                      <Search size={150} className="absolute -bottom-10 -right-10 text-white/10 rotate-12" />
+                      <h2 className="text-3xl font-black uppercase sports-slant italic mb-2">Move 2: Slide-Out Builder</h2>
+                      <p className="text-blue-100 font-bold opacity-80 italic">Zero-Friction data entry.</p>
+                      <MousePointer2 size={150} className="absolute -bottom-10 -right-10 text-white/10 rotate-12" />
                    </div>
-                   <DetailCard title="1. Click OPEN" text="Click any green 'OPEN' shift card on the Schedule Builder grid." icon={Search} onClick={() => setZoomOpen(true)} />
-                   <DetailCard title="2. Search Popover" text="The Popover appears. Type 2-3 letters to find staff instantly." icon={Target} onClick={() => setZoomOpen(true)} />
-                   <DetailCard title="3. Lock & Load" text="Hit ENTER. The shift is assigned and audited in under 1 second." icon={CheckCircle2} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="1. Easy Entry Clicks" text="Click any blank day-box or hour-slot to instantly launch the pre-filled sidebar." icon={MousePointer2} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="2. Deep Customization" text="Adjust times, staff, and collapsible facility tasks in one high-energy block." icon={Activity} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="3. Commital" text="Launch shifts or save patterns instantly. The system handles all conflict checks automatically." icon={CheckCircle2} onClick={() => setZoomOpen(true)} />
                 </div>
-                <ZoomableMain src="/Images/Training/assign-popover.png" alt="Quick-Assign Popover UI" isOpen={zoomOpen} setIsOpen={setZoomOpen} />
+                <ZoomableMain src="/Images/Training/v11-pro-builder.png" alt="Slide-out Builder UI" isOpen={zoomOpen} setIsOpen={setZoomOpen} />
              </div>
           </div>
         )}
 
-        {activeCourse === 'manager' && activeLesson === 'assign-paint' && (
+        {activeCourse === 'manager' && activeLesson === 'planner' && (
           <div className="animate-in slide-in-from-right-12 duration-500 space-y-12">
              <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-start">
                 <div className="space-y-4">
                    <div className="bg-yellow-400 text-slate-900 p-10 rounded-[48px] shadow-2xl border-4 border-slate-900 flex items-center justify-between mb-4">
                       <div>
-                         <h2 className="text-4xl font-black uppercase italic sports-slant">Move 3: Bulk Fill</h2>
-                         <p className="text-slate-800 font-bold mt-1">Quick-Paint Brush in action.</p>
+                         <h2 className="text-4xl font-black uppercase italic sports-slant">Move 3: Daily Planner</h2>
+                         <p className="text-slate-800 font-bold mt-1">Hourly precision and overlaps.</p>
                       </div>
-                      <Paintbrush size={48} className="animate-bounce" />
+                      <Activity size={48} className="animate-pulse" />
                    </div>
-                   <DetailCard title="1. Select Painter" text="Click a staff member's name in the left column. Their entire row turns yellow." icon={Paintbrush} onClick={() => setZoomOpen(true)} />
-                   <DetailCard title="2. Mass Fill" text="Tap every 'OPEN' shift on the grid to instantly assign them to this player." icon={ChevronRight} onClick={() => setZoomOpen(true)} />
-                   <DetailCard title="3. Unassign Mode" text="Click the green 'Open' row header to paint assigned shifts back to OPEN." icon={Trash2} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="1. Smart Lane Logic" text="Overlapping court shifts automatically side-step each other in proportional columns." icon={Move} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="2. Pro Interaction" text="Use inline dropdowns (Purple/Green) to re-assign staff without leaving the grid." icon={ChevronDown} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="3. High-Vis Borders" text="10px Slate borders ensure every shift block is perfectly distinct and easy to scan." icon={ShieldAlert} onClick={() => setZoomOpen(true)} />
                 </div>
-                <ZoomableMain src="/Images/Training/assign-paint.png" alt="Quick-Paint Mode UI" isOpen={zoomOpen} setIsOpen={setZoomOpen} />
+                <ZoomableMain src="/Images/Training/v11-pro-planner.png" alt="Daily Planner Grid UI" isOpen={zoomOpen} setIsOpen={setZoomOpen} />
              </div>
           </div>
         )}
@@ -268,18 +254,17 @@ export default function HelpTab() {
              <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-start">
                 <div className="space-y-4">
                    <div className="bg-red-600 text-white p-10 rounded-[48px] shadow-2xl border-b-8 border-red-900 mb-4">
-                      <h2 className="text-3xl font-black uppercase sports-slant italic mb-2">Move 4: Surgical Cleanup</h2>
-                      <p className="text-red-100 font-bold opacity-80">Precision and Bulk Deletion.</p>
+                      <h2 className="text-3xl font-black uppercase sports-slant italic mb-2">Move 4: Roster Cleanup</h2>
+                      <p className="text-red-100 font-bold opacity-80">Precision grid-side deletion.</p>
                    </div>
-                   <DetailCard title="Method A: Individual" text="Hover over any card and click the Red Trash Can icon." icon={Trash2} onClick={() => setZoomOpen(true)} />
-                   <DetailCard title="Method B: Safe-Nuke" text="Click 'Clear' in the toolbar to wipe EVERYTHING visible in your filtered view." icon={ShieldAlert} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="1. Instant Removal" text="Click the Red Trash Can icon on any card to permanently remove it from the roster." icon={Trash2} onClick={() => setZoomOpen(true)} />
+                   <DetailCard title="2. Master Deletion" text="Patterns deleted from the master grid are removed from future Zaps automatically." icon={ShieldAlert} onClick={() => setZoomOpen(true)} />
                 </div>
-                <ZoomableMain src="/Images/Training/cleanup-tools.png" alt="Cleanup Tools UI" isOpen={zoomOpen} setIsOpen={setZoomOpen} />
+                <ZoomableMain src="/Images/Training/v11-pro-cleanup.png" alt="Grid Deletion UI" isOpen={zoomOpen} setIsOpen={setZoomOpen} />
              </div>
           </div>
         )}
 
-        {/* FOOTER */}
         <footer className="mt-20 pt-20 border-t-8 border-slate-100 flex flex-col items-center text-center">
            <div className={`w-24 h-24 rounded-[32px] flex items-center justify-center mb-6 border-4 shadow-2xl rotate-3 hover:rotate-0 transition-transform ${activeCourse === 'manager' ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'}`}>
               <CheckCircle2 size={48} className={activeCourse === 'manager' ? 'text-blue-600' : 'text-green-600'} />
@@ -287,7 +272,6 @@ export default function HelpTab() {
            <h4 className="text-3xl font-black text-slate-900 uppercase italic tracking-tighter">Playbook Mastery</h4>
            <p className="text-slate-500 font-bold max-w-lg mt-2 italic leading-relaxed">System certified. High-speed facility operations are now standard.</p>
         </footer>
-
       </div>
     </div>
   );

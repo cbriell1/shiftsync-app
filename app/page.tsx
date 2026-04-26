@@ -531,7 +531,7 @@ function MainDashboard({ session }: { session: any }) {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50">
+      <div className="flex-1 flex flex-col min-h-screen bg-slate-50">
         
         {/* Mobile Top Header */}
         <div className="lg:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0">
@@ -543,7 +543,7 @@ function MainDashboard({ session }: { session: any }) {
         </div>
 
         {/* Dynamic Width Content Wrapper */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+        <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
           <div className={`mx-auto transition-all duration-300 w-full ${isCollapsed ? 'max-w-full' : 'max-w-7xl'}`}>
             {activeTab === 'clock' && <TimeClockTab appState={legacyAppStatePlaceholder} />}
             {activeTab === 'calendar' && <CalendarTab appState={legacyAppStatePlaceholder} />}

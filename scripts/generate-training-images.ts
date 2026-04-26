@@ -1,84 +1,66 @@
-import { chromium, expect } from '@playwright/test';
+import { chromium } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import 'dotenv/config';
 
-async function generateGranularScreenshots() {
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
-  await page.setViewportSize({ width: 1280, height: 800 });
+async function generateV11TrainingAssets() {
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1080 } });
+  const page = await context.newPage();
 
   const imagesDir = path.join(process.cwd(), 'public', 'Images', 'Training');
   if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
 
-  console.log('🚀 Starting Precision Training Asset Capture...');
+  console.log('🚀 Starting Precision V11 Asset Sync...');
 
   try {
     // 1. Login
     await page.goto('http://localhost:3000');
     await page.getByText('Lost Device or Changed Domains? Use Emergency Login').click();
     await page.locator('input[type="email"]').fill('manager@test.com');
-    await page.locator('input[type="password"]').fill(process.env.EMERGENCY_PASSWORD || '');
+    await page.locator('input[type="password"]').fill(process.env.EMERGENCY_PASSWORD || 'SS-2026-TEST');
     await page.getByRole('button', { name: /Force Login/i }).click();
-    await page.waitForTimeout(5000);
+    await page.waitForTimeout(10000); // Wait for dashboard
 
-    // MOVE 1: MASTER TEMPLATES (Show Filters active)
-    await page.getByRole('button', { name: 'Shift Setup' }).click();
-    await page.getByRole('button', { name: 'Templates' }).click();
-    await page.waitForTimeout(2000);
-    await page.screenshot({ path: path.join(imagesDir, 'template-mgmt.png') });
-    console.log('📸 Captured: Move 1 (Templates)');
+    // 2. Navigate directly to Shift Setup
+    await page.goto('http://localhost:3000/?tab=setup');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(10000); // Massive wait for data hydration
 
-    // MOVE 2: QUICK-ASSIGN POPOVER (Capture active search)
-    await page.getByRole('button', { name: 'Builder' }).click();
-    await page.waitForTimeout(3000);
-    const openShift = page.locator('div[draggable="true"]', { hasText: 'OPEN' }).first();
-    if (await openShift.isVisible()) {
-        await openShift.click();
-        await page.waitForTimeout(800);
-        await page.locator('input[placeholder*="Search"]').fill('Staff');
-        await page.waitForTimeout(1000);
-        await page.screenshot({ path: path.join(imagesDir, 'assign-popover.png') });
-        console.log('📸 Captured: Move 2 (Popover Active)');
+    // ASSET 1: MASTERY (Header)
+    await page.screenshot({ path: path.join(imagesDir, 'v11-mastery.png'), clip: { x: 0, y: 0, width: 1440, height: 450 } });
+    console.log('📸 Captured: v11-mastery.png');
+
+    // ASSET 2: BUILDER (Sidebar)
+    // Click a day box to open builder
+    const dayBox = page.locator('div.group:has-text("15")').first();
+    if (await dayBox.isVisible()) {
+        await dayBox.click();
+        await page.waitForTimeout(5000);
+        await page.screenshot({ path: path.join(imagesDir, 'v11-builder.png') });
+        console.log('📸 Captured: v11-builder.png');
         await page.keyboard.press('Escape');
     }
 
-    // MOVE 3: QUICK-PAINT (Capture active row highlight)
-    const staffRow = page.getByTestId('staff-name-cell').first();
-    await staffRow.click();
-    await page.waitForTimeout(1000);
-    await page.screenshot({ path: path.join(imagesDir, 'assign-paint.png') });
-    console.log('📸 Captured: Move 3 (Paint Highlight)');
-    await page.getByRole('button', { name: /Stop/i }).click();
+    // ASSET 3: PLANNER (Week View)
+    await page.locator('[data-testid="week-view-btn"]').click();
+    await page.waitForTimeout(6000);
+    await page.screenshot({ path: path.join(imagesDir, 'v11-planner.png') });
+    console.log('📸 Captured: v11-planner.png');
 
-    // MOVE 4: CLEANUP (Capture the Clear button focus)
-    await page.screenshot({ path: path.join(imagesDir, 'cleanup-tools.png') });
-    console.log('📸 Captured: Move 4 (Cleanup Tools)');
+    // ASSET 4: CLEANUP (Trash Can Detail)
+    await page.screenshot({ 
+        path: path.join(imagesDir, 'v11-cleanup.png'),
+        clip: { x: 0, y: 400, width: 800, height: 500 }
+    });
+    console.log('📸 Captured: v11-cleanup.png');
 
-    // STAFF MOVE 1: TIME CLOCK (Capture Stadium Scoreboard)
-    await page.getByRole('button', { name: 'Time Clock' }).click();
-    await page.waitForTimeout(2000);
-    await page.screenshot({ path: path.join(imagesDir, 'time-clock.png') });
-    console.log('📸 Captured: Staff Move 1 (Time Clock)');
-
-    // STAFF MOVE 2: GUEST LOG (Capture Search + History)
-    await page.getByRole('button', { name: 'Guest Passes' }).click();
-    await page.waitForTimeout(2000);
-    await page.screenshot({ path: path.join(imagesDir, 'privileges.png') });
-    console.log('📸 Captured: Staff Move 2 (Guest Log)');
-
-    // STAFF MOVE 3: GIFT CARDS (Capture Ticket Grid)
-    await page.getByRole('button', { name: 'Gift Cards' }).click();
-    await page.waitForTimeout(2000);
-    await page.screenshot({ path: path.join(imagesDir, 'gift-cards.png') });
-    console.log('📸 Captured: Staff Move 3 (Gift Cards)');
-
-    console.log('✅ All clean, unique training assets saved to /public/Images/Training');
+    console.log('✅ V11 Training Assets perfectly synchronized.');
   } catch (err) {
-    console.error('❌ Capture Failed:', err);
+    console.error('❌ Sync Failed:', err);
   } finally {
     await browser.close();
   }
 }
 
-generateGranularScreenshots().catch(console.error);
+generateV11TrainingAssets().catch(console.error);
