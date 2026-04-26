@@ -30,18 +30,17 @@ import StadiumAssistant from './components/StadiumAssistant';
 const performSecureLogout = async (sessionData: any) => {
   if (sessionData?.sessionId) {
     try {
+      // 🚀 Definitive Purge: Ensure DB record is removed before client clears
       await fetch('/api/admin/sessions', { 
         method: 'DELETE', 
         headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ sessionToken: sessionData.sessionId }),
-        keepalive: true 
+        body: JSON.stringify({ sessionToken: sessionData.sessionId })
       });
-    } catch (e) { console.error("Cleanup error", e); }
+    } catch (e) { console.error("Session purge failed", e); }
   }
   
-  setTimeout(() => {
-    signOut();
-  }, 200);
+  // Final client-side signout
+  await signOut({ redirect: true, callbackUrl: '/' });
 };
 
 // ==================================================================
