@@ -441,9 +441,7 @@ export default function ScheduleBuilderTab() {
                    }
                    const msg = `Clone all shifts from last ${periodName.toLowerCase()}?`;
                    if (await customConfirm(msg, `Clone Previous ${periodName}`, true)) {
-                      const res = await cloneShiftsAction({ sourceStart: sourceStart.toISOString(), sourceEnd: sourceEnd.toISOString(), targetStart: targetStart.toISOString(), locationIds: calLocFilter });
-                      if (res.success) notify.success(`Successfully cloned ${res.count} shifts!`);
-                      else notify.error("Cloning failed: " + res.error);
+                      await cloneShifts({ sourceStart: sourceStart.toISOString(), sourceEnd: sourceEnd.toISOString(), targetStart: targetStart.toISOString(), locationIds: calLocFilter });
                    }
                  }}
                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-all"

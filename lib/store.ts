@@ -97,6 +97,7 @@ interface AppStore {
   deleteShift: (shiftId: number) => Promise<void>;
   bulkDeleteShifts: (startDate: string, endDate: string, locationIds?: number[]) => Promise<void>;
   bulkDeleteByIds: (ids: number[]) => Promise<void>;
+  cloneShifts: (data: { sourceStart: string, sourceEnd: string, targetStart: string, locationIds?: number[] }) => Promise<void>;
   saveTemplates: (data: any) => Promise<void>;
   deleteTemplate: (id: number) => Promise<void>;
   bulkTemplatesFromShifts: (shifts: any[]) => Promise<void>;
@@ -259,6 +260,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
         await get().fetchShifts(); 
     } else { 
         notify.error(res.error || "Failed to delete selected shifts"); 
+    }
+  },
+
+  cloneShifts: async (data) => {
+    const { cloneShiftsAction } = await import('./actions');
+    const res = await cloneShiftsAction(data);
+    if (res.success) { 
+        notify.success(`Successfully cloned ${res.count} shifts!`); 
+        await get().fetchShifts(); 
+    } else { 
+        notify.error(res.error || "Cloning failed: " + res.error); 
     }
   },
 
