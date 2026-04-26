@@ -683,7 +683,12 @@ export default function ScheduleBuilderTab() {
                                     className={`min-h-[160px] p-2 flex flex-col transition-colors group cursor-copy hover:bg-blue-50 relative ${dateObj.getMonth() === currentBaseDate.getMonth() ? 'bg-white' : 'bg-slate-50/50 text-slate-400'} ${isToday ? 'ring-4 ring-inset ring-yellow-400 bg-yellow-50/30' : ''}`}
                                 >
                                     <div className="flex justify-end items-center mb-2 border-b border-slate-100 pb-1">
-                                        <span className={`text-[12px] font-black opacity-40 ${isToday ? 'text-yellow-600 opacity-100' : ''}`}>{dateObj.getDate()}</span>
+                                        {builderMode !== 'blueprint' && (
+                                            <span className={`text-[12px] font-black opacity-40 ${isToday ? 'text-yellow-600 opacity-100' : ''}`}>{dateObj.getDate()}</span>
+                                        )}
+                                        {builderMode === 'blueprint' && (
+                                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">PATTERN</span>
+                                        )}
                                     </div>
                                     <div className="space-y-2 overflow-y-auto flex-1 custom-scrollbar pr-1">
                                         {sortedItems.map((item: any) => {
