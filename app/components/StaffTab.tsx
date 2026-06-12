@@ -167,21 +167,26 @@ export default function StaffTab({ appState }: any) {
         </div>
 
         {/* Contact */}
-        <div className="w-full xl:w-[18%] shrink-0">
+        <div className="w-full xl:w-[18%] flex flex-col gap-1.5 shrink-0">
+          <span className="xl:hidden text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Email Address</span>
           <input type="email" defaultValue={user.email || ''} onBlur={(e) => handleUpdateUser(user.id, { email: e.target.value })} className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-[10px] font-black text-slate-950 focus:bg-white focus:border-blue-500 outline-none transition-all" placeholder="Email Address" />
         </div>
 
         {/* Roles */}
-        <div className="w-full xl:w-[18%] flex flex-wrap gap-1 shrink-0">
-          {AVAILABLE_ROLES.map(role => (
-            <button key={role} onClick={() => handleRoleToggle(user.id, role)} className={`px-2 py-0.5 rounded text-[9px] font-black border transition-all ${user.systemRoles?.includes(role) ? 'bg-slate-800 text-white border-slate-900 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}>{role}</button>
-          ))}
+        <div className="w-full xl:w-[18%] flex flex-col gap-1.5 shrink-0">
+          <span className="xl:hidden text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">System Roles</span>
+          <div className="flex flex-wrap gap-1">
+            {AVAILABLE_ROLES.map(role => (
+              <button key={role} onClick={() => handleRoleToggle(user.id, role)} className={`px-2 py-0.5 rounded text-[9px] font-black border transition-all ${user.systemRoles?.includes(role) ? 'bg-slate-800 text-white border-slate-900 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}>{role}</button>
+            ))}
+          </div>
         </div>
 
         {/* Settings Toggles */}
-        <div className="w-full xl:w-[15%] flex flex-col gap-1 shrink-0">
+        <div className="w-full xl:w-[15%] flex flex-col gap-1.5 shrink-0">
           {isManagement && (
             <>
+              <span className="xl:hidden text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Notification Settings</span>
               <button onClick={() => handleUpdateUser(user.id, { receiveReportEmails: !user.receiveReportEmails })} className={`flex items-center justify-between w-full px-2 py-1 rounded border text-[9px] font-black transition-all ${user.receiveReportEmails !== false ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
                 <span>REPORTS</span><span>{user.receiveReportEmails !== false ? 'ON' : 'OFF'}</span>
               </button>
@@ -193,10 +198,13 @@ export default function StaffTab({ appState }: any) {
         </div>
 
         {/* Locations */}
-        <div className="w-full xl:flex-1 flex flex-wrap gap-1 min-w-[150px]">
-          {locations.map(loc => (
-            <button key={loc.id} onClick={() => toggleLocation(user, loc.id)} className={`px-2 py-0.5 rounded text-[9px] font-black border transition-all ${user.locationIds?.includes(loc.id) ? 'bg-blue-600 text-white border-blue-700 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}>{loc.name}</button>
-          ))}
+        <div className="w-full xl:flex-1 flex flex-col gap-1.5 min-w-[150px]">
+          <span className="xl:hidden text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Allowed Facilities</span>
+          <div className="flex flex-wrap gap-1">
+            {locations.map(loc => (
+              <button key={loc.id} onClick={() => toggleLocation(user, loc.id)} className={`px-2 py-0.5 rounded text-[9px] font-black border transition-all ${user.locationIds?.includes(loc.id) ? 'bg-blue-600 text-white border-blue-700 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}>{loc.name}</button>
+            ))}
+          </div>
         </div>
 
         {/* Final Actions - No longer absolute */}

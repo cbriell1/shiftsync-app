@@ -228,7 +228,7 @@ export default function EventsTab() {
                       )}
                     </div>
 
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-4 group-hover:translate-x-0">
+                    <div className="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-all duration-300 transform md:translate-x-4 group-hover:translate-x-0">
                       <button onClick={() => handleEdit(e)} className="p-3 hover:bg-blue-50 rounded-2xl text-blue-600 transition-all border-2 border-transparent hover:border-blue-100 shadow-sm bg-white"><Edit2 size={20} /></button>
                       <button onClick={() => handleDelete(e.id)} className="p-3 hover:bg-red-50 rounded-2xl text-red-600 transition-all border-2 border-transparent hover:border-red-100 shadow-sm bg-white"><Trash2 size={20} /></button>
                     </div>

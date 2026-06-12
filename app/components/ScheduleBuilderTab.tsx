@@ -772,7 +772,7 @@ export default function ScheduleBuilderTab() {
 
             {/* WEEK & DAY VIEW (PRO PLANNER VIEW) */}
             {(activeView === 'week' || activeView === 'day') && (
-                <div className="flex flex-col h-full bg-white relative">
+                <div className={`flex flex-col h-full bg-white relative ${activeView === 'week' ? 'min-w-[800px]' : 'min-w-full'}`}>
                     <div className="flex bg-slate-900 text-white sticky top-0 z-40 border-b-4 border-slate-900">
                         <div className="w-20 border-r-2 border-slate-700 font-black text-[9px] flex items-center justify-center uppercase tracking-widest italic sports-slant text-slate-500 bg-slate-900 shrink-0">TIME</div>
                         <div className="flex flex-1">
