@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { auth } from '@/auth';
 import { isManagement } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
