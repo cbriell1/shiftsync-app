@@ -58,6 +58,38 @@ export default function CalendarTab({ appState }: any) {
     return new Date(currentYear, currentMonth, 1);
   });
 
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileSelectedDate, setMobileSelectedDate] = useState<Date>(() => {
+    const today = new Date();
+    if (today.getMonth() === currentMonth && today.getFullYear() === currentYear) return today;
+    return new Date(currentYear, currentMonth, 1);
+  });
+  const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    const todayStr = new Date().toDateString();
+    initial[todayStr] = true;
+    return initial;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (mobileSelectedDate.getMonth() !== baseDate.getMonth() || mobileSelectedDate.getFullYear() !== baseDate.getFullYear()) {
+      setMobileSelectedDate(new Date(baseDate.getFullYear(), baseDate.getMonth(), 1));
+    }
+  }, [baseDate]);
+
+  const toggleDayExpanded = (dayStr: string) => {
+    setExpandedDays(prev => ({ ...prev, [dayStr]: !prev[dayStr] }));
+  };
+
   useEffect(() => { setCurrentMonth(baseDate.getMonth()); setCurrentYear(baseDate.getFullYear()); },[baseDate, setCurrentMonth, setCurrentYear]);
 
   const [selectedLocs, setSelectedLocs] = useState<number[]>([]);
@@ -190,7 +222,7 @@ export default function CalendarTab({ appState }: any) {
   };
 
   return (
-    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-300 shadow-sm animate-in fade-in duration-300 relative">
+    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-300 shadow-sm animate-in fade-in duration-300 relative w-full max-w-full overflow-hidden">
       
       {/* FLOATING ACTION BAR FOR MOBILE MOVE */}
       {mobileMoveShiftId && (
@@ -205,19 +237,22 @@ export default function CalendarTab({ appState }: any) {
         </div>
       )}
 
-      <div className="flex flex-col xl:flex-row justify-between items-center mb-6 bg-slate-100 p-3 rounded-xl border border-gray-300 gap-4 shadow-inner text-sm">
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
-          <div className="flex bg-slate-200 p-1 rounded-lg border border-slate-300 shadow-sm w-full sm:w-auto">
+      {/* HEADER CONTROL BAR */}
+      <div className="flex flex-col xl:flex-row justify-between items-center mb-6 bg-slate-100 p-3 rounded-xl border border-gray-300 gap-4 shadow-inner text-sm w-full">
+        <div className="flex flex-col md:flex-row items-center gap-3 w-full xl:w-auto">
+          {/* View switcher (Month, Week, Day) */}
+          <div className="flex bg-slate-200 p-1 rounded-lg border border-slate-300 shadow-sm w-full md:w-auto">
             {['month', 'week', 'day'].map(mode => (
-              <button key={mode} onClick={() => setViewMode(mode as any)} className={`flex-1 sm:flex-none px-4 py-1.5 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-md transition-all ${viewMode === mode ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}>{mode}</button>
+              <button key={mode} onClick={() => setViewMode(mode as any)} className={`flex-1 md:flex-none px-4 py-1.5 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-md transition-all ${viewMode === mode ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}>{mode}</button>
             ))}
           </div>
-          <div className="flex items-center space-x-1 w-full sm:w-auto justify-center">
+          {/* Date Navigator */}
+          <div className="flex items-center space-x-1 w-full md:w-auto justify-center">
             <button onClick={handlePrev} className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition">&lt;</button>
-            <select value={baseDate.getMonth()} onChange={handleMonthDropdown} className="w-28 sm:w-32 h-10 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer">
+            <select value={baseDate.getMonth()} onChange={handleMonthDropdown} className="flex-1 md:flex-none md:w-32 h-10 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer text-xs md:text-sm">
               {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
             </select>
-            <select value={baseDate.getFullYear()} onChange={handleYearDropdown} className="w-20 sm:w-24 h-10 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer">
+            <select value={baseDate.getFullYear()} onChange={handleYearDropdown} className="w-20 md:w-24 h-10 border border-gray-400 rounded-lg px-2 font-black text-slate-900 bg-white shadow-sm outline-none cursor-pointer text-xs md:text-sm">
               {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
             <button onClick={handleNext} className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-200 border border-gray-400 rounded-lg shadow-sm font-black text-slate-600 transition">&gt;</button>
@@ -225,9 +260,10 @@ export default function CalendarTab({ appState }: any) {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full xl:w-auto items-center">
-          <div className="relative w-full sm:w-auto">
-            <button onClick={() => setShowLocDropdown(!showLocDropdown)} className="w-full sm:w-auto bg-white border border-blue-400 rounded-lg p-2.5 font-bold text-slate-900 shadow-sm flex items-center justify-between gap-2">
+        {/* Filters */}
+        <div className="flex flex-row space-x-2 w-full xl:w-auto items-center justify-between sm:justify-start">
+          <div className="relative flex-1 sm:flex-initial">
+            <button onClick={() => setShowLocDropdown(!showLocDropdown)} className="w-full sm:w-auto bg-white border border-blue-400 rounded-lg p-2.5 font-bold text-slate-900 shadow-sm flex items-center justify-between gap-2 text-xs md:text-sm">
               <span>Locs ({selectedLocs.length === 0 ? 'All' : selectedLocs.length})</span>
               <span className="text-[10px]">▼</span>
             </button>
@@ -250,8 +286,8 @@ export default function CalendarTab({ appState }: any) {
             )}
           </div>
 
-          <div className="relative w-full sm:w-auto">
-            <button onClick={() => setShowEmpDropdown(!showEmpDropdown)} className="w-full sm:w-auto bg-white border border-blue-400 rounded-lg p-2.5 font-bold text-slate-900 shadow-sm flex items-center justify-between gap-2">
+          <div className="relative flex-1 sm:flex-initial">
+            <button onClick={() => setShowEmpDropdown(!showEmpDropdown)} className="w-full sm:w-auto bg-white border border-blue-400 rounded-lg p-2.5 font-bold text-slate-900 shadow-sm flex items-center justify-between gap-2 text-xs md:text-sm">
               <span>Staff ({selectedEmps.length === 0 ? 'All' : selectedEmps.length})</span>
               <span className="text-[10px]">▼</span>
             </button>
@@ -280,7 +316,339 @@ export default function CalendarTab({ appState }: any) {
         </div>
       </div>
 
-      {viewMode === 'month' && (
+      {/* ========================================== */}
+      {/* MOBILE UI RENDER (SCREEN < 768PX)          */}
+      {/* ========================================== */}
+      {isMobile && viewMode === 'month' && (
+        <div className="flex flex-col gap-4 w-full">
+          {/* Mini Calendar Grid */}
+          <div className="grid grid-cols-7 gap-1 border border-slate-200 bg-slate-50 p-2 rounded-xl shadow-inner">
+            {DAYS_OF_WEEK.map(dayName => (
+              <div key={dayName} className="font-bold text-center text-[10px] py-1 text-slate-500 uppercase tracking-wider">{dayName.slice(0, 3)}</div>
+            ))}
+            {calendarCells.map((dayNum, index) => {
+              const dateObj = dayNum ? new Date(baseDate.getFullYear(), baseDate.getMonth(), dayNum) : null;
+              const isSelected = dateObj && mobileSelectedDate && dateObj.getDate() === mobileSelectedDate.getDate() && dateObj.getMonth() === mobileSelectedDate.getMonth() && dateObj.getFullYear() === mobileSelectedDate.getFullYear();
+              const isToday = dateObj && dateObj.getDate() === new Date().getDate() && dateObj.getMonth() === new Date().getMonth() && dateObj.getFullYear() === new Date().getFullYear();
+              
+              const dayShifts = dateObj ? getFilteredShifts(dateObj) : [];
+              const locationDots = Array.from(new Set(dayShifts.map(s => s.locationId)));
+
+              return (
+                <button
+                  key={index}
+                  disabled={!dayNum}
+                  onClick={() => dateObj && setMobileSelectedDate(dateObj)}
+                  className={`aspect-square flex flex-col items-center justify-center relative rounded-lg text-xs font-bold transition-all ${
+                    !dayNum 
+                      ? 'bg-transparent text-transparent' 
+                      : isSelected
+                        ? 'bg-blue-600 text-white shadow-md scale-105'
+                        : isToday
+                          ? 'bg-yellow-400 text-slate-900 border border-yellow-500 shadow-sm'
+                          : 'bg-white hover:bg-slate-100 text-slate-800 border border-slate-100'
+                  }`}
+                >
+                  <span>{dayNum}</span>
+                  {dayNum && locationDots.length > 0 && (
+                    <div className="absolute bottom-1 flex justify-center gap-0.5 w-full">
+                      {locationDots.slice(0, 3).map(locId => {
+                        const locColor = getLocationColor(locId);
+                        return (
+                          <span 
+                            key={locId} 
+                            className={`w-1.5 h-1.5 rounded-full ${locColor.bg === 'bg-slate-900' ? 'bg-slate-800' : locColor.bg}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Agenda List */}
+          <div className="mt-2">
+            <h4 className="font-black text-slate-800 text-sm uppercase tracking-widest mb-3 flex items-center justify-between">
+              <span>Shifts for {mobileSelectedDate.toLocaleDateString([], { month: 'long', day: 'numeric' })}</span>
+              <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-full">{getFilteredShifts(mobileSelectedDate).length} Shifts</span>
+            </h4>
+            
+            <div className="space-y-3">
+              {getFilteredShifts(mobileSelectedDate).map(shift => {
+                const isMyShift = shift.userId === parseInt(selectedUserId);
+                const shiftColor = getLocationColor(shift.locationId);
+                let finalBg = 'bg-white', finalBorder = shiftColor.border;
+
+                if (mobileMoveShiftId === shift.id) {
+                  finalBg = 'bg-blue-50 ring-2 ring-blue-500 animate-pulse';
+                  finalBorder = 'border-blue-500';
+                } else if (shift.status === 'OPEN') {
+                  finalBg = 'bg-green-50/50'; finalBorder = 'border-green-300';
+                } else if (shift.status === 'COVERAGE_REQUESTED') {
+                  finalBg = 'bg-red-50 ring-2 ring-red-500 shadow-md'; finalBorder = 'border-red-500';
+                }
+
+                return (
+                  <div key={shift.id} className={`p-4 rounded-xl border border-slate-200 border-l-4 shadow-sm flex flex-col gap-2 transition-all ${finalBg} ${finalBorder}`}>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-bold text-slate-900 text-sm">{formatTimeSafe(shift.startTime)} - {formatTimeSafe(shift.endTime)}</div>
+                        <div className={`text-xs mt-0.5 font-bold uppercase tracking-wider ${shiftColor.text}`}>{shift.location?.name}</div>
+                      </div>
+                      {shift.status === 'COVERAGE_REQUESTED' && (
+                        <span className="bg-red-600 text-white text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full animate-pulse">Needs Cover</span>
+                      )}
+                    </div>
+
+                    <div className="text-xs font-bold text-slate-600 mt-1">
+                      Assigned To: {shift.status === 'OPEN' ? <span className="text-green-700">Open Shift</span> : (isMyShift ? <span className="text-blue-700 font-extrabold">You</span> : shift.assignedTo?.name || 'Unassigned')}
+                    </div>
+
+                    <div className="mt-2 flex flex-col gap-2">
+                      {isAdmin || isManager ? (
+                        <>
+                          <div className="flex items-center gap-2 w-full">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">Assign:</label>
+                            <select 
+                              value={shift.userId || ""} 
+                              onChange={(e) => updateShift(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} 
+                              className={`w-full font-bold text-center px-2 py-2 rounded-xl shadow-sm border outline-none cursor-pointer text-xs ${shift.userId === null ? 'bg-green-100 text-green-900 border-green-500' : `${shiftColor.badge}`}`}
+                            >
+                              <option value="">-- Open Shift --</option>
+                              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            </select>
+                          </div>
+                          <button type="button" onClick={() => setMobileMoveShiftId(mobileMoveShiftId === shift.id ? null : shift.id)} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black text-xs py-2.5 rounded-xl uppercase tracking-widest shadow-sm">
+                            {mobileMoveShiftId === shift.id ? 'Cancel Move' : 'Move Shift'}
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex flex-col gap-1.5 w-full">
+                          {isMyShift && shift.status !== 'COVERAGE_REQUESTED' && (
+                            <button onClick={() => handleRequestCover(shift.id)} className="w-full text-xs bg-orange-100 text-orange-800 border border-orange-300 font-black py-2.5 rounded-xl">Need Coverage</button>
+                          )}
+                          {isMyShift && shift.status === 'COVERAGE_REQUESTED' && (
+                            <button onClick={() => handleCancelCover(shift.id)} className="w-full text-xs bg-gray-200 text-gray-800 font-black py-2.5 rounded-xl border border-gray-400">Cancel Request</button>
+                          )}
+                          {!isMyShift && shift.status === 'COVERAGE_REQUESTED' && (
+                            <button onClick={async () => { if(await customConfirm("Pick up shift?", "Pick Up", false)) handleClaimShift(shift.id); }} className="w-full text-xs bg-green-600 text-white font-black py-2.5 rounded-xl border border-green-700">Pick Up Shift</button>
+                          )}
+                          {!isMyShift && shift.status === 'OPEN' && (!isAdmin && !isManager) && (
+                            <button onClick={async () => { if(await customConfirm("Claim open shift?", "Claim", false)) handleClaimShift(shift.id); }} className="w-full text-xs bg-blue-600 text-white font-black py-2.5 rounded-xl border border-blue-700">Claim Shift</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {getFilteredShifts(mobileSelectedDate).length === 0 && (
+                <div className="text-center py-8 bg-slate-50 border border-dashed border-slate-300 rounded-2xl text-slate-500 font-bold text-xs uppercase tracking-wider">
+                  No shifts scheduled for this day
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isMobile && viewMode === 'week' && (
+        <div className="flex flex-col gap-3 w-full">
+          {dayArray.map((dateObj, idx) => {
+            const dayStr = dateObj.toDateString();
+            const isToday = dateObj.getDate() === new Date().getDate() && dateObj.getMonth() === new Date().getMonth() && dateObj.getFullYear() === new Date().getFullYear();
+            const dayShifts = getFilteredShifts(dateObj);
+            dayShifts.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+            const isExpanded = !!expandedDays[dayStr];
+
+            return (
+              <div key={idx} className={`border rounded-xl shadow-sm overflow-hidden bg-white transition-all ${isToday ? 'ring-2 ring-yellow-400 border-yellow-400' : 'border-slate-200'}`}>
+                <button 
+                  onClick={() => toggleDayExpanded(dayStr)}
+                  className={`w-full p-4 flex items-center justify-between font-black text-slate-800 text-xs md:text-sm uppercase tracking-wider text-left transition-colors ${isToday ? 'bg-yellow-50/50' : 'bg-slate-50'}`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    {isToday && <span className="bg-yellow-400 text-slate-900 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shadow-sm">Today</span>}
+                    <span>{DAYS_OF_WEEK[dateObj.getDay()]} ({dateObj.getMonth() + 1}/{dateObj.getDate()})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-slate-200 text-slate-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold">{dayShifts.length} Shifts</span>
+                    <span className="text-[10px] text-slate-400">{isExpanded ? '▲' : '▼'}</span>
+                  </div>
+                </button>
+
+                {isExpanded && (
+                  <div className="p-4 border-t border-slate-100 bg-white space-y-3 animate-in slide-in-from-top-2 duration-200">
+                    {dayShifts.map(shift => {
+                      const isMyShift = shift.userId === parseInt(selectedUserId);
+                      const shiftColor = getLocationColor(shift.locationId);
+                      let finalBg = 'bg-white', finalBorder = shiftColor.border;
+
+                      if (mobileMoveShiftId === shift.id) {
+                        finalBg = 'bg-blue-50 ring-2 ring-blue-500 animate-pulse'; finalBorder = 'border-blue-500';
+                      } else if (shift.status === 'OPEN') {
+                        finalBg = 'bg-green-50/50'; finalBorder = 'border-green-300';
+                      } else if (shift.status === 'COVERAGE_REQUESTED') {
+                        finalBg = 'bg-red-50 ring-2 ring-red-500 shadow-md'; finalBorder = 'border-red-500';
+                      }
+
+                      return (
+                        <div key={shift.id} className={`p-4 rounded-xl border border-slate-200 border-l-4 shadow-sm flex flex-col gap-2 ${finalBg} ${finalBorder}`}>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="font-bold text-slate-900 text-sm">{formatTimeSafe(shift.startTime)} - {formatTimeSafe(shift.endTime)}</div>
+                              <div className={`text-xs mt-0.5 font-bold uppercase tracking-wider ${shiftColor.text}`}>{shift.location?.name}</div>
+                            </div>
+                            {shift.status === 'COVERAGE_REQUESTED' && (
+                              <span className="bg-red-600 text-white text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full animate-pulse">Needs Cover</span>
+                            )}
+                          </div>
+
+                          <div className="text-xs font-bold text-slate-600 mt-1">
+                            Assigned To: {shift.status === 'OPEN' ? <span className="text-green-700">Open Shift</span> : (isMyShift ? <span className="text-blue-700 font-extrabold">You</span> : shift.assignedTo?.name || 'Unassigned')}
+                          </div>
+
+                          <div className="mt-2 flex flex-col gap-2">
+                            {isAdmin || isManager ? (
+                              <>
+                                <div className="flex items-center gap-2 w-full">
+                                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">Assign:</label>
+                                  <select 
+                                    value={shift.userId || ""} 
+                                    onChange={(e) => updateShift(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} 
+                                    className={`w-full font-bold text-center px-2 py-2 rounded-xl shadow-sm border outline-none cursor-pointer text-xs ${shift.userId === null ? 'bg-green-100 text-green-900 border-green-500' : `${shiftColor.badge}`}`}
+                                  >
+                                    <option value="">-- Open Shift --</option>
+                                    {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                  </select>
+                                </div>
+                                <button type="button" onClick={() => setMobileMoveShiftId(mobileMoveShiftId === shift.id ? null : shift.id)} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black text-xs py-2.5 rounded-xl uppercase tracking-widest shadow-sm">
+                                  {mobileMoveShiftId === shift.id ? 'Cancel Move' : 'Move Shift'}
+                                </button>
+                              </>
+                            ) : (
+                              <div className="flex flex-col gap-1.5 w-full">
+                                {isMyShift && shift.status !== 'COVERAGE_REQUESTED' && (
+                                  <button onClick={() => handleRequestCover(shift.id)} className="w-full text-xs bg-orange-100 text-orange-800 border border-orange-300 font-black py-2.5 rounded-xl">Need Coverage</button>
+                                )}
+                                {isMyShift && shift.status === 'COVERAGE_REQUESTED' && (
+                                  <button onClick={() => handleCancelCover(shift.id)} className="w-full text-xs bg-gray-200 text-gray-800 font-black py-2.5 rounded-xl border border-gray-400">Cancel Request</button>
+                                )}
+                                {!isMyShift && shift.status === 'COVERAGE_REQUESTED' && (
+                                  <button onClick={async () => { if(await customConfirm("Pick up shift?", "Pick Up", false)) handleClaimShift(shift.id); }} className="w-full text-xs bg-green-600 text-white font-black py-2.5 rounded-xl border border-green-700">Pick Up Shift</button>
+                                )}
+                                {!isMyShift && shift.status === 'OPEN' && (!isAdmin && !isManager) && (
+                                  <button onClick={async () => { if(await customConfirm("Claim open shift?", "Claim", false)) handleClaimShift(shift.id); }} className="w-full text-xs bg-blue-600 text-white font-black py-2.5 rounded-xl border border-blue-700">Claim Shift</button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {dayShifts.length === 0 && (
+                      <div className="text-center py-4 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-slate-400 font-bold text-xs uppercase tracking-wider">
+                        No shifts scheduled
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {isMobile && viewMode === 'day' && (
+        <div className="flex flex-col gap-4 w-full">
+          <h4 className="font-black text-slate-800 text-sm uppercase tracking-widest mb-1 flex items-center justify-between">
+            <span>Shifts for {baseDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+            <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-full">{getFilteredShifts(baseDate).length} Shifts</span>
+          </h4>
+
+          <div className="space-y-3">
+            {getFilteredShifts(baseDate).map(shift => {
+              const isMyShift = shift.userId === parseInt(selectedUserId);
+              const shiftColor = getLocationColor(shift.locationId);
+              let finalBg = 'bg-white', finalBorder = shiftColor.border;
+
+              if (mobileMoveShiftId === shift.id) {
+                finalBg = 'bg-blue-50 ring-2 ring-blue-500 animate-pulse'; finalBorder = 'border-blue-500';
+              } else if (shift.status === 'OPEN') {
+                finalBg = 'bg-green-50/50'; finalBorder = 'border-green-300';
+              } else if (shift.status === 'COVERAGE_REQUESTED') {
+                finalBg = 'bg-red-50 ring-2 ring-red-500 shadow-md'; finalBorder = 'border-red-500';
+              }
+
+              return (
+                <div key={shift.id} className={`p-4 rounded-xl border border-slate-200 border-l-4 shadow-sm flex flex-col gap-2 ${finalBg} ${finalBorder}`}>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-bold text-slate-900 text-sm">{formatTimeSafe(shift.startTime)} - {formatTimeSafe(shift.endTime)}</div>
+                      <div className={`text-xs mt-0.5 font-bold uppercase tracking-wider ${shiftColor.text}`}>{shift.location?.name}</div>
+                    </div>
+                    {shift.status === 'COVERAGE_REQUESTED' && (
+                      <span className="bg-red-600 text-white text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full animate-pulse">Needs Cover</span>
+                    )}
+                  </div>
+
+                  <div className="text-xs font-bold text-slate-600 mt-1">
+                    Assigned To: {shift.status === 'OPEN' ? <span className="text-green-700">Open Shift</span> : (isMyShift ? <span className="text-blue-700 font-extrabold">You</span> : shift.assignedTo?.name || 'Unassigned')}
+                  </div>
+
+                  <div className="mt-2 flex flex-col gap-2">
+                    {isAdmin || isManager ? (
+                      <>
+                        <div className="flex items-center gap-2 w-full">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">Assign:</label>
+                          <select 
+                            value={shift.userId || ""} 
+                            onChange={(e) => updateShift(shift.id, shift.startTime, shift.endTime, e.target.value ? parseInt(e.target.value) : null)} 
+                            className={`w-full font-bold text-center px-2 py-2 rounded-xl shadow-sm border outline-none cursor-pointer text-xs ${shift.userId === null ? 'bg-green-100 text-green-900 border-green-500' : `${shiftColor.badge}`}`}
+                          >
+                            <option value="">-- Open Shift --</option>
+                            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                          </select>
+                        </div>
+                        <button type="button" onClick={() => setMobileMoveShiftId(mobileMoveShiftId === shift.id ? null : shift.id)} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black text-xs py-2.5 rounded-xl uppercase tracking-widest shadow-sm">
+                          {mobileMoveShiftId === shift.id ? 'Cancel Move' : 'Move Shift'}
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex flex-col gap-1.5 w-full">
+                        {isMyShift && shift.status !== 'COVERAGE_REQUESTED' && (
+                          <button onClick={() => handleRequestCover(shift.id)} className="w-full text-xs bg-orange-100 text-orange-800 border border-orange-300 font-black py-2.5 rounded-xl">Need Coverage</button>
+                        )}
+                        {isMyShift && shift.status === 'COVERAGE_REQUESTED' && (
+                          <button onClick={() => handleCancelCover(shift.id)} className="w-full text-xs bg-gray-200 text-gray-800 font-black py-2.5 rounded-xl border border-gray-400">Cancel Request</button>
+                        )}
+                        {!isMyShift && shift.status === 'COVERAGE_REQUESTED' && (
+                          <button onClick={async () => { if(await customConfirm("Pick up shift?", "Pick Up", false)) handleClaimShift(shift.id); }} className="w-full text-xs bg-green-600 text-white font-black py-2.5 rounded-xl border border-green-700">Pick Up Shift</button>
+                        )}
+                        {!isMyShift && shift.status === 'OPEN' && (!isAdmin && !isManager) && (
+                          <button onClick={async () => { if(await customConfirm("Claim open shift?", "Claim", false)) handleClaimShift(shift.id); }} className="w-full text-xs bg-blue-600 text-white font-black py-2.5 rounded-xl border border-blue-700">Claim Shift</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {getFilteredShifts(baseDate).length === 0 && (
+              <div className="text-center py-8 bg-slate-50 border border-dashed border-slate-300 rounded-2xl text-slate-500 font-bold text-xs uppercase tracking-wider">
+                No shifts scheduled for this day
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* DESKTOP UI RENDER (SCREEN >= 768PX)        */}
+      {/* ========================================== */}
+      {!isMobile && viewMode === 'month' && (
         <div className="overflow-x-auto pb-4">
           <div style={{ minWidth: '800px' }}>
             <div className="grid grid-cols-7 gap-2 mb-2">
@@ -358,7 +726,7 @@ export default function CalendarTab({ appState }: any) {
         </div>
       )}
 
-      {(viewMode === 'week' || viewMode === 'day') && (
+      {!isMobile && (viewMode === 'week' || viewMode === 'day') && (
         <div className="flex flex-col border border-slate-300 rounded-xl overflow-hidden shadow-sm bg-white">
           <div className="overflow-x-auto">
             <div style={{ minWidth: `${Math.max(800, timelineColumns.length * 150)}px` }}>
