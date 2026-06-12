@@ -398,7 +398,7 @@ function MainDashboard({ session }: { session: any }) {
     localStorage.setItem('sidebarCollapsed', newVal.toString());
   };
 
-  const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV || 'development';
+  const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.NODE_ENV ?? 'development';
 
   const TAB_LABELS: Record<string, string> = {
     clock: 'Time Clock', calendar: 'Schedule', timesheets: 'My Timesheet',
