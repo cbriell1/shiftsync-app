@@ -21,7 +21,7 @@ export default function SetupTab({ appState }: any) {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full overflow-hidden min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-black text-slate-900 italic tracking-tight uppercase sports-slant">Facility Control Center</h2>
@@ -47,8 +47,8 @@ export default function SetupTab({ appState }: any) {
         </div>
       </div>
 
-      <div className="bg-white rounded-[40px] border-4 border-slate-900 shadow-2xl overflow-hidden min-h-[60vh]">
-        {activeSubTab === 'builder' && <div className="p-6 md:p-8"><ScheduleBuilderTab /></div>}
+      <div className="bg-white rounded-[40px] border-4 border-slate-900 shadow-2xl overflow-hidden min-h-[60vh] min-w-0 w-full max-w-full">
+        {activeSubTab === 'builder' && <div className="p-4 md:p-8 w-full max-w-full overflow-hidden min-w-0"><ScheduleBuilderTab /></div>}
         {activeSubTab === 'staff' && <StaffTab appState={appState} />}
         {activeSubTab === 'locations' && <LocationsTab appState={appState} />}
         {activeSubTab === 'events' && <EventsTab />}

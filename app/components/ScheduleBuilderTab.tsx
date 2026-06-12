@@ -314,11 +314,11 @@ export default function ScheduleBuilderTab() {
   };
 
   return (
-    <div className="flex flex-col h-full space-y-3">
+    <div className="flex flex-col h-full space-y-3 w-full max-w-full overflow-hidden min-w-0">
       
       {/* HEADER: COMPACT & PROFESSIONAL GROUPING */}
-      <div className="flex flex-col xl:flex-row justify-between items-center bg-slate-100 p-2.5 rounded-xl border border-gray-300 gap-3 shadow-inner text-sm">
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
+      <div className="flex flex-col xl:flex-row justify-between items-center bg-slate-100 p-2.5 rounded-xl border border-gray-300 gap-3 shadow-inner text-sm w-full max-w-full min-w-0">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto min-w-0">
           <div className="flex flex-col gap-1.5">
             <div className="flex bg-slate-200 p-1 rounded-lg border border-slate-300 shadow-sm w-full sm:w-auto">
                 <button 
@@ -363,9 +363,9 @@ export default function ScheduleBuilderTab() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-2 w-full xl:w-auto">
-         {isManager && (
-             <div className="flex items-center gap-2 bg-slate-200/50 p-1 rounded-xl border border-slate-300">
+        <div className="flex flex-wrap items-center justify-center gap-2 w-full xl:w-auto min-w-0">
+          {isManager && (
+              <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto bg-slate-200/50 p-1 rounded-xl border border-slate-300 min-w-0">
                {builderMode === 'live' ? (
                  <>
                     <button
@@ -657,8 +657,8 @@ export default function ScheduleBuilderTab() {
       )}
 
       {/* SCHEDULER GRID */}
-      <div className={`flex-grow border-4 border-slate-900 rounded-[40px] shadow-2xl overflow-hidden flex flex-col bg-white`}>
-         <div className="flex-1 overflow-auto relative scroll-smooth bg-slate-50">
+      <div className={`flex-grow border-4 border-slate-900 rounded-[40px] shadow-2xl overflow-hidden flex flex-col bg-white min-w-0 w-full max-w-full`}>
+         <div className="flex-1 overflow-auto relative scroll-smooth bg-slate-50 w-full">
             
             {/* MONTH VIEW */}
             {activeView === 'month' && (

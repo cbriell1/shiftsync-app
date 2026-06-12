@@ -533,7 +533,7 @@ function MainDashboard({ session }: { session: any }) {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-screen bg-slate-50">
+      <div className="flex-1 flex flex-col min-h-screen bg-slate-50 min-w-0">
         
         {/* Mobile Top Header */}
         <div className="lg:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0">
