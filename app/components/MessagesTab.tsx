@@ -109,6 +109,11 @@ export default function MessagesTab({ appState }: any) {
       if (new Date(msg.createdAt) > new Date(t.updatedAt)) t.updatedAt = msg.createdAt;
     });
 
+    // Sort each thread's messages ascending so newest appears at the bottom
+    threadMap.forEach((t: any) => {
+      t.messages.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    });
+
     return Array.from(threadMap.values()).sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [messages, selectedUserId, locations, users]);
 
@@ -251,8 +256,6 @@ export default function MessagesTab({ appState }: any) {
     if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
-
-  let lastDividerDate: string | null = null;
 
   return (
     <div className="bg-white p-2 md:p-6 rounded-2xl border border-gray-300 shadow-md h-[85vh] md:h-[80vh] flex flex-col animate-in fade-in duration-300">
@@ -399,14 +402,14 @@ export default function MessagesTab({ appState }: any) {
                   <p className="font-bold italic text-sm">No messages in this conversation yet.</p>
                 </div>
               ) : (
-                activeMessages.map((msg: Message) => {
+                activeMessages.map((msg: Message, idx: number) => {
                   const isMe = msg.senderId.toString() === selectedUserId;
                   const senderName = msg.sender?.name?.split(' ')[0] || 'Unknown';
                   const isManagerLevel = msg.sender?.systemRoles?.includes('Administrator') || msg.sender?.systemRoles?.includes('Manager');
-                  
+
                   const currentDateStr = formatDividerDate(new Date(msg.createdAt));
-                  const showDivider = currentDateStr !== lastDividerDate;
-                  lastDividerDate = currentDateStr;
+                  const prevDateStr = idx > 0 ? formatDividerDate(new Date(activeMessages[idx - 1].createdAt)) : null;
+                  const showDivider = currentDateStr !== prevDateStr;
 
                   return (
                     <React.Fragment key={msg.id}>

@@ -13,17 +13,22 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId');
 
+    const userIdInt = userId ? parseInt(userId) : -1;
+    const requestingUser = userId ? await prisma.user.findUnique({ where: { id: userIdInt }, select: { locationIds: true } }) : null;
+    const userLocationIds = requestingUser?.locationIds ?? [];
+
     const messages = await prisma.message.findMany({
       where: {
         OR: [
           { isGlobal: true },
-          { senderId: userId ? parseInt(userId) : -1 },
-          { targetUserIds: { has: userId ? parseInt(userId) : -1 } }
+          { senderId: userIdInt },
+          { targetUserIds: { has: userIdInt } },
+          ...(userLocationIds.length > 0 ? [{ targetLocationIds: { hasSome: userLocationIds } }] : [])
         ]
       },
       include: { sender: true },
       orderBy: { createdAt: 'desc' },
-      take: 50
+      take: 200
     });
     return NextResponse.json(messages);
   } catch (error: any) {
