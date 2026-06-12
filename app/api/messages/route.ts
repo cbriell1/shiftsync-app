@@ -43,10 +43,25 @@ export async function POST(request: Request) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
+    const sessionUserId = Number(session.user?.id);
+
+    // Allow admins to send as an impersonated profile (selectedUserId in the client)
+    let senderId = sessionUserId;
+    const requestedSenderId = body.senderId ? Number(body.senderId) : null;
+    if (requestedSenderId && requestedSenderId !== sessionUserId) {
+      const sessionUser = await prisma.user.findUnique({
+        where: { id: sessionUserId },
+        select: { systemRoles: true }
+      });
+      if (sessionUser?.systemRoles?.includes('Administrator')) {
+        senderId = requestedSenderId;
+      }
+    }
+
     const message = await prisma.message.create({
       data: {
         content: body.content,
-        senderId: Number(session.user?.id),
+        senderId,
         isGlobal: body.isGlobal ?? true,
         targetUserIds: body.targetUserIds || [],
         targetLocationIds: body.targetLocationIds || []
@@ -54,22 +69,41 @@ export async function POST(request: Request) {
       include: { sender: true }
     });
 
-    // 📧 Trigger Email Notifications for Managers
+    // 📧 Trigger targeted email notifications
     try {
-      const managersToNotify = await prisma.user.findMany({
-        where: {
-          systemRoles: { hasSome: ['Administrator', 'Manager'] },
-          receiveChatEmails: true,
-          id: { not: Number(session.user?.id) } // Don't email the sender
-        },
-        select: { email: true }
-      });
+      let emailRecipients: string[] = [];
 
-      const recipientEmails = managersToNotify.map(m => m.email).filter(Boolean) as string[];
-      
-      if (recipientEmails.length > 0) {
+      if (message.isGlobal) {
+        // Global messages → notify all managers/admins with chat emails on
+        const managers = await prisma.user.findMany({
+          where: {
+            AND: [
+              { systemRoles: { hasSome: ['Administrator', 'Manager'] } },
+              { receiveChatEmails: true },
+              { id: { not: senderId } }
+            ]
+          },
+          select: { email: true }
+        });
+        emailRecipients = managers.map(m => m.email).filter(Boolean) as string[];
+      } else if (message.targetUserIds && message.targetUserIds.length > 0) {
+        // DM/group → notify only the actual recipients who have chat emails on
+        const targets = await prisma.user.findMany({
+          where: {
+            AND: [
+              { id: { in: message.targetUserIds } },
+              { id: { not: senderId } },
+              { receiveChatEmails: true }
+            ]
+          },
+          select: { email: true }
+        });
+        emailRecipients = targets.map(t => t.email).filter(Boolean) as string[];
+      }
+
+      if (emailRecipients.length > 0) {
         const { sendChatNotificationEmail } = require('@/lib/email');
-        await sendChatNotificationEmail(message, message.sender, recipientEmails);
+        await sendChatNotificationEmail(message, message.sender, emailRecipients);
       }
     } catch (emailErr: any) {
       console.error("Chat email notification failed:", emailErr.message);
