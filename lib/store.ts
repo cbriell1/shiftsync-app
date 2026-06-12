@@ -1,7 +1,7 @@
 // filepath: lib/store.ts
 import { create } from 'zustand';
 import { User, Location, TimeCard, Shift, Member, ShiftTemplate, Checklist, GlobalTask, GiftCard, Feedback, Message, Announcement, AuditLog, Event } from './types';
-import { generatePeriods } from './common';
+import { generatePeriods, getMonday } from './common';
 import { customConfirm, notify } from './ui-utils';
 import { updateShiftAction, deleteShiftAction, bulkDeleteShiftsAction, saveTemplatesAction, deleteTemplateAction, bulkTemplatesFromShiftsAction, generateScheduleAction } from './actions';
 
@@ -228,15 +228,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   createShift: async (locationId, userId, startTime, endTime, tzOffset) => {
     const { createShiftAction } = await import('./actions');
-    // Using simple defaults for single-cell manual clicks
-    const res = await createShiftAction({ 
-        locationIds: [locationId], 
-        userId, 
+    const res = await createShiftAction({
+        locationIds: [locationId],
+        userId,
         daysOfWeek: [new Date(startTime).getDay()],
-        startTime: new Date(startTime).toTimeString().slice(0,5), 
+        startTime: new Date(startTime).toTimeString().slice(0,5),
         endTime: new Date(endTime).toTimeString().slice(0,5),
         weeksToRepeat: 1,
-        tzOffset
+        tzOffset,
+        weekStart: getMonday(new Date(startTime)),
     });
     if (res.success) { notify.success("Shift created!"); await get().fetchShifts(); } else { notify.error(res.error || "Failed to create shift"); }
   },

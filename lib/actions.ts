@@ -93,6 +93,7 @@ export async function createShiftAction(data: {
   weeksToRepeat?: number;
   checklistTasks?: string[];
   tzOffset?: number;
+  weekStart?: string; // ISO date "YYYY-MM-DD" of the Monday of the target week
 }) {
   const user = await getSessionUser();
   if (!user) throw new Error("Unauthorized");
@@ -108,12 +109,19 @@ export async function createShiftAction(data: {
 
   try {
     const shiftsToCreate: any[] = [];
-    
+
+    // Anchor to the Sunday of the target week.
+    // If weekStart (Monday) is provided, Sunday = weekStart - 1 day.
+    // Otherwise fall back to the current week's Sunday.
+    const weekAnchor: Date = data.weekStart
+      ? (() => { const d = new Date(data.weekStart + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d; })()
+      : (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d; })();
+
     for (const locId of data.locationIds) {
         for (let w = 0; w < weeks; w++) {
             for (const dow of data.daysOfWeek) {
-                const targetDate = new Date();
-                targetDate.setDate(targetDate.getDate() - targetDate.getDay() + (w * 7) + dow);
+                const targetDate = new Date(weekAnchor);
+                targetDate.setUTCDate(weekAnchor.getUTCDate() + (w * 7) + dow);
                 const dateStr = targetDate.toISOString().split('T')[0];
                 
                 const shiftStart = new Date(`${dateStr}T${data.startTime}:00Z`);
@@ -252,10 +260,9 @@ export async function saveTemplatesAction(data: {
   const authUserId = Number(user.id);
 
   try {
-    const created: any[] = [];
+    let count = 0;
     if (data.id) {
-      // Update Single
-      const updated = await prisma.shiftTemplate.update({
+      await prisma.shiftTemplate.update({
         where: { id: data.id },
         data: {
           startTime: data.startTime,
@@ -266,31 +273,27 @@ export async function saveTemplatesAction(data: {
           userId: data.userId
         }
       });
-      created.push(updated);
+      count = 1;
     } else {
-      // Create Multiple
-      for (const locId of data.locationIds) {
-        for (const day of data.daysOfWeek) {
-          const tpl = await prisma.shiftTemplate.create({
-            data: {
-              locationId: locId,
-              dayOfWeek: day,
-              startTime: data.startTime,
-              endTime: data.endTime,
-              startDate: data.startDate,
-              endDate: data.endDate,
-              checklistTasks: data.checklistTasks || [],
-              userId: data.userId
-            }
-          });
-          created.push(tpl);
-        }
-      }
+      const rows = data.locationIds.flatMap(locId =>
+        data.daysOfWeek.map(day => ({
+          locationId: locId,
+          dayOfWeek: day,
+          startTime: data.startTime,
+          endTime: data.endTime,
+          startDate: data.startDate ?? null,
+          endDate: data.endDate ?? null,
+          checklistTasks: data.checklistTasks || [],
+          userId: data.userId ?? null
+        }))
+      );
+      const result = await prisma.shiftTemplate.createMany({ data: rows });
+      count = result.count;
     }
 
-    await logAudit(authUserId, "TRANSACTION", `Saved ${created.length} template(s) for ${data.startTime}`);
+    await logAudit(authUserId, "TRANSACTION", `Saved ${count} template(s) for ${data.startTime}`);
     revalidatePath('/');
-    return { success: true, count: created.length };
+    return { success: true, count };
   } catch (err: any) {
     await logError(authUserId, err.message, "saveTemplatesAction", err.stack);
     return { success: false, error: err.message };
@@ -299,10 +302,11 @@ export async function saveTemplatesAction(data: {
 
 export async function deleteTemplateAction(id: number) {
   const user = await getSessionUser();
+  if (!user) throw new Error("Unauthorized");
   const userRoles = (user as any)?.systemRoles || [];
   if (!userRoles.includes('Administrator') && !userRoles.includes('Manager')) throw new Error("Forbidden");
 
-  const authUserId = Number(user!.id);
+  const authUserId = Number(user.id);
 
   try {
     const deleted = await prisma.shiftTemplate.delete({

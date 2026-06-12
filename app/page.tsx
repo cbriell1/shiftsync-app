@@ -6,23 +6,24 @@ import { signOut, useSession, signIn as signInReact } from "next-auth/react";
 import { signIn as signInPasskey } from "next-auth/webauthn"; 
 import { useSearchParams } from 'next/navigation';
 import { notify, useEscapeKey } from '@/lib/ui-utils';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useAppStore } from '@/lib/store';
 import { getMonday } from '@/lib/common';
-import { Menu, X, Clock, Calendar, FileText, Settings, Users, MessageSquare, MapPin, LayoutDashboard, CalendarDays, Gift, AlertCircle, LogOut, Smartphone, ChevronLeft, ChevronRight, BookOpen, Layout } from 'lucide-react';
+import { Menu, X, Clock, Calendar, FileText, Users, MessageSquare, MapPin, LayoutDashboard, CalendarDays, Gift, Ticket, AlertCircle, LogOut, Smartphone, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
 
-import CalendarTab from './components/CalendarTab';
-import DashboardTab from './components/DashboardTab';
-import TimesheetsTab from './components/TimesheetsTab';
-import PrivilegesTab from './components/PrivilegesTab';
-import SetupTab from './components/SetupTab';
-import StaffTab from './components/StaffTab';
-import LocationsTab from './components/LocationsTab';
-import GiftCardTab from './components/GiftCardTab';
-import FeedbackTab from './components/FeedbackTab'; 
-import MessagesTab from './components/MessagesTab';
-import TimeClockTab from './components/TimeClockTab';
-import HelpTab from './components/HelpTab';
-import StadiumAssistant from './components/StadiumAssistant';
+const CalendarTab     = React.lazy(() => import('./components/CalendarTab'));
+const DashboardTab    = React.lazy(() => import('./components/DashboardTab'));
+const TimesheetsTab   = React.lazy(() => import('./components/TimesheetsTab'));
+const PrivilegesTab   = React.lazy(() => import('./components/PrivilegesTab'));
+const SetupTab        = React.lazy(() => import('./components/SetupTab'));
+const StaffTab        = React.lazy(() => import('./components/StaffTab'));
+const LocationsTab    = React.lazy(() => import('./components/LocationsTab'));
+const GiftCardTab     = React.lazy(() => import('./components/GiftCardTab'));
+const FeedbackTab     = React.lazy(() => import('./components/FeedbackTab'));
+const MessagesTab     = React.lazy(() => import('./components/MessagesTab'));
+const TimeClockTab    = React.lazy(() => import('./components/TimeClockTab'));
+const HelpTab         = React.lazy(() => import('./components/HelpTab'));
+const StadiumAssistant = React.lazy(() => import('./components/StadiumAssistant'));
 
 // ==================================================================
 // GLOBAL LOGOUT HANDLER (Prevents Ghost Sessions)
@@ -141,14 +142,13 @@ function LoginScreen({ sessionData }: { sessionData: any }) {
           </button>
         )}
         <div className="text-center">
-          <Image 
-            src="/logo.png" 
-            alt="Pickles & Play" 
-            width={80} 
-            height={80} 
+          <Image
+            src="/logo.png"
+            alt="Pickles & Play"
+            width={80}
+            height={80}
             priority
-            className="h-20 w-auto mx-auto mb-4" 
-            style={{ width: 'auto', height: 'auto' }}
+            className="h-20 w-auto mx-auto mb-4"
           />
           <h2 className="text-3xl font-black text-slate-900 italic tracking-tight uppercase"><span className="text-yellow-500">Pickles</span> & Play</h2>
           <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-2">Manager Access</p>
@@ -280,20 +280,23 @@ function MainDashboard({ session }: { session: any }) {
     if (session?.user?.id) {
       const initialId = selectedUserId || session.user.id.toString();
       if (!selectedUserId) setSelectedUserId(initialId);
-      
+
       fetchAllCoreData(initialId);
-      
+
       const intervalId = setInterval(() => fetchAllCoreData(initialId), 30000);
       return () => clearInterval(intervalId);
     }
-  }, [session, selectedUserId]);
+  // Zustand actions (setBuilderWeekStart, setSelectedUserId, fetchAllCoreData) are
+  // stable references — safe to omit from deps without stale-closure risk.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id, selectedUserId]);
 
   const authenticatedUserId = session?.user?.id?.toString();
   const safeUsers = Array.isArray(users) ? users :[];
   const authenticatedUserObj = safeUsers.find(u => u.id.toString() === authenticatedUserId);
   const authRoles = authenticatedUserObj?.systemRoles || session?.user?.systemRoles ||[];
   
-  const isRealAdmin = authRoles.includes('Administrator') || session?.user?.email === 'cbriell1@yahoo.com';
+  const isRealAdmin = authRoles.includes('Administrator');
   const isRealManager = authRoles.includes('Manager') || isRealAdmin;
 
   const activeUserObj = safeUsers.find(u => u.id.toString() === selectedUserId);
@@ -397,17 +400,16 @@ function MainDashboard({ session }: { session: any }) {
 
   const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV || 'development';
 
+  const TAB_LABELS: Record<string, string> = {
+    clock: 'Time Clock', calendar: 'Schedule', timesheets: 'My Timesheet',
+    privileges: 'Guest Passes', giftcards: 'Gift Cards', messages: 'Team Chat',
+    feedback: 'Dev Request', help: 'Help & Training', dashboard: 'Payroll',
+    setup: 'Shift Setup', staff: 'Staff', locations: 'Locations',
+  };
+
   if (!isMounted || users.length === 0) return <DashboardSkeleton />;
 
   const legacyAppStatePlaceholder = {} as any;
-
-  if (users.length === 0) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center h-screen bg-slate-900 text-white font-black uppercase tracking-[0.3em] animate-pulse italic sports-slant">
-         Accessing Stadium Records...
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans relative flex overflow-hidden">
@@ -421,7 +423,7 @@ function MainDashboard({ session }: { session: any }) {
         {/* Brand Header with Collapse Toggle */}
         <div className={`p-4 md:p-6 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} border-b border-slate-800 shrink-0 transition-all`}>
           <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-            <Image src="/logo.png" alt="Logo" width={32} height={32} priority className={`h-10 w-auto shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} style={{ width: 'auto', height: 'auto' }} />
+            <Image src="/logo.png" alt="Logo" width={40} height={40} priority className={`h-10 w-auto shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} />
             {!isCollapsed && (
               <h1 className="text-xl font-black sports-slant leading-[0.85] text-white">
                 <span className="text-brand-yellow">Pickles</span><br/>& Play
@@ -479,7 +481,7 @@ function MainDashboard({ session }: { session: any }) {
               <NavItem id="clock" icon={Clock} label="Time Clock" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
               <NavItem id="calendar" icon={Calendar} label="Schedule" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
               {showTimesheets && <NavItem id="timesheets" icon={FileText} label="My Timesheet" badge={unapprovedCount} activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
-              {showPasses && <NavItem id="privileges" icon={Gift} label="Guest Passes" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
+              {showPasses && <NavItem id="privileges" icon={Ticket} label="Guest Passes" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
               {showGiftCards && <NavItem id="giftcards" icon={Gift} label="Gift Cards" activeTab={activeTab} isCollapsed={isCollapsed} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />}
             </div>
           </div>
@@ -517,7 +519,7 @@ function MainDashboard({ session }: { session: any }) {
         <div className="p-4 border-t border-slate-800 shrink-0 flex flex-col gap-2">
           {isRealManager && !isCollapsed && (
             <button onClick={async () => {
-              const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "cbriell1@yahoo.com", redirect: false });
+              const res = await signInPasskey("passkey", { action: "register", email: session?.user?.email || "", redirect: false });
               if (res?.error) notify.error("Failed: " + res.error); else if (res?.ok) notify.success("Device Linked!");
             }} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg font-bold text-xs transition-colors">
               <Smartphone size={14} /> Link Passkey
@@ -537,7 +539,9 @@ function MainDashboard({ session }: { session: any }) {
         <div className="lg:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(true)} className="text-slate-600 hover:text-slate-900"><Menu size={24} /></button>
-            <span className="font-black text-slate-900 uppercase tracking-widest text-sm">Pickles & Play</span>
+            <span className="font-black text-slate-900 uppercase tracking-widest text-sm">
+              {TAB_LABELS[activeTab] || 'Pickles & Play'}
+            </span>
           </div>
           {vercelEnv !== 'production' && <span className="bg-slate-200 text-slate-600 text-[10px] font-black uppercase px-2 py-1 rounded">Dev</span>}
         </div>
@@ -545,18 +549,22 @@ function MainDashboard({ session }: { session: any }) {
         {/* Dynamic Width Content Wrapper */}
         <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
           <div className={`mx-auto transition-all duration-300 w-full ${isCollapsed ? 'max-w-full' : 'max-w-7xl'}`}>
-            {activeTab === 'clock' && <TimeClockTab appState={legacyAppStatePlaceholder} />}
-            {activeTab === 'calendar' && <CalendarTab appState={legacyAppStatePlaceholder} />}
-            {activeTab === 'dashboard' && <DashboardTab appState={legacyAppStatePlaceholder} />}
-            {activeTab === 'timesheets' && <TimesheetsTab appState={legacyAppStatePlaceholder} />}
-            {activeTab === 'privileges' && <PrivilegesTab />}
-            {activeTab === 'setup' && <SetupTab appState={legacyAppStatePlaceholder} />}
-            {activeTab === 'staff' && <StaffTab appState={legacyAppStatePlaceholder} />}
-            {activeTab === 'locations' && <LocationsTab appState={legacyAppStatePlaceholder} />}
-            {activeTab === 'giftcards' && <GiftCardTab appState={legacyAppStatePlaceholder} />}
-            {activeTab === 'feedback' && <FeedbackTab appState={legacyAppStatePlaceholder} />}
-            {activeTab === 'messages' && <MessagesTab appState={legacyAppStatePlaceholder} />}
-            {activeTab === 'help' && <HelpTab />}
+            <ErrorBoundary>
+            <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400 font-bold animate-pulse">Loading...</div>}>
+              {activeTab === 'clock' && <TimeClockTab appState={legacyAppStatePlaceholder} />}
+              {activeTab === 'calendar' && <CalendarTab appState={legacyAppStatePlaceholder} />}
+              {activeTab === 'dashboard' && <DashboardTab appState={legacyAppStatePlaceholder} />}
+              {activeTab === 'timesheets' && <TimesheetsTab appState={legacyAppStatePlaceholder} />}
+              {activeTab === 'privileges' && <PrivilegesTab />}
+              {activeTab === 'setup' && <SetupTab appState={legacyAppStatePlaceholder} />}
+              {activeTab === 'staff' && <StaffTab appState={legacyAppStatePlaceholder} />}
+              {activeTab === 'locations' && <LocationsTab appState={legacyAppStatePlaceholder} />}
+              {activeTab === 'giftcards' && <GiftCardTab appState={legacyAppStatePlaceholder} />}
+              {activeTab === 'feedback' && <FeedbackTab appState={legacyAppStatePlaceholder} />}
+              {activeTab === 'messages' && <MessagesTab appState={legacyAppStatePlaceholder} />}
+              {activeTab === 'help' && <HelpTab />}
+            </Suspense>
+            </ErrorBoundary>
           </div>
         </div>
 

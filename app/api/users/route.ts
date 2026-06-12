@@ -2,7 +2,8 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/auth'; 
+import { auth } from '@/auth';
+import { isManagement } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,13 +30,6 @@ const userMergeSchema = z.object({
   newId: z.coerce.number(),
 });
 
-async function verifyManagementAccess() {
-  const session = await auth();
-  if (!session?.user) return false;
-  const userRoles = (session.user as any).systemRoles ||[];
-  return userRoles.includes('Administrator') || userRoles.includes('Manager');
-}
-
 export async function GET(req: Request) {
   try {
     const session = await auth();
@@ -53,7 +47,7 @@ export async function GET(req: Request) {
 
 export async function POST(request: Request) {
   try {
-    if (!(await verifyManagementAccess())) return NextResponse.json({ error: "Forbidden. Management access required." }, { status: 403 });
+    if (!(await isManagement())) return NextResponse.json({ error: "Forbidden. Management access required." }, { status: 403 });
 
     const body = await request.json();
     const data = userCreateSchema.parse(body);
@@ -81,7 +75,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    if (!(await verifyManagementAccess())) return NextResponse.json({ error: "Forbidden. Management access required." }, { status: 403 });
+    if (!(await isManagement())) return NextResponse.json({ error: "Forbidden. Management access required." }, { status: 403 });
 
     const body = await request.json();
     

@@ -6,6 +6,10 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: "Not available in production" }, { status: 403 });
+  }
+
   const actualWorkedData =[
     { yr: 2026, mo: 0, dt: 28, s: 16, e: 21, u: 'Fred Jimenez' },
     { yr: 2026, mo: 0, dt: 30, s: 15, e: 21, u: 'Chris Briell' },

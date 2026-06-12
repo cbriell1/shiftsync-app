@@ -4,13 +4,11 @@ import Passkey from "next-auth/providers/passkey"
 import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
+import { randomUUID } from "crypto"
 
 const baseAdapter = PrismaAdapter(prisma);
 
-const generateSessionToken = () => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
-};
+const generateSessionToken = () => randomUUID();
 
 const customAdapter = {
   ...baseAdapter,
@@ -18,14 +16,16 @@ const customAdapter = {
   createUser: async (data: any) => {
     const { id, ...validData } = data; 
     
-    if (validData.email === "cbriell1@yahoo.com") {
-      const existingChris = await prisma.user.findFirst({ 
-        where: { name: { contains: "Chris Briell", mode: 'insensitive' } } 
-      });
-      if (existingChris) {
+    const superadminEmail = process.env.SUPERADMIN_EMAIL;
+    if (superadminEmail && validData.email === superadminEmail) {
+      const superadminName = process.env.SUPERADMIN_NAME;
+      const existing = superadminName
+        ? await prisma.user.findFirst({ where: { name: { contains: superadminName, mode: 'insensitive' } } })
+        : null;
+      if (existing) {
         const updated = await prisma.user.update({
-          where: { id: existingChris.id },
-          data: { email: "cbriell1@yahoo.com", role: "ADMIN", systemRoles:["Administrator", "Manager", "Front Desk"] }
+          where: { id: existing.id },
+          data: { email: superadminEmail, role: "ADMIN", systemRoles: ["Administrator", "Manager", "Front Desk"] }
         });
         return { ...updated, id: updated.id.toString() };
       }
@@ -110,7 +110,7 @@ const customAdapter = {
 };
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  secret: process.env.AUTH_SECRET || "fallback_secret_for_build_time_only_12345",
+  secret: process.env.AUTH_SECRET,
   adapter: customAdapter as any,
   providers:[
     Passkey({}),
@@ -191,8 +191,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }).catch(e => console.error("Audit log failed", e));
 
             if (isElevated) {
-              const { sendManagerLoginAlert } = require('@/lib/email');
-              sendManagerLoginAlert(user).catch((e: any) => console.error("Login alert email failed", e));
+              import('@/lib/email').then(({ sendManagerLoginAlert }) => {
+                sendManagerLoginAlert(user).catch((e: any) => console.error("Login alert email failed", e));
+              }).catch((e) => console.error("Email module import failed", e));
             }
           } catch (dbError) {
             console.error("🚨 Critical DB error during JWT metadata creation:", dbError);

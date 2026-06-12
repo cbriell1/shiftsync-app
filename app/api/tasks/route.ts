@@ -2,7 +2,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/auth';
+import { isManagement } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,13 +18,6 @@ const editTaskSchema = z.object({
 const deleteTaskSchema = z.object({
   id: z.coerce.number(),
 });
-
-async function verifyAccess() {
-  const session = await auth();
-  if (!session?.user) return false;
-  const userRoles = (session.user as any).systemRoles ||[];
-  return userRoles.includes('Administrator') || userRoles.includes('Manager');
-}
 
 // FIX: Added (req: Request)
 export async function GET(req: Request) {
@@ -43,7 +36,7 @@ export async function GET(req: Request) {
 
 export async function POST(request: Request) {
   try {
-    if (!(await verifyAccess())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!(await isManagement())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const body = await request.json();
     const { name } = createTaskSchema.parse(body);
@@ -62,7 +55,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    if (!(await verifyAccess())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!(await isManagement())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const body = await request.json();
     const { id, name } = editTaskSchema.parse(body);
@@ -99,7 +92,7 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    if (!(await verifyAccess())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!(await isManagement())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const body = await request.json();
     const { id } = deleteTaskSchema.parse(body);

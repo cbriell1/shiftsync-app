@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/auth';
+import { isManagement } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,14 +26,6 @@ const updateLocationSchema = z.object({
   sendReportEmails: z.boolean().optional(),
 });
 
-async function verifyAccess() {
-  const session = await auth();
-  if (!session?.user) return false;
-  
-  const userRoles = (session.user as any).systemRoles ||[];
-  return userRoles.includes('Administrator') || userRoles.includes('Manager');
-}
-
 // FIX: Added (req: Request)
 export async function GET(req: Request) {
   try {
@@ -50,7 +43,7 @@ export async function GET(req: Request) {
 
 export async function POST(request: Request) {
   try {
-    if (!(await verifyAccess())) {
+    if (!(await isManagement())) {
       return NextResponse.json({ error: "Forbidden. Admin/Manager access required." }, { status: 403 });
     }
 
@@ -77,7 +70,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    if (!(await verifyAccess())) {
+    if (!(await isManagement())) {
       return NextResponse.json({ error: "Forbidden. Admin/Manager access required." }, { status: 403 });
     }
 

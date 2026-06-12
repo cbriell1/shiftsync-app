@@ -2,7 +2,8 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/auth'; 
+import { auth } from '@/auth';
+import { isManagement } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,35 +26,36 @@ const calculateTotalHours = (clockIn: string, clockOut?: string | null) => {
   return parseFloat((msDiff / (1000 * 60 * 60)).toFixed(2));
 };
 
-async function verifyManagementAccess() {
-  const session = await auth();
-  if (!session?.user) return false;
-  const userRoles = (session.user as any).systemRoles ||[];
-  return userRoles.includes('Administrator') || userRoles.includes('Manager');
-}
-
 export async function GET(req: Request) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const isManager = await isManagement();
+    const sessionUserId = parseInt(session.user?.id as string);
+
     const { searchParams } = new URL(req.url);
-    const parsed = getQuerySchema.safeParse({ 
-      userId: searchParams.get('userId') || undefined 
+    const parsed = getQuerySchema.safeParse({
+      userId: searchParams.get('userId') || undefined
     });
 
-    let whereClause = {};
+    let whereClause: { userId?: number } = {};
     if (parsed.success && parsed.data.userId) {
+      if (!isManager && parsed.data.userId !== sessionUserId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
       whereClause = { userId: parsed.data.userId };
+    } else if (!isManager) {
+      whereClause = { userId: sessionUserId };
     }
 
     const timeCards = await prisma.timeCard.findMany({
       where: whereClause,
       include: { user: true, location: true, checklists: true },
       orderBy: { clockIn: 'desc' },
-      take: 100 
+      take: 100
     });
-    
+
     return NextResponse.json(timeCards);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -67,6 +69,12 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const data = timeCardSchema.parse(body);
+
+    const isManager = await isManagement();
+    const sessionUserId = parseInt(session.user?.id as string);
+    if (!isManager && data.userId !== sessionUserId) {
+      return NextResponse.json({ error: "Forbidden. You can only create your own timecards." }, { status: 403 });
+    }
 
     const tc = await prisma.timeCard.create({
       data: {
@@ -95,7 +103,7 @@ export async function PUT(req: Request) {
     if (!data.id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
     // FIX: Ensure the user is a manager OR owns the timecard
-    const isManager = await verifyManagementAccess();
+    const isManager = await isManagement();
     if (!isManager && data.userId !== parseInt(session.user?.id as string)) {
       return NextResponse.json({ error: "Forbidden. You can only edit your own timecards." }, { status: 403 });
     }
@@ -133,7 +141,7 @@ export async function DELETE(req: Request) {
     if (!tc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     // FIX: Ensure the user is a manager OR owns the timecard
-    const isManager = await verifyManagementAccess();
+    const isManager = await isManagement();
     if (!isManager && tc.userId !== parseInt(session.user?.id as string)) {
       return NextResponse.json({ error: "Forbidden. You can only delete your own timecards." }, { status: 403 });
     }
