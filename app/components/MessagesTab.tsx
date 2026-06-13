@@ -43,8 +43,8 @@ export default function MessagesTab({ appState }: any) {
   const [cSelectedUsers, setCSelectedUsers] = useState<number[]>([]);
   const[cSelectedLocs, setCSelectedLocs] = useState<number[]>([]);
   
-  // FIX: Changed from chatEndRef to messagesContainerRef
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const [readStates, setReadStates] = useState<Record<string, string>>({});
 
@@ -153,6 +153,13 @@ export default function MessagesTab({ appState }: any) {
       });
     }
   },[subTab, activeMessages.length, activeThreadId, showMobileThreadList]);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }, [chatInput]);
 
   const onPostAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -454,19 +461,20 @@ export default function MessagesTab({ appState }: any) {
                 </div>
               )}
               <form onSubmit={onSendChat} className="flex items-end gap-2 relative">
-                <textarea 
-                  value={chatInput} 
-                  onChange={e => setChatInput(e.target.value)} 
-                  onKeyDown={(e) => { 
-                    if (e.key === 'Enter' && !e.shiftKey) { 
-                      e.preventDefault(); 
-                      onSendChat(); 
-                    } 
-                  }} 
-                  placeholder="Type a message..." 
-                  rows={1} 
-                  className="flex-1 bg-slate-100 border border-slate-300 focus:bg-white focus:border-blue-400 rounded-3xl px-4 py-3 text-sm font-medium text-slate-900 outline-none transition-colors resize-none overflow-y-auto shadow-inner" 
-                  style={{ minHeight: '44px', maxHeight: '120px' }} 
+                <textarea
+                  ref={textareaRef}
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      onSendChat();
+                    }
+                  }}
+                  placeholder="Type a message..."
+                  rows={1}
+                  className="flex-1 bg-slate-100 border border-slate-300 focus:bg-white focus:border-blue-400 rounded-3xl px-4 py-3 text-sm font-medium text-slate-900 outline-none transition-colors resize-none overflow-hidden shadow-inner"
+                  style={{ minHeight: '44px', maxHeight: '120px' }}
                 />
                 <button type="submit" disabled={!chatInput.trim() || isSubmitting} className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white h-11 w-11 rounded-full flex items-center justify-center shadow-md flex-shrink-0 transition-colors">
                   <Send size={18} className="ml-1" />
