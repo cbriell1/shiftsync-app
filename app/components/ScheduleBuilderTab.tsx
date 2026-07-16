@@ -702,16 +702,16 @@ export default function ScheduleBuilderTab() {
                     <div className="grid grid-cols-7 bg-slate-300 gap-px border-b border-slate-300">
                         {dateColumns.map((dateObj, idx) => {
                             const isLive = builderMode === 'live';
-                            const dayItems = isLive 
+                            const dayItems = isLive
                                 ? shifts.filter(s => {
                                     const matchesLoc = calLocFilter.length === 0 || calLocFilter.includes(s.locationId);
                                     const matchesEmp = calEmpFilter.length === 0 || (s.userId && calEmpFilter.includes(s.userId)) || (!s.userId && calEmpFilter.includes(-1));
-                                    return matchesLoc && matchesEmp && new Date(s.startTime).toDateString() === dateObj.toDateString();
+                                    return matchesLoc && matchesEmp && s.location?.isActive !== false && new Date(s.startTime).toDateString() === dateObj.toDateString();
                                   })
                                 : templates.filter(t => {
                                     const matchesLoc = calLocFilter.length === 0 || calLocFilter.includes(t.locationId);
                                     const matchesEmp = calEmpFilter.length === 0 || (t.userId && calEmpFilter.includes(t.userId)) || (!t.userId && calEmpFilter.includes(-1));
-                                    return matchesLoc && matchesEmp && t.dayOfWeek === dateObj.getDay();
+                                    return matchesLoc && matchesEmp && t.location?.isActive !== false && t.dayOfWeek === dateObj.getDay();
                                   });
                             
                             const sortedItems = dayItems.sort((a,b) => {
@@ -839,16 +839,16 @@ export default function ScheduleBuilderTab() {
                                     <div className="absolute inset-0 pointer-events-none">
                                         {(() => {
                                             const isLive = builderMode === 'live';
-                                            const items = isLive 
+                                            const items = isLive
                                                 ? shifts.filter(s => {
                                                     const matchesLoc = calLocFilter.length === 0 || calLocFilter.includes(s.locationId);
                                                     const matchesEmp = calEmpFilter.length === 0 || (s.userId && calEmpFilter.includes(s.userId)) || (!s.userId && calEmpFilter.includes(-1));
-                                                    return matchesLoc && matchesEmp && new Date(s.startTime).toDateString() === day.toDateString();
+                                                    return matchesLoc && matchesEmp && s.location?.isActive !== false && new Date(s.startTime).toDateString() === day.toDateString();
                                                   })
                                                 : (templates as ShiftTemplate[]).filter(t => {
                                                     const matchesLoc = calLocFilter.length === 0 || calLocFilter.includes(t.locationId);
                                                     const matchesEmp = calEmpFilter.length === 0 || (t.userId && calEmpFilter.includes(t.userId)) || (!t.userId && calEmpFilter.includes(-1));
-                                                    return matchesLoc && matchesEmp && t.dayOfWeek === day.getDay();
+                                                    return matchesLoc && matchesEmp && t.location?.isActive !== false && t.dayOfWeek === day.getDay();
                                                   });
                                             const lanes = getLanes(items);
                                             return lanes.map((lane, laneIdx) => {
