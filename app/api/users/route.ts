@@ -23,6 +23,7 @@ const userUpdateSchema = z.object({
   email: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
   receiveReportEmails: z.boolean().optional(),
+  receiveChatEmails: z.boolean().optional(),
 });
 
 const userMergeSchema = z.object({
@@ -108,6 +109,7 @@ export async function PUT(request: Request) {
         ...(data.email !== undefined && { email: data.email }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.receiveReportEmails !== undefined && { receiveReportEmails: data.receiveReportEmails }),
+        ...(data.receiveChatEmails !== undefined && { receiveChatEmails: data.receiveChatEmails }),
       }
     });
 

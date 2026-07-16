@@ -139,41 +139,50 @@ export default function StaffTab({ appState }: any) {
   const renderUserRow = (user: User) => {
     const isInactive = user.isActive === false;
     const isManagement = user.systemRoles?.includes('Administrator') || user.systemRoles?.includes('Manager');
-    
-    let lastLoginDisplay = 'Never';
-    if (user.lastLoginAt) {
-      const loginDate = new Date(user.lastLoginAt);
-      lastLoginDisplay = `${loginDate.toLocaleDateString()} @ ${loginDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    }
+    const isSelf = user.id.toString() === selectedUserId;
+
+    const handleToggleActive = async () => {
+      const newStatus = !isInactive;
+      const label = newStatus ? 'Reactivate' : 'Deactivate';
+      const message = newStatus
+        ? `Reactivate ${user.name}? They will regain access and reappear in scheduling.`
+        : `Deactivate ${user.name}? They will no longer appear in scheduling or be able to log in.`;
+      if (!(await customConfirm(message, label, !newStatus))) return;
+      await handleUpdateUser(user.id, { isActive: newStatus });
+      notify.success(newStatus ? "User reactivated" : "User deactivated");
+    };
 
     return (
-      <div key={user.id} className={`bg-white border border-slate-200 rounded-xl p-3 flex flex-col xl:flex-row gap-4 items-start xl:items-center shadow-sm hover:shadow transition-all group ${isInactive ? 'opacity-60 grayscale' : ''}`}>
+      <div key={user.id} className={`bg-white border border-slate-200 rounded-xl p-3 grid grid-cols-1 xl:grid-cols-[minmax(160px,1.2fr)_minmax(110px,0.8fr)_minmax(140px,1fr)_minmax(150px,1fr)_minmax(110px,0.8fr)_minmax(150px,1.4fr)_minmax(100px,auto)] gap-4 items-start xl:items-center shadow-sm hover:shadow transition-all group ${isInactive ? 'opacity-60 grayscale' : ''}`}>
         {/* Name & Identity */}
-        <div className="flex w-full xl:w-[20%] items-center gap-3 shrink-0">
+        <div className="flex w-full items-center gap-3 min-w-0">
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-black text-lg shadow-inner shrink-0 ${isInactive ? 'bg-slate-400' : 'bg-slate-900'}`}>{user.name.charAt(0)}</div>
           <div className="min-w-0">
-            <h3 className="text-sm font-black truncate text-slate-900">{user.name}</h3>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="text-sm font-black truncate text-slate-900">{user.name}</h3>
+              {isInactive && <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-300 shrink-0">Inactive</span>}
+            </div>
             <span className="text-[9px] font-bold text-slate-400 block">ID:{user.id}</span>
           </div>
         </div>
 
         {/* Login Status - Better alignment */}
-        <div className="w-full xl:w-[15%] flex flex-col gap-1 shrink-0">
+        <div className="w-full flex flex-col gap-1 min-w-0">
           <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border shadow-sm ${user.lastLoginAt ? 'bg-green-50 border-green-200 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${user.lastLoginAt ? 'bg-green-500' : 'bg-slate-400'}`}></span> 
+            <span className={`w-1.5 h-1.5 rounded-full ${user.lastLoginAt ? 'bg-green-500' : 'bg-slate-400'}`}></span>
             <span className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">Last: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Never'}</span>
           </div>
           {user.lastLoginAt && <span className="text-[8px] font-bold text-slate-400 ml-3">{new Date(user.lastLoginAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
         </div>
 
         {/* Contact */}
-        <div className="w-full xl:w-[18%] flex flex-col gap-1.5 shrink-0">
+        <div className="w-full flex flex-col gap-1.5 min-w-0">
           <span className="xl:hidden text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Email Address</span>
           <input type="email" defaultValue={user.email || ''} onBlur={(e) => handleUpdateUser(user.id, { email: e.target.value })} className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-[10px] font-black text-slate-950 focus:bg-white focus:border-blue-500 outline-none transition-all" placeholder="Email Address" />
         </div>
 
         {/* Roles */}
-        <div className="w-full xl:w-[18%] flex flex-col gap-1.5 shrink-0">
+        <div className="w-full flex flex-col gap-1.5 min-w-0">
           <span className="xl:hidden text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">System Roles</span>
           <div className="flex flex-wrap gap-1">
             {AVAILABLE_ROLES.map(role => (
@@ -183,7 +192,7 @@ export default function StaffTab({ appState }: any) {
         </div>
 
         {/* Settings Toggles */}
-        <div className="w-full xl:w-[15%] flex flex-col gap-1.5 shrink-0">
+        <div className="w-full flex flex-col gap-1.5 min-w-0">
           {isManagement && (
             <>
               <span className="xl:hidden text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Notification Settings</span>
@@ -198,7 +207,7 @@ export default function StaffTab({ appState }: any) {
         </div>
 
         {/* Locations */}
-        <div className="w-full xl:flex-1 flex flex-col gap-1.5 min-w-[150px]">
+        <div className="w-full flex flex-col gap-1.5 min-w-0">
           <span className="xl:hidden text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Allowed Facilities</span>
           <div className="flex flex-wrap gap-1">
             {locations.map(loc => (
@@ -207,10 +216,14 @@ export default function StaffTab({ appState }: any) {
           </div>
         </div>
 
-        {/* Final Actions - No longer absolute */}
-        <div className="w-full xl:w-[8%] flex justify-end">
-          <button onClick={async () => { const newS = !user.isActive; await handleUpdateUser(user.id, { isActive: newS }); notify.success(newS ? "Restored" : "Archived"); }} className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-lg shadow-sm border transition-all ${isInactive ? 'bg-green-100 text-green-800 border-green-300' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-600 hover:text-white'}`}>
-             {isInactive ? 'Restore' : 'Archive'}
+        {/* Final Actions */}
+        <div className="w-full flex xl:justify-end">
+          <button
+            onClick={handleToggleActive}
+            disabled={isSelf && !isInactive}
+            title={isSelf && !isInactive ? "You cannot deactivate your own account" : undefined}
+            className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-lg shadow-sm border transition-all whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${isInactive ? 'bg-green-100 text-green-800 border-green-300 hover:bg-green-600 hover:text-white' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-600 hover:text-white'}`}>
+             {isInactive ? 'Reactivate' : 'Deactivate'}
           </button>
         </div>
       </div>
