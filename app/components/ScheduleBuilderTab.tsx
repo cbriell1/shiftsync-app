@@ -40,9 +40,14 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart }: any) {
   const { shifts, templates, users, locations, globalTasks, builderMode, editingShiftId, createShift, updateShift, deleteShift, saveTemplates, deleteTemplate } = useAppStore();
   const isBlueprint = builderMode === 'blueprint';
   const editingItem = isBlueprint ? templates.find(t => t.id === editingShiftId) : shifts.find(s => s.id === editingShiftId);
-  
+
+  const activeLocations = locations.filter(l => l.isActive !== false);
+  const pickerLocations = editingItem && !activeLocations.some(l => l.id === editingItem.locationId)
+    ? [...activeLocations, ...locations.filter(l => l.id === editingItem.locationId)]
+    : activeLocations;
+
   const [form, setForm] = useState({
-    locationId: editingItem?.locationId || locations[0]?.id || 0,
+    locationId: editingItem?.locationId || pickerLocations[0]?.id || 0,
     userId: editingItem?.userId || '',
     date: (!isBlueprint && editingItem?.startTime) ? new Date(editingItem.startTime).toISOString().split('T')[0] : (defaultDate || new Date().toISOString().split('T')[0]),
     startTime: editingItem?.startTime ? (isBlueprint ? editingItem.startTime : new Date(editingItem.startTime).toTimeString().slice(0,5)) : (defaultStart || '08:00'),
@@ -98,9 +103,9 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart }: any) {
         <div className="space-y-2">
             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Facility Location</label>
             <div className="grid grid-cols-2 gap-2">
-                {locations.map(l => (
+                {pickerLocations.map(l => (
                     <button key={l.id} onClick={() => setForm({...form, locationId: l.id})} className={`p-4 rounded-2xl border-2 font-black text-xs uppercase transition-all text-center ${form.locationId === l.id ? 'bg-slate-900 border-slate-900 text-brand-yellow shadow-xl scale-[1.02]' : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'}`}>
-                        {l.name.replace(/pnp\s+/i, '')}
+                        {l.name.replace(/pnp\s+/i, '')}{l.isActive === false && <span className="block text-[8px] font-bold normal-case text-red-400 mt-0.5">(Archived)</span>}
                     </button>
                 ))}
             </div>
@@ -176,6 +181,8 @@ export default function ScheduleBuilderTab() {
 
   const activeUser = users.find(u => u.id.toString() === selectedUserId);
   const isManager = activeUser?.systemRoles?.includes('Manager') || activeUser?.systemRoles?.includes('Administrator');
+
+  const activeLocations = useMemo(() => locations.filter(l => l.isActive !== false), [locations]);
 
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('week');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -449,7 +456,7 @@ export default function ScheduleBuilderTab() {
                         <input type="checkbox" checked={calLocFilter.length === 0} onChange={() => setCalLocFilter([])} className="w-3.5 h-3.5" />
                         <span className="font-black text-xs text-slate-900">All Active</span>
                     </label>
-                    {locations.map(l => (
+                    {activeLocations.map(l => (
                         <label key={l.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
                         <input type="checkbox" checked={calLocFilter.includes(l.id)} onChange={() => toggleLocFilter(l.id)} className="w-3.5 h-3.5" />
                         <span className="font-bold text-xs text-slate-700">{l.name}</span>
@@ -594,7 +601,7 @@ export default function ScheduleBuilderTab() {
                   <div className="space-y-4">
                       <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">1. Choose Facilities</span>
                       <div className="flex flex-wrap gap-2">
-                        {locations.map(loc => {
+                        {activeLocations.map(loc => {
                             const initMap: any = { 'PnP Wake Forest': 'WF', 'PnP Garner': 'GN', 'Pnp Chapel Hill': 'CH', 'PnP Brier Creek': 'BC' };
                             const init = initMap[loc.name] || loc.name.substring(0,2).toUpperCase();
                             return (
