@@ -257,7 +257,7 @@ export default function StaffTab({ appState }: any) {
         {staffView === 'DIRECTORY' && (
           <div className="flex gap-2">
             {isAdmin && <button onClick={() => setMergeModalOpen(true)} className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-xl font-black text-sm shadow-md transition-all">🔗 Merge Duplicates</button>}
-            {isAdmin && <button onClick={() => setIsAddModalOpen(true)} className="bg-slate-900 hover:bg-black text-white px-5 py-2.5 rounded-xl font-black text-sm shadow-md transition-all">➕ Add Staff</button>}
+            {isManager && <button onClick={() => setIsAddModalOpen(true)} className="bg-slate-900 hover:bg-black text-white px-5 py-2.5 rounded-xl font-black text-sm shadow-md transition-all">➕ Add Staff</button>}
           </div>
         )}
       </div>
@@ -351,7 +351,7 @@ export default function StaffTab({ appState }: any) {
       )}
 
       {/* ADD MODAL */}
-      {isAddModalOpen && isAdmin && (
+      {isAddModalOpen && isManager && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in duration-200 border border-slate-300">
             <div className="p-5 border-b bg-slate-50 flex justify-between items-center"><h3 className="font-black text-xl text-slate-900">Add New Staff</h3><button onClick={() => setIsAddModalOpen(false)} className="text-2xl font-black text-slate-400 hover:text-red-500 transition-colors">&times;</button></div>
