@@ -314,11 +314,11 @@ export default function ScheduleBuilderTab() {
   };
 
   return (
-    <div className="flex flex-col h-full space-y-3 w-full max-w-full overflow-hidden min-w-0">
-      
+    <div className="@container flex flex-col h-full space-y-3 w-full max-w-full overflow-hidden min-w-0">
+
       {/* HEADER: COMPACT & PROFESSIONAL GROUPING */}
-      <div className="flex flex-col xl:flex-row justify-between items-center bg-slate-100 p-2.5 rounded-xl border border-gray-300 gap-3 shadow-inner text-sm w-full max-w-full min-w-0">
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto min-w-0">
+      <div className="flex flex-col @[1100px]:flex-row @[1100px]:justify-between flex-wrap items-center bg-slate-100 p-2.5 rounded-xl border border-gray-300 gap-3 shadow-inner text-sm w-full max-w-full">
+        <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full @[1100px]:w-auto shrink-0">
           <div className="flex flex-col gap-1.5">
             <div className="flex bg-slate-200 p-1 rounded-lg border border-slate-300 shadow-sm w-full sm:w-auto">
                 <button 
@@ -363,9 +363,9 @@ export default function ScheduleBuilderTab() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-2 w-full xl:w-auto min-w-0">
+        <div className="flex flex-wrap items-center justify-center gap-2 w-full @[1100px]:w-auto shrink-0">
           {isManager && (
-              <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto bg-slate-200/50 p-1 rounded-xl border border-slate-300 min-w-0">
+              <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto bg-slate-200/50 p-1 rounded-xl border border-slate-300">
                {builderMode === 'live' ? (
                  <>
                     <button
