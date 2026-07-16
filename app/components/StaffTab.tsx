@@ -142,7 +142,7 @@ export default function StaffTab({ appState }: any) {
     const isSelf = user.id.toString() === selectedUserId;
 
     const handleToggleActive = async () => {
-      const newStatus = !isInactive;
+      const newStatus = isInactive;
       const label = newStatus ? 'Reactivate' : 'Deactivate';
       const message = newStatus
         ? `Reactivate ${user.name}? They will regain access and reappear in scheduling.`
