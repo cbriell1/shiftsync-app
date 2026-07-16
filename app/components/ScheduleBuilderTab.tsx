@@ -89,7 +89,7 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart }: any) {
       <div className="bg-slate-900 p-6 flex items-center justify-between text-white">
         <div className="flex items-center gap-3">
             <div className="bg-brand-yellow p-2 rounded-xl text-slate-900 shadow-lg"><Activity size={20}/></div>
-            <h2 className="text-lg font-black uppercase tracking-tighter sports-slant italic">{editingShiftId ? (isBlueprint ? 'Edit Pattern' : 'Edit Shift') : 'Build New Shift'}</h2>
+            <h2 className="text-lg font-black uppercase tracking-tighter sports-slant italic">{editingShiftId ? (isBlueprint ? 'Edit Template' : 'Edit Shift') : (isBlueprint ? 'Build New Template' : 'Build New Shift')}</h2>
         </div>
         <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24}/></button>
       </div>
@@ -153,15 +153,15 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart }: any) {
         )}
 
         {editingShiftId && (
-            <button onClick={async () => { if(await customConfirm(`Delete this ${isBlueprint ? 'pattern' : 'shift'}?`)) { if(isBlueprint) deleteTemplate(editingShiftId); else deleteShift(editingShiftId); onClose(); } }} className="w-full py-4 rounded-[20px] font-black text-[10px] uppercase tracking-[0.2em] text-red-500 bg-red-50 hover:bg-red-100 transition-all flex items-center justify-center gap-2">
-                <Trash2 size={16}/> Delete {isBlueprint ? 'Master Pattern' : 'Shift Record'}
+            <button onClick={async () => { if(await customConfirm(`Delete this ${isBlueprint ? 'template' : 'shift'}?`)) { if(isBlueprint) deleteTemplate(editingShiftId); else deleteShift(editingShiftId); onClose(); } }} className="w-full py-4 rounded-[20px] font-black text-[10px] uppercase tracking-[0.2em] text-red-500 bg-red-50 hover:bg-red-100 transition-all flex items-center justify-center gap-2">
+                <Trash2 size={16}/> Delete {isBlueprint ? 'Template' : 'Shift Record'}
             </button>
         )}
       </div>
 
       <div className="p-8 bg-slate-50 border-t-2 border-slate-100">
         <button onClick={handleSave} className="w-full bg-slate-900 text-brand-yellow font-black py-5 rounded-[24px] shadow-2xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-[0.3em] text-xs flex items-center justify-center gap-3">
-            <CheckCircle2 size={20}/> {editingShiftId ? 'Update' : 'Launch'} {isBlueprint ? 'Pattern' : 'Shift'}
+            <CheckCircle2 size={20}/> {editingShiftId ? 'Update' : 'Launch'} {isBlueprint ? 'Template' : 'Shift'}
         </button>
       </div>
     </div>
@@ -188,7 +188,7 @@ export default function ScheduleBuilderTab() {
   const [showBulkMenu, setShowBulkMenu] = useState(false);
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
 
-  // Blueprint Creation State
+  // Template Creation State
   const [showChecklist, setShowChecklist] = useState(true);
   const [creatorForm, setCreatorForm] = useState({
     locationIds: [] as string[],
@@ -212,7 +212,7 @@ export default function ScheduleBuilderTab() {
         return Array.from({ length: 7 }, (_, i) => { const day = new Date(startOfWeek); day.setDate(day.getDate() + i); return day; });
     }
     
-    // Month View (Live or Master)
+    // Month View (Schedule or Templates)
     const firstOfMonth = new Date(y, m - 1, 1);
     const startOfGrid = new Date(firstOfMonth);
     startOfGrid.setDate(startOfGrid.getDate() - startOfGrid.getDay()); 
@@ -241,7 +241,7 @@ export default function ScheduleBuilderTab() {
 
   let dateLabel = 'LOADING...';
   if (dateColumns.length > 0) {
-      if (builderMode === 'blueprint') dateLabel = "Master Blueprint Grid";
+      if (builderMode === 'blueprint') dateLabel = "Weekly Templates Grid";
       else if (activeView === 'month' && dateColumns.length >= 42) dateLabel = dateColumns[15].toLocaleDateString([], { month: 'long', year: 'numeric' });
       else if (activeView === 'day') dateLabel = dateColumns[0].toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
       else dateLabel = `${dateColumns[0].toLocaleDateString([], {month:'short', day:'numeric'})} - ${dateColumns[6].toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'})}`;
@@ -336,7 +336,7 @@ export default function ScheduleBuilderTab() {
     const offset = new Date().getTimezoneOffset();
     await generateSchedule(genStart, genEnd, calLocFilter, offset);
     setShowGenerateDialog(false);
-    notify.success("Templates generated to the Live grid!");
+    notify.success("Templates generated to the Schedule!");
   };
 
   const handleCreateBlueprint = async () => {
@@ -348,7 +348,7 @@ export default function ScheduleBuilderTab() {
         userId: creatorForm.userId ? Number(creatorForm.userId) : null
     });
     setCreatorForm({ locationIds:[], daysOfWeek:[], startTime: '08:00', endTime: '16:00', userId: '', checklistTasks: [] });
-    notify.success("Blueprint Created!");
+    notify.success("Template Created!");
   };
 
   const toggleCreatorLoc = (id: string) => setCreatorForm({...creatorForm, locationIds: creatorForm.locationIds.includes(id) ? creatorForm.locationIds.filter(x => x !== id) : [...creatorForm.locationIds, id]});
@@ -392,16 +392,21 @@ export default function ScheduleBuilderTab() {
                     onClick={() => setBuilderMode('live')} 
                     className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${builderMode === 'live' ? 'bg-brand-green text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}
                 >
-                    Live
+                    Schedule
                 </button>
-                <button 
+                <button
                     data-testid="master-mode-btn"
-                    onClick={() => setBuilderMode('blueprint')} 
+                    onClick={() => setBuilderMode('blueprint')}
                     className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-md transition-all ${builderMode === 'blueprint' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}
                 >
-                    Master
+                    Templates
                 </button>
             </div>
+            {builderMode === 'blueprint' && (
+                <p className="text-[9px] font-bold text-slate-500 text-center leading-tight px-1">
+                    Templates repeat weekly. Deploy them to publish real shifts to the Schedule.
+                </p>
+            )}
             <div className="flex bg-slate-200 p-1 rounded-lg border border-slate-300 shadow-sm w-full sm:w-auto">
                 {['month', 'week', 'day'].map(mode => (
                 <button 
@@ -563,26 +568,26 @@ export default function ScheduleBuilderTab() {
                          rangeStr = `${ws.toLocaleDateString()} - ${we.toLocaleDateString()}`;
                       }
 
-                      const msg = `Deploy all Master Patterns for ${label} (${rangeStr}) to the Live Grid? Existing identical shifts will be skipped.`;
-                      if (await customConfirm(msg, "Deploy Patterns to Live", true)) {
+                      const msg = `Deploy all Templates for ${label} (${rangeStr}) to the Schedule? Existing identical shifts will be skipped.`;
+                      if (await customConfirm(msg, "Deploy Templates to Schedule", true)) {
                         await generateSchedule(start, end, calLocFilter, offset);
                         setBuilderMode('live');
                       }
                    }}
                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-yellow text-slate-900 hover:bg-yellow-500 transition-all animate-pulse"
                  >
-                   <Zap size={12} /> Deploy {activeView === 'month' ? 'Month' : 'Week'} Patterns
+                   <Zap size={12} /> Deploy {activeView === 'month' ? 'Month' : 'Week'} Templates
                  </button>
                )}
-               <button onClick={() => handleOpenBuilder()} className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-green text-white hover:bg-green-700 transition-all"><Plus size={12} /> Add {builderMode === 'live' ? 'Shift' : 'Pattern'}</button>
+               <button onClick={() => handleOpenBuilder()} className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-green text-white hover:bg-green-700 transition-all"><Plus size={12} /> Add {builderMode === 'live' ? 'Shift' : 'Template'}</button>
              </div>
          )}
         </div>
       </div>
 
-      {/* ... blueprint builder tray ... */}
+      {/* ... template builder tray ... */}
 
-      {/* BLUEPRINT BUILDER TRAY */}
+      {/* TEMPLATE BUILDER TRAY */}
       {builderMode === 'blueprint' && isManager && (
           <div className="bg-slate-900 text-white p-6 rounded-[28px] border-4 border-slate-900 shadow-2xl space-y-6 animate-in slide-in-from-top-4">
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
@@ -599,7 +604,7 @@ export default function ScheduleBuilderTab() {
                       </div>
                   </div>
                   <div className="space-y-4">
-                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">2. Pattern Days</span>
+                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">2. Template Days</span>
                       <div className="flex flex-wrap gap-1.5">
                         {['S','M','T','W','T','F','S'].map((day, idx) => (
                             <button key={idx} onClick={() => toggleCreatorDay(idx.toString())} className={`w-9 h-9 rounded-xl text-[11px] font-black border-2 transition-all ${creatorForm.daysOfWeek.includes(idx.toString()) ? 'bg-brand-yellow border-brand-yellow text-slate-900 shadow-lg scale-105' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>{day}</button>
@@ -621,23 +626,23 @@ export default function ScheduleBuilderTab() {
                       </div>
                   </div>
                   <div className="flex flex-col gap-4">
-                        <button onClick={handleCreateBlueprint} className="bg-brand-yellow text-slate-900 font-black px-6 py-4 rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-2 border-b-4 border-slate-900"><CheckCircle2 size={16} /> Save Pattern</button>
+                        <button onClick={handleCreateBlueprint} className="bg-brand-yellow text-slate-900 font-black px-6 py-4 rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-2 border-b-4 border-slate-900"><CheckCircle2 size={16} /> Save Template</button>
                         <div className="bg-brand-yellow/10 border-2 border-brand-yellow/30 p-3 rounded-2xl flex items-center gap-2">
                             <div className="flex-1">
-                                <span className="text-[7px] font-black text-brand-yellow uppercase tracking-widest block mb-1">Live Deploy Range</span>
+                                <span className="text-[7px] font-black text-brand-yellow uppercase tracking-widest block mb-1">Deploy Range</span>
                                 <div className="flex items-center gap-2">
                                     <input type="date" value={genStart} onChange={e => setGenStart(e.target.value)} className="bg-transparent font-black text-[10px] text-brand-yellow outline-none w-max" />
                                     <span className="text-brand-yellow/40">-</span>
                                     <input type="date" value={genEnd} onChange={e => setGenEnd(e.target.value)} className="bg-transparent font-black text-[10px] text-brand-yellow outline-none w-max" />
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => {
                                     if (!genStart || !genEnd) { notify.error("Select range!"); return; }
                                     const offset = new Date().getTimezoneOffset();
                                     generateSchedule(genStart, genEnd, calLocFilter, offset);
-                                }} 
-                                title="Deploy to Live Grid" 
+                                }}
+                                title="Deploy to Schedule"
                                 className="bg-brand-yellow text-slate-900 p-2 rounded-lg hover:bg-white transition-all shadow-md"
                             >
                                 <Zap size={14}/>
@@ -650,7 +655,7 @@ export default function ScheduleBuilderTab() {
                   <div className="flex items-center justify-between mb-3">
                     <button onClick={() => setShowChecklist(!showChecklist)} className="flex items-center gap-3 group">
                         <ListChecks size={18} className="text-brand-yellow" />
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">Master Facility Checklist ({creatorForm.checklistTasks.length} selected)</span>
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">Template Facility Checklist ({creatorForm.checklistTasks.length} selected)</span>
                         <ChevronDown size={16} className={`text-slate-600 group-hover:text-white transition-all ${showChecklist ? 'rotate-180' : ''}`} />
                     </button>
                     {showChecklist && (
@@ -720,7 +725,7 @@ export default function ScheduleBuilderTab() {
                                             <span className={`text-[12px] font-black opacity-40 ${isToday ? 'text-yellow-600 opacity-100' : ''}`}>{dateObj.getDate()}</span>
                                         )}
                                         {builderMode === 'blueprint' && (
-                                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">PATTERN</span>
+                                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-tighter">TEMPLATE</span>
                                         )}
                                     </div>
                                     <div className="space-y-2 overflow-y-auto flex-1 custom-scrollbar pr-1">
@@ -741,7 +746,7 @@ export default function ScheduleBuilderTab() {
                                                     <button 
                                                         onClick={async (e) => { 
                                                             e.stopPropagation(); 
-                                                            if (await customConfirm(`Delete this ${isLive ? 'shift' : 'pattern'}?`, "Delete Item", true)) { 
+                                                            if (await customConfirm(`Delete this ${isLive ? 'shift' : 'template'}?`, "Delete Item", true)) {
                                                                 if(isLive) deleteShift(item.id); else deleteTemplate(item.id); 
                                                             } 
                                                         }} 
@@ -770,7 +775,7 @@ export default function ScheduleBuilderTab() {
                                                         onClick={(e) => e.stopPropagation()}
                                                         className={`w-full font-black text-center truncate px-1 py-2 rounded-xl shadow-sm border-2 outline-none cursor-pointer text-[10px] transition-all ${item.userId === null ? 'bg-green-100 text-green-900 border-green-300 hover:bg-green-200' : 'bg-purple-100 text-purple-900 border-purple-200 hover:bg-purple-200'}`}
                                                     >
-                                                        <option value="">{isLive ? '-- Open Shift --' : '-- Open Pattern --'}</option>
+                                                        <option value="">{isLive ? '-- Open Shift --' : '-- Open Template --'}</option>
                                                         {users.filter(u=>u.isActive!==false).sort((a,b)=>a.name.localeCompare(b.name)).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                                                     </select>
 
@@ -891,7 +896,7 @@ export default function ScheduleBuilderTab() {
                                                                     onClick={(e) => e.stopPropagation()}
                                                                     className={`w-full font-bold text-center truncate px-0.5 py-1 rounded shadow-sm border outline-none cursor-pointer text-[9px] transition-colors ${item.userId === null ? 'bg-green-100 text-green-900 border-green-300 hover:bg-green-200' : 'bg-purple-100 text-purple-900 border-purple-200 hover:bg-purple-200'}`}
                                                                 >
-                                                                    <option value="">{isLive ? '-- Open Shift --' : '-- Open Pattern --'}</option>
+                                                                    <option value="">{isLive ? '-- Open Shift --' : '-- Open Template --'}</option>
                                                                     {users.filter(u=>u.isActive!==false).sort((a,b)=>a.name.localeCompare(b.name)).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                                                                 </select>
 
@@ -926,7 +931,7 @@ export default function ScheduleBuilderTab() {
             </div>
             <div className="p-6 space-y-5">
               <p className="text-xs font-bold text-slate-500 leading-relaxed">
-                Deploys Master Patterns onto the Live grid for the selected date range. Existing identical shifts are skipped.
+                Deploys Templates onto the Schedule for the selected date range. Existing identical shifts are skipped.
               </p>
               <div className="flex items-center gap-3">
                 <div className="flex-1 space-y-1">
@@ -942,7 +947,7 @@ export default function ScheduleBuilderTab() {
                 Facilities: {calLocFilter.length > 0 ? locations.filter(l => calLocFilter.includes(l.id)).map(l => l.name.replace('PnP ', '')).join(', ') : 'All Active'}
               </div>
               <button onClick={handleConfirmGenerate} className="w-full bg-slate-900 text-brand-yellow font-black py-4 rounded-2xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-2">
-                <Zap size={16} /> Generate to Live Grid
+                <Zap size={16} /> Generate to Schedule
               </button>
             </div>
           </div>
