@@ -712,10 +712,10 @@ export default function ScheduleBuilderTab() {
                   <div className="space-y-4">
                       <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">3. Time & Staff</span>
                       <div className="space-y-2">
-                          <div className="flex items-center gap-2 bg-slate-800 border-2 border-slate-700 rounded-xl p-1.5">
-                            <input type="time" value={creatorForm.startTime} onChange={e => setCreatorForm({...creatorForm, startTime: e.target.value})} className="bg-transparent p-1 font-black text-xs text-blue-400 outline-none" />
-                            <span className="text-slate-600">-</span>
-                            <input type="time" value={creatorForm.endTime} onChange={e => setCreatorForm({...creatorForm, endTime: e.target.value})} className="bg-transparent p-1 font-black text-xs text-blue-400 outline-none" />
+                          <div className="flex items-center gap-1 bg-slate-800 border-2 border-slate-700 rounded-xl p-1.5">
+                            <input type="time" value={creatorForm.startTime} onChange={e => setCreatorForm({...creatorForm, startTime: e.target.value})} className="flex-1 min-w-0 w-full bg-transparent p-1 font-black text-xs text-blue-400 outline-none" />
+                            <span className="text-slate-600 shrink-0">-</span>
+                            <input type="time" value={creatorForm.endTime} onChange={e => setCreatorForm({...creatorForm, endTime: e.target.value})} className="flex-1 min-w-0 w-full bg-transparent p-1 font-black text-xs text-blue-400 outline-none" />
                           </div>
                           <select value={creatorForm.userId} onChange={e => setCreatorForm({...creatorForm, userId: e.target.value})} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl p-2.5 font-black text-[10px] uppercase text-white outline-none focus:border-blue-500">
                             <option value="">-- Vacant Slot --</option>
@@ -726,12 +726,12 @@ export default function ScheduleBuilderTab() {
                   <div className="flex flex-col gap-4">
                         <button onClick={handleCreateBlueprint} className="bg-brand-yellow text-slate-900 font-black px-6 py-4 rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-2 border-b-4 border-slate-900"><CheckCircle2 size={16} /> Save Template</button>
                         <div className="bg-brand-yellow/10 border-2 border-brand-yellow/30 p-3 rounded-2xl flex items-center gap-2">
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                                 <span className="text-[7px] font-black text-brand-yellow uppercase tracking-widest block mb-1">Deploy Range</span>
-                                <div className="flex items-center gap-2">
-                                    <input type="date" value={genStart} onChange={e => setGenStart(e.target.value)} className="bg-transparent font-black text-[10px] text-brand-yellow outline-none w-max" />
-                                    <span className="text-brand-yellow/40">-</span>
-                                    <input type="date" value={genEnd} onChange={e => setGenEnd(e.target.value)} className="bg-transparent font-black text-[10px] text-brand-yellow outline-none w-max" />
+                                <div className="flex items-center gap-1">
+                                    <input type="date" value={genStart} onChange={e => setGenStart(e.target.value)} className="flex-1 min-w-0 w-full bg-transparent font-black text-[10px] text-brand-yellow outline-none" />
+                                    <span className="text-brand-yellow/40 shrink-0">-</span>
+                                    <input type="date" value={genEnd} onChange={e => setGenEnd(e.target.value)} className="flex-1 min-w-0 w-full bg-transparent font-black text-[10px] text-brand-yellow outline-none" />
                                 </div>
                             </div>
                             <button
