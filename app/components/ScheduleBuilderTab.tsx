@@ -36,7 +36,7 @@ const getDurationHours = (start: string, end: string) => {
 // ==================================================================
 // SLIDE-OUT BUILDER COMPONENT
 // ==================================================================
-function SlideOutBuilder({ onClose, defaultDate, defaultStart }: any) {
+function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId }: any) {
   const { shifts, templates, users, locations, globalTasks, builderMode, editingShiftId, createShift, updateShift, deleteShift, saveTemplates, deleteTemplate } = useAppStore();
   const isBlueprint = builderMode === 'blueprint';
   const editingItem = isBlueprint ? templates.find(t => t.id === editingShiftId) : shifts.find(s => s.id === editingShiftId);
@@ -47,7 +47,7 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart }: any) {
     : activeLocations;
 
   const [form, setForm] = useState({
-    locationId: editingItem?.locationId || pickerLocations[0]?.id || 0,
+    locationId: editingItem?.locationId || defaultLocationId || pickerLocations[0]?.id || 0,
     userId: editingItem?.userId || '',
     date: (!isBlueprint && editingItem?.startTime) ? new Date(editingItem.startTime).toISOString().split('T')[0] : (defaultDate || new Date().toISOString().split('T')[0]),
     startTime: editingItem?.startTime ? (isBlueprint ? editingItem.startTime : new Date(editingItem.startTime).toTimeString().slice(0,5)) : (defaultStart || '08:00'),
@@ -188,9 +188,8 @@ export default function ScheduleBuilderTab() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [genStart, setGenStart] = useState('');
   const [genEnd, setGenEnd] = useState('');
-  const [preFill, setPreFill] = useState({ date: '', start: '' });
+  const [preFill, setPreFill] = useState<{ date: string; start: string; locationId: number | null }>({ date: '', start: '', locationId: null });
 
-  const [showLocDropdown, setShowLocDropdown] = useState(false);
   const [showEmpDropdown, setShowEmpDropdown] = useState(false);
   const [showBulkMenu, setShowBulkMenu] = useState(false);
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
@@ -278,7 +277,7 @@ export default function ScheduleBuilderTab() {
 
   const handleOpenBuilder = (id: number | null = null, date: string = '', start: string = '') => {
     setEditingShiftId(id);
-    setPreFill({ date, start });
+    setPreFill({ date, start, locationId: calLocFilter.length === 1 ? calLocFilter[0] : null });
     setSidebarBuilderOpen(true);
   };
 
@@ -443,30 +442,6 @@ export default function ScheduleBuilderTab() {
 
         <div className="flex flex-wrap items-center justify-center gap-2 w-full @[1100px]:w-auto shrink-0">
           <div className="flex items-center gap-2">
-            <div className="relative">
-                <button onClick={() => setShowLocDropdown(!showLocDropdown)} className="bg-white border border-blue-400 rounded-lg px-2.5 py-2 font-bold text-slate-900 shadow-sm flex items-center gap-2 text-[10px]">
-                <span>Locs ({calLocFilter.length === 0 ? 'All' : calLocFilter.length})</span>
-                <ChevronDown size={12} />
-                </button>
-                {showLocDropdown && (
-                <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowLocDropdown(false)} />
-                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-300 rounded-lg shadow-xl z-50 p-2 max-h-60 overflow-y-auto flex flex-col gap-1">
-                    <label className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer border-b border-slate-200 mb-1 transition-colors">
-                        <input type="checkbox" checked={calLocFilter.length === 0} onChange={() => setCalLocFilter([])} className="w-3.5 h-3.5" />
-                        <span className="font-black text-xs text-slate-900">All Active</span>
-                    </label>
-                    {activeLocations.map(l => (
-                        <label key={l.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
-                        <input type="checkbox" checked={calLocFilter.includes(l.id)} onChange={() => toggleLocFilter(l.id)} className="w-3.5 h-3.5" />
-                        <span className="font-bold text-xs text-slate-700">{l.name}</span>
-                        </label>
-                    ))}
-                    </div>
-                </>
-                )}
-            </div>
-
             <div className="relative">
                 <button onClick={() => setShowEmpDropdown(!showEmpDropdown)} className="bg-white border border-blue-400 rounded-lg px-2.5 py-2 font-bold text-slate-900 shadow-sm flex items-center gap-2 text-[10px]">
                 <span>Staff ({calEmpFilter.length === 0 ? 'All' : calEmpFilter.length})</span>
@@ -686,6 +661,32 @@ export default function ScheduleBuilderTab() {
               </div>
           </div>
       )}
+
+      {/* LOCATION FILTER / LEGEND CHIPS */}
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        <button
+            onClick={() => setCalLocFilter([])}
+            className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border-2 transition-all ${calLocFilter.length === 0 ? 'bg-slate-900 border-slate-900 text-white shadow-md' : 'bg-white border-slate-300 text-slate-500 hover:border-slate-400'}`}
+        >
+            All Facilities
+        </button>
+        {activeLocations.map(loc => {
+            const color = getLocationColor(loc.id);
+            const dotClass = color.claim.split(' ')[0];
+            const isSelected = calLocFilter.includes(loc.id);
+            return (
+                <button
+                    key={loc.id}
+                    onClick={() => toggleLocFilter(loc.id)}
+                    title={`Filter to ${loc.name}`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border-2 transition-all ${isSelected ? `${dotClass} border-transparent text-white shadow-md` : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'}`}
+                >
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-white' : dotClass}`} />
+                    {loc.name.replace(/pnp\s+/i, '')}
+                </button>
+            );
+        })}
+      </div>
 
       {/* SCHEDULER GRID */}
       <div className={`flex-grow border-4 border-slate-900 rounded-[40px] shadow-2xl overflow-hidden flex flex-col bg-white min-w-0 w-full max-w-full`}>
@@ -926,7 +927,7 @@ export default function ScheduleBuilderTab() {
          </div>
       </div>
 
-      {sidebarBuilderOpen && <SlideOutBuilder onClose={() => setSidebarBuilderOpen(false)} defaultDate={preFill.date} defaultStart={preFill.start} />}
+      {sidebarBuilderOpen && <SlideOutBuilder onClose={() => setSidebarBuilderOpen(false)} defaultDate={preFill.date} defaultStart={preFill.start} defaultLocationId={preFill.locationId} />}
 
       {/* GENERATE FROM TEMPLATES DIALOG */}
       {showGenerateDialog && (
