@@ -33,6 +33,32 @@ const getDurationHours = (start: string, end: string) => {
     return (new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60);
 };
 
+// Finds another Live shift assigned to the same user, at a different location,
+// whose time range overlaps [startISO, endISO). Used for the scheduling conflict guard.
+const findShiftConflict = (allShifts: any[], userId: number, startISO: string, endISO: string, excludeId: number | null, locationId: number) => {
+  const start = new Date(startISO).getTime();
+  const end = new Date(endISO).getTime();
+  return allShifts.find(s =>
+    s.id !== excludeId &&
+    s.userId === userId &&
+    s.locationId !== locationId &&
+    new Date(s.startTime).getTime() < end &&
+    start < new Date(s.endTime).getTime()
+  ) || null;
+};
+
+// Given a YYYY-MM-DD date and a target day-of-week (0=Sun..6=Sat), returns the
+// date string for that day within the same Sun-Sat week. Used for "repeat on days".
+const getDateForDayInSameWeek = (baseDateStr: string, targetDow: number) => {
+  const [y, m, d] = baseDateStr.split('-').map(Number);
+  const base = new Date(y, m - 1, d);
+  const sunday = new Date(base);
+  sunday.setDate(sunday.getDate() - sunday.getDay());
+  const target = new Date(sunday);
+  target.setDate(target.getDate() + targetDow);
+  return target.toISOString().split('T')[0];
+};
+
 // ==================================================================
 // SLIDE-OUT BUILDER COMPONENT
 // ==================================================================
@@ -56,6 +82,16 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId
   });
 
   const [showChecklist, setShowChecklist] = useState(false);
+  const [repeatDays, setRepeatDays] = useState<string[]>([]);
+
+  const confirmConflict = async (userId: number, startISO: string, endISO: string, excludeId: number | null, dateLabel?: string) => {
+    const conflict = findShiftConflict(shifts, userId, startISO, endISO, excludeId, form.locationId);
+    if (!conflict) return true;
+    const conflictUser = users.find(u => u.id === userId);
+    const conflictLoc = locations.find(l => l.id === conflict.locationId);
+    const msg = `${conflictUser?.name || 'This person'} already has a shift at ${conflictLoc?.name?.replace(/pnp\s+/i, '') || 'another facility'} from ${new Date(conflict.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - ${new Date(conflict.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${dateLabel ? ` on ${dateLabel}` : ''} that overlaps this time. Assign anyway?`;
+    return customConfirm(msg, "Assign Anyway", true);
+  };
 
   const handleSave = async () => {
     if (isBlueprint && editingShiftId) {
@@ -68,16 +104,34 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId
             userId: form.userId ? Number(form.userId) : null,
             checklistTasks: form.checklistTasks
         });
+    } else if (isBlueprint && !editingShiftId) {
+        await saveTemplates({
+            locationIds: [form.locationId],
+            daysOfWeek: [new Date(`${form.date}T12:00:00`).getDay()],
+            startTime: form.startTime,
+            endTime: form.endTime,
+            userId: form.userId ? Number(form.userId) : null,
+            checklistTasks: form.checklistTasks
+        });
     } else if (!isBlueprint && editingShiftId) {
         const start = new Date(`${form.date}T${form.startTime}:00`);
         const end = new Date(`${form.date}T${form.endTime}:00`);
         if (end <= start) end.setDate(end.getDate() + 1);
+        if (form.userId && !(await confirmConflict(Number(form.userId), start.toISOString(), end.toISOString(), editingShiftId))) return;
         await updateShift(editingShiftId, start.toISOString(), end.toISOString(), form.userId ? Number(form.userId) : null, 'UPDATE');
     } else {
-        const start = new Date(`${form.date}T${form.startTime}:00`);
-        const end = new Date(`${form.date}T${form.endTime}:00`);
-        if (end <= start) end.setDate(end.getDate() + 1);
-        await createShift(form.locationId, form.userId ? Number(form.userId) : null, start.toISOString(), end.toISOString());
+        const baseDow = new Date(`${form.date}T12:00:00`).getDay();
+        const daysToCreate = repeatDays.length > 0
+            ? Array.from(new Set([baseDow.toString(), ...repeatDays]))
+            : [baseDow.toString()];
+        for (const dow of daysToCreate) {
+            const dateStr = getDateForDayInSameWeek(form.date, Number(dow));
+            const start = new Date(`${dateStr}T${form.startTime}:00`);
+            const end = new Date(`${dateStr}T${form.endTime}:00`);
+            if (end <= start) end.setDate(end.getDate() + 1);
+            if (form.userId && !(await confirmConflict(Number(form.userId), start.toISOString(), end.toISOString(), null, dateStr))) continue;
+            await createShift(form.locationId, form.userId ? Number(form.userId) : null, start.toISOString(), end.toISOString());
+        }
     }
     onClose();
   };
@@ -87,6 +141,10 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId
         ...prev,
         checklistTasks: prev.checklistTasks.includes(name) ? prev.checklistTasks.filter(t => t !== name) : [...prev.checklistTasks, name]
     }));
+  };
+
+  const toggleRepeatDay = (id: string) => {
+    setRepeatDays(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   return (
@@ -137,6 +195,31 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId
                 </div>
             </div>
         </div>
+
+        {!isBlueprint && !editingShiftId && (
+            <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Repeat On (Same Week)</label>
+                <div className="flex flex-wrap gap-1.5">
+                    {['S','M','T','W','T','F','S'].map((day, idx) => {
+                        const isBaseDay = new Date(`${form.date}T12:00:00`).getDay() === idx;
+                        const isSelected = repeatDays.includes(idx.toString());
+                        return (
+                            <button
+                                key={idx}
+                                type="button"
+                                disabled={isBaseDay}
+                                onClick={() => toggleRepeatDay(idx.toString())}
+                                title={isBaseDay ? 'Always included (selected date)' : undefined}
+                                className={`w-9 h-9 rounded-xl text-[11px] font-black border-2 transition-all ${isBaseDay ? 'bg-slate-900 border-slate-900 text-brand-yellow' : isSelected ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'}`}
+                            >
+                                {day}
+                            </button>
+                        );
+                    })}
+                </div>
+                <p className="text-[9px] font-bold text-slate-400 ml-1">Creates the same shift on each additional day checked.</p>
+            </div>
+        )}
 
         {isBlueprint && (
             <div className="space-y-4">
@@ -229,6 +312,25 @@ export default function ScheduleBuilderTab() {
     return cells;
   }, [builderWeekStart, viewMode]);
 
+  const weeklyWorkload = useMemo(() => {
+    if (builderMode !== 'live' || dateColumns.length === 0 || (viewMode !== 'week' && viewMode !== 'day')) return [];
+    const rangeStart = dateColumns[0];
+    const rangeEndExclusive = new Date(dateColumns[dateColumns.length - 1]);
+    rangeEndExclusive.setDate(rangeEndExclusive.getDate() + 1);
+    const totals = new Map<number, number>();
+    shifts.forEach(s => {
+      if (!s.userId || s.location?.isActive === false) return;
+      if (calLocFilter.length > 0 && !calLocFilter.includes(s.locationId)) return;
+      const start = new Date(s.startTime);
+      if (start < rangeStart || start >= rangeEndExclusive) return;
+      const hours = (new Date(s.endTime).getTime() - start.getTime()) / (1000 * 60 * 60);
+      totals.set(s.userId, (totals.get(s.userId) || 0) + hours);
+    });
+    return Array.from(totals.entries())
+      .map(([userId, hours]) => ({ userId, hours, name: users.find(u => u.id === userId)?.name || 'Unknown' }))
+      .sort((a, b) => b.hours - a.hours);
+  }, [shifts, builderMode, viewMode, dateColumns, calLocFilter, users]);
+
   const changeDate = (direction: number) => {
     const [year, month, day] = builderWeekStart.split('-').map(Number);
     const newDate = new Date(year, month - 1, day);
@@ -279,6 +381,20 @@ export default function ScheduleBuilderTab() {
     setEditingShiftId(id);
     setPreFill({ date, start, locationId: calLocFilter.length === 1 ? calLocFilter[0] : null });
     setSidebarBuilderOpen(true);
+  };
+
+  const handleInlineAssign = async (item: any, isLive: boolean, uid: number | null) => {
+    if (isLive && uid) {
+      const conflict = findShiftConflict(shifts, uid, item.startTime, item.endTime, item.id, item.locationId);
+      if (conflict) {
+        const conflictUser = users.find(u => u.id === uid);
+        const conflictLoc = locations.find(l => l.id === conflict.locationId);
+        const msg = `${conflictUser?.name || 'This person'} already has a shift at ${conflictLoc?.name?.replace(/pnp\s+/i, '') || 'another facility'} from ${new Date(conflict.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - ${new Date(conflict.endTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} that overlaps this time. Assign anyway?`;
+        if (!(await customConfirm(msg, "Assign Anyway", true))) return;
+      }
+    }
+    if (isLive) updateShift(item.id, item.startTime, item.endTime, uid);
+    else saveTemplates({ ...item, userId: uid });
   };
 
   const periodLabel = activeView === 'month' ? 'Month' : 'Week';
@@ -688,6 +804,26 @@ export default function ScheduleBuilderTab() {
         })}
       </div>
 
+      {/* STAFF WORKLOAD STRIP */}
+      {isManager && weeklyWorkload.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 px-1">
+          <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Hours In View:</span>
+          {weeklyWorkload.map(w => {
+            const isSelected = calEmpFilter.includes(w.userId);
+            return (
+              <button
+                  key={w.userId}
+                  onClick={() => toggleEmpFilter(w.userId)}
+                  title={`Filter to ${w.name}`}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border-2 transition-all ${isSelected ? 'bg-blue-600 border-blue-600 text-white shadow-sm' : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'}`}
+              >
+                  {w.name} <span className="font-black">{w.hours % 1 === 0 ? w.hours : w.hours.toFixed(1)}h</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* SCHEDULER GRID */}
       <div className={`flex-grow border-4 border-slate-900 rounded-[40px] shadow-2xl overflow-hidden flex flex-col bg-white min-w-0 w-full max-w-full`}>
          <div className="flex-1 overflow-auto relative scroll-smooth bg-slate-50 w-full">
@@ -773,12 +909,11 @@ export default function ScheduleBuilderTab() {
                                                 <div className={`text-[10px] font-black uppercase tracking-widest mb-1.5 truncate ${shiftColor.text} brightness-50`}>{item.location?.name?.replace(/pnp\s+/i, '') || locations.find(l=>l.id===item.locationId)?.name?.replace(/pnp\s+/i, '')}</div>
                                                 
                                                 <div className="mt-1 space-y-1.5">
-                                                    <select 
-                                                        value={item.userId || ""} 
+                                                    <select
+                                                        value={item.userId || ""}
                                                         onChange={(e) => {
                                                             const uid = e.target.value ? parseInt(e.target.value) : null;
-                                                            if(isLive) updateShift(item.id, item.startTime, item.endTime, uid);
-                                                            else saveTemplates({ ...item, userId: uid });
+                                                            handleInlineAssign(item, isLive, uid);
                                                         }}
                                                         onClick={(e) => e.stopPropagation()}
                                                         className={`w-full font-black text-center truncate px-1 py-2 rounded-xl shadow-sm border-2 outline-none cursor-pointer text-[10px] transition-all ${item.userId === null ? 'bg-green-100 text-green-900 border-green-300 hover:bg-green-200' : 'bg-purple-100 text-purple-900 border-purple-200 hover:bg-purple-200'}`}
@@ -894,12 +1029,11 @@ export default function ScheduleBuilderTab() {
                                                                 <span className="text-[7px] font-bold opacity-70">{isLive ? `${formatTimeSafe(item.startTime)} - ${formatTimeSafe(item.endTime)}` : `${formatTimeString12h(item.startTime)} - ${formatTimeString12h(item.endTime)}`}</span>
                                                             </div>
                                                             <div className="mt-1 space-y-1">
-                                                                <select 
-                                                                    value={item.userId || ""} 
+                                                                <select
+                                                                    value={item.userId || ""}
                                                                     onChange={(e) => {
                                                                         const uid = e.target.value ? parseInt(e.target.value) : null;
-                                                                        if(isLive) updateShift(item.id, item.startTime, item.endTime, uid);
-                                                                        else saveTemplates({ ...item, userId: uid });
+                                                                        handleInlineAssign(item, isLive, uid);
                                                                     }}
                                                                     onClick={(e) => e.stopPropagation()}
                                                                     className={`w-full font-bold text-center truncate px-0.5 py-1 rounded shadow-sm border outline-none cursor-pointer text-[9px] transition-colors ${item.userId === null ? 'bg-green-100 text-green-900 border-green-300 hover:bg-green-200' : 'bg-purple-100 text-purple-900 border-purple-200 hover:bg-purple-200'}`}
