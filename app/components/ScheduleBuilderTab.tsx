@@ -681,7 +681,7 @@ export default function ScheduleBuilderTab() {
                    <Zap size={12} /> Deploy {activeView === 'month' ? 'Month' : 'Week'} Templates
                  </button>
                )}
-               <button onClick={() => handleOpenBuilder()} className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-green text-white hover:bg-green-700 transition-all"><Plus size={12} /> Add {builderMode === 'live' ? 'Shift' : 'Template'}</button>
+               <button onClick={() => handleOpenBuilder()} title={builderMode === 'blueprint' ? 'Create a single template for one facility and day' : undefined} className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-green text-white hover:bg-green-700 transition-all"><Plus size={12} /> {builderMode === 'live' ? 'Add Shift' : 'Quick Add Template'}</button>
              </div>
          )}
         </div>
@@ -739,7 +739,14 @@ export default function ScheduleBuilderTab() {
                       </div>
                   </div>
                   <div className="flex flex-col gap-4">
-                        <button onClick={handleCreateBlueprint} className="bg-brand-yellow text-slate-900 font-black px-6 py-4 rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-2 border-b-4 border-slate-900"><CheckCircle2 size={16} /> Save Template</button>
+                        <button
+                            onClick={handleCreateBlueprint}
+                            disabled={creatorForm.locationIds.length === 0 || creatorForm.daysOfWeek.length === 0}
+                            title="Creates one template per facility x day combination selected above"
+                            className="bg-brand-yellow text-slate-900 font-black px-6 py-4 rounded-2xl shadow-xl hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 transition-all uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-2 border-b-4 border-slate-900"
+                        >
+                            <CheckCircle2 size={16} /> Create {creatorForm.locationIds.length * creatorForm.daysOfWeek.length || ''} Template{creatorForm.locationIds.length * creatorForm.daysOfWeek.length === 1 ? '' : 's'}
+                        </button>
                         <div className="bg-brand-yellow/10 border-2 border-brand-yellow/30 p-3 rounded-2xl flex items-center gap-2">
                             <div className="flex-1 min-w-0">
                                 <span className="text-[7px] font-black text-brand-yellow uppercase tracking-widest block mb-1">Deploy Range</span>

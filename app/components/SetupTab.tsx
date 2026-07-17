@@ -2,21 +2,20 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
-import { CalendarDays, Video, Users, MapPin, ListChecks, Zap } from 'lucide-react';
+import { CalendarDays, Video, MapPin, ListChecks, Zap } from 'lucide-react';
 import ScheduleBuilderTab from './ScheduleBuilderTab';
-import StaffTab from './StaffTab';
 import LocationsTab from './LocationsTab';
 import EventsTab from './EventsTab';
 import TasksTab from './TasksTab';
 
 export default function SetupTab({ appState }: any) {
-  const [activeSubTab, setActiveSubTab] = useState<'builder' | 'events' | 'staff' | 'locations' | 'tasks'>('builder');
+  const [activeSubTab, setActiveSubTab] = useState<'builder' | 'events' | 'locations' | 'tasks'>('builder');
 
   // 🧪 SUPPORT DEEP-LINKING FOR TESTING
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sub = params.get('sub');
-    if (sub && ['builder','events','staff','locations','tasks'].includes(sub)) {
+    if (sub && ['builder','events','locations','tasks'].includes(sub)) {
         setActiveSubTab(sub as any);
     }
   }, []);
@@ -33,7 +32,6 @@ export default function SetupTab({ appState }: any) {
           {[
             { id: 'builder', label: 'Builder', icon: CalendarDays },
             { id: 'events', label: 'Events', icon: Video },
-            { id: 'staff', label: 'Staff', icon: Users },
             { id: 'locations', label: 'Locs', icon: MapPin },
             { id: 'tasks', label: 'Tasks', icon: ListChecks }
           ].map(tab => (
@@ -50,7 +48,6 @@ export default function SetupTab({ appState }: any) {
 
       <div className="bg-white rounded-[40px] border-4 border-slate-900 shadow-2xl overflow-hidden min-h-[60vh] min-w-0 w-full max-w-full">
         {activeSubTab === 'builder' && <div className="p-4 md:p-8 w-full max-w-full overflow-hidden min-w-0"><ScheduleBuilderTab /></div>}
-        {activeSubTab === 'staff' && <StaffTab appState={appState} />}
         {activeSubTab === 'locations' && <LocationsTab appState={appState} />}
         {activeSubTab === 'events' && <EventsTab />}
         
