@@ -34,6 +34,31 @@ const getDurationHours = (start: string, end: string) => {
     return (new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60);
 };
 
+// Drag-to-create grid geometry: minutes-since-midnight for the grid's visible range.
+const GRID_START_MIN = HOURS[0] * 60; // 360 = 6:00 AM
+const GRID_END_MIN = (HOURS[0] + HOURS.length) * 60; // 1380 = 11:00 PM (end of the 10 PM row)
+
+const minutesToTimeStr = (mins: number) => {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+const snapMinutes = (mins: number) => {
+  const snapped = Math.round(mins / 30) * 30;
+  return Math.min(Math.max(snapped, GRID_START_MIN), GRID_END_MIN);
+};
+
+// Given a drag's anchor point and current pointer position (both in snapped
+// minutes-since-midnight), returns the resulting [start, end) block,
+// handling upward drags and enforcing a 30-minute minimum duration.
+const computeDragRange = (anchorMin: number, currentMin: number) => {
+  const startMin = Math.min(anchorMin, currentMin);
+  const rawEnd = Math.max(anchorMin, currentMin);
+  const endMin = Math.min(rawEnd - startMin < 30 ? startMin + 30 : rawEnd, GRID_END_MIN);
+  return { startMin, endMin };
+};
+
 // Finds another Live shift assigned to the same user, at a different location,
 // whose time range overlaps [startISO, endISO). Used for the scheduling conflict guard.
 const findShiftConflict = (allShifts: any[], userId: number, startISO: string, endISO: string, excludeId: number | null, locationId: number) => {
@@ -63,7 +88,7 @@ const getDateForDayInSameWeek = (baseDateStr: string, targetDow: number) => {
 // ==================================================================
 // SLIDE-OUT BUILDER COMPONENT
 // ==================================================================
-function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId }: any) {
+function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultEnd, defaultLocationId }: any) {
   const { shifts, templates, users, locations, builderMode, editingShiftId, createShift, updateShift, deleteShift, saveTemplates, deleteTemplate } = useAppStore();
   const isBlueprint = builderMode === 'blueprint';
   const editingItem = isBlueprint ? templates.find(t => t.id === editingShiftId) : shifts.find(s => s.id === editingShiftId);
@@ -78,7 +103,7 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId
     userId: editingItem?.userId || '',
     date: (!isBlueprint && editingItem?.startTime) ? new Date(editingItem.startTime).toISOString().split('T')[0] : (defaultDate || new Date().toISOString().split('T')[0]),
     startTime: editingItem?.startTime ? (isBlueprint ? editingItem.startTime : new Date(editingItem.startTime).toTimeString().slice(0,5)) : (defaultStart || '08:00'),
-    endTime: editingItem?.endTime ? (isBlueprint ? editingItem.endTime : new Date(editingItem.endTime).toTimeString().slice(0,5)) : '16:00',
+    endTime: editingItem?.endTime ? (isBlueprint ? editingItem.endTime : new Date(editingItem.endTime).toTimeString().slice(0,5)) : (defaultEnd || '16:00'),
     checklistTasks: (editingItem as any)?.checklistTasks || [] as string[]
   });
 
@@ -275,7 +300,7 @@ export default function ScheduleBuilderTab() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [genStart, setGenStart] = useState('');
   const [genEnd, setGenEnd] = useState('');
-  const [preFill, setPreFill] = useState<{ date: string; start: string; locationId: number | null }>({ date: '', start: '', locationId: null });
+  const [preFill, setPreFill] = useState<{ date: string; start: string; end: string; locationId: number | null }>({ date: '', start: '', end: '', locationId: null });
 
   const [showEmpDropdown, setShowEmpDropdown] = useState(false);
   const [showBulkMenu, setShowBulkMenu] = useState(false);
@@ -382,10 +407,86 @@ export default function ScheduleBuilderTab() {
     else setCalEmpFilter([...calEmpFilter, id]);
   };
 
-  const handleOpenBuilder = (id: number | null = null, date: string = '', start: string = '') => {
+  const handleOpenBuilder = (id: number | null = null, date: string = '', start: string = '', end: string = '') => {
     setEditingShiftId(id);
-    setPreFill({ date, start, locationId: calLocFilter.length === 1 ? calLocFilter[0] : null });
+    setPreFill({ date, start, end, locationId: calLocFilter.length === 1 ? calLocFilter[0] : null });
     setSidebarBuilderOpen(true);
+  };
+
+  // ---- Drag-to-create (week/day grid) ----
+  // Mouse/pen: press-drag from a start time to an end time opens the builder
+  // prefilled with both. Touch: falls back to tap-to-create (see handleColumnClick)
+  // so native scroll gestures on the grid aren't hijacked.
+  const dragStateRef = useRef<{ colIdx: number; anchorMin: number; currentMin: number; dragging: boolean; rectTop: number } | null>(null);
+  const [dragGhost, setDragGhost] = useState<{ colIdx: number; startMin: number; endMin: number } | null>(null);
+  const lastPointerTypeRef = useRef<string>('mouse');
+  const DRAG_THRESHOLD_PX = 6;
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && dragStateRef.current) {
+        dragStateRef.current = null;
+        setDragGhost(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const handleColumnPointerDown = (e: React.PointerEvent, colIdx: number) => {
+    lastPointerTypeRef.current = e.pointerType;
+    if (!isManager || isSelectionMode || e.pointerType === 'touch') return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const anchorMin = snapMinutes(GRID_START_MIN + ((e.clientY - rect.top) / hourHeight) * 60);
+    dragStateRef.current = { colIdx, anchorMin, currentMin: anchorMin, dragging: false, rectTop: rect.top };
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+  };
+
+  const handleColumnPointerMove = (e: React.PointerEvent, colIdx: number) => {
+    const ds = dragStateRef.current;
+    if (!ds || ds.colIdx !== colIdx) return;
+    const currentMin = snapMinutes(GRID_START_MIN + ((e.clientY - ds.rectTop) / hourHeight) * 60);
+    ds.currentMin = currentMin;
+    if (!ds.dragging) {
+      const anchorPx = ((ds.anchorMin - GRID_START_MIN) / 60) * hourHeight;
+      const currentPx = e.clientY - ds.rectTop;
+      if (Math.abs(currentPx - anchorPx) < DRAG_THRESHOLD_PX) return;
+      ds.dragging = true;
+    }
+    const { startMin, endMin } = computeDragRange(ds.anchorMin, ds.currentMin);
+    setDragGhost({ colIdx, startMin, endMin });
+  };
+
+  const handleColumnPointerUp = (e: React.PointerEvent, colIdx: number, day: Date) => {
+    const ds = dragStateRef.current;
+    dragStateRef.current = null;
+    setDragGhost(null);
+    if (!ds || ds.colIdx !== colIdx) return;
+    const dateStr = day.toISOString().split('T')[0];
+    if (ds.dragging) {
+      const { startMin, endMin } = computeDragRange(ds.anchorMin, ds.currentMin);
+      handleOpenBuilder(null, dateStr, minutesToTimeStr(startMin), minutesToTimeStr(endMin));
+    } else {
+      const endMin = Math.min(ds.anchorMin + 60, GRID_END_MIN);
+      handleOpenBuilder(null, dateStr, minutesToTimeStr(ds.anchorMin), minutesToTimeStr(endMin));
+    }
+  };
+
+  const handleColumnPointerCancel = () => {
+    dragStateRef.current = null;
+    setDragGhost(null);
+  };
+
+  // Touch tap fallback - simple tap-to-create with a default 1hr block, no drag.
+  // Mouse/pen clicks are already fully handled by pointerup above; onClick would
+  // otherwise double-fire for them, so this only acts when the last pointer was touch.
+  const handleColumnTouchClick = (e: React.MouseEvent, colIdx: number, day: Date) => {
+    if (lastPointerTypeRef.current !== 'touch' || !isManager || isSelectionMode) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const startMin = snapMinutes(GRID_START_MIN + ((e.clientY - rect.top) / hourHeight) * 60);
+    const endMin = Math.min(startMin + 60, GRID_END_MIN);
+    const dateStr = day.toISOString().split('T')[0];
+    handleOpenBuilder(null, dateStr, minutesToTimeStr(startMin), minutesToTimeStr(endMin));
   };
 
   const handleInlineAssign = async (item: any, isLive: boolean, uid: number | null) => {
@@ -871,10 +972,10 @@ export default function ScheduleBuilderTab() {
 
                             const isToday = dateObj.toDateString() === new Date().toDateString();
                             return (
-                                <div 
-                                    key={idx} 
-                                    onClick={() => handleOpenBuilder(null, dateObj.toISOString().split('T')[0], '08:00')}
-                                    className={`min-h-[160px] p-2 flex flex-col transition-colors group cursor-copy hover:bg-blue-50 relative ${dateObj.getMonth() === currentBaseDate.getMonth() ? 'bg-white' : 'bg-slate-50/50 text-slate-400'} ${isToday ? 'ring-4 ring-inset ring-yellow-400 bg-yellow-50/30' : ''}`}
+                                <div
+                                    key={idx}
+                                    onClick={() => { if (isManager && !isSelectionMode) handleOpenBuilder(null, dateObj.toISOString().split('T')[0], '08:00', '16:00'); }}
+                                    className={`min-h-[160px] p-2 flex flex-col transition-colors group relative ${isManager && !isSelectionMode ? 'cursor-copy hover:bg-blue-50' : ''} ${dateObj.getMonth() === currentBaseDate.getMonth() ? 'bg-white' : 'bg-slate-50/50 text-slate-400'} ${isToday ? 'ring-4 ring-inset ring-yellow-400 bg-yellow-50/30' : ''}`}
                                 >
                                     <div className="flex justify-end items-center mb-2 border-b border-slate-100 pb-1">
                                         {builderMode !== 'blueprint' && (
@@ -979,11 +1080,25 @@ export default function ScheduleBuilderTab() {
                                     {HOURS.map((_, i) => (
                                         <div key={i} style={{ height: `${hourHeight}px` }} className="border-b border-slate-300 w-full group-hover:bg-slate-50/50 transition-colors pointer-events-none" />
                                     ))}
-                                    <div className="absolute inset-0">
-                                        {HOURS.map(hour => (
-                                            <div key={hour} style={{ height: `${hourHeight}px` }} onClick={() => { const d = new Date(day); d.setHours(hour); d.setMinutes(0); handleOpenBuilder(null, d.toISOString().split('T')[0], `${String(hour).padStart(2,'0')}:00`); }} className="w-full cursor-copy hover:bg-blue-500/5 flex items-center justify-center transition-all group/cell"><Plus size={16} className="text-blue-500 opacity-0 group-hover/cell:opacity-20" /></div>
-                                        ))}
-                                    </div>
+                                    <div
+                                        className="absolute inset-0"
+                                        style={{ cursor: isManager && !isSelectionMode ? 'crosshair' : 'default' }}
+                                        onPointerDown={(e) => handleColumnPointerDown(e, colIdx)}
+                                        onPointerMove={(e) => handleColumnPointerMove(e, colIdx)}
+                                        onPointerUp={(e) => handleColumnPointerUp(e, colIdx, day)}
+                                        onPointerCancel={handleColumnPointerCancel}
+                                        onClick={(e) => handleColumnTouchClick(e, colIdx, day)}
+                                    />
+                                    {dragGhost && dragGhost.colIdx === colIdx && (
+                                        <div
+                                            className="absolute inset-x-1 rounded-xl border-2 border-dashed border-blue-500 bg-blue-500/25 pointer-events-none z-20 flex items-center justify-center"
+                                            style={{ top: `${((dragGhost.startMin - GRID_START_MIN) / 60) * hourHeight}px`, height: `${((dragGhost.endMin - dragGhost.startMin) / 60) * hourHeight}px` }}
+                                        >
+                                            <span className="text-[9px] font-black text-blue-800 bg-white/90 px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
+                                                {formatTimeString12h(minutesToTimeStr(dragGhost.startMin))} - {formatTimeString12h(minutesToTimeStr(dragGhost.endMin))}
+                                            </span>
+                                        </div>
+                                    )}
                                     <div className="absolute inset-0 pointer-events-none">
                                         {(() => {
                                             const isLive = builderMode === 'live';
@@ -1073,7 +1188,7 @@ export default function ScheduleBuilderTab() {
          </div>
       </div>
 
-      {sidebarBuilderOpen && <SlideOutBuilder onClose={() => setSidebarBuilderOpen(false)} defaultDate={preFill.date} defaultStart={preFill.start} defaultLocationId={preFill.locationId} />}
+      {sidebarBuilderOpen && <SlideOutBuilder onClose={() => setSidebarBuilderOpen(false)} defaultDate={preFill.date} defaultStart={preFill.start} defaultEnd={preFill.end} defaultLocationId={preFill.locationId} />}
 
       {/* GENERATE FROM TEMPLATES DIALOG */}
       {showGenerateDialog && (
