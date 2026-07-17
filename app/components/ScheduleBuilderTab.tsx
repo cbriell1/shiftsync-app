@@ -293,6 +293,7 @@ export default function ScheduleBuilderTab() {
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
 
   // Template Creation State
+  const [showTemplateTray, setShowTemplateTray] = useState(false);
   const [showChecklist, setShowChecklist] = useState(true);
   const [creatorForm, setCreatorForm] = useState({
     locationIds: [] as string[],
@@ -702,7 +703,18 @@ export default function ScheduleBuilderTab() {
 
       {/* TEMPLATE BUILDER TRAY */}
       {builderMode === 'blueprint' && isManager && (
-          <div className="bg-slate-900 text-white p-6 rounded-[28px] border-4 border-slate-900 shadow-2xl space-y-6 animate-in slide-in-from-top-4">
+          <div className="bg-slate-900 text-white rounded-[28px] border-4 border-slate-900 shadow-2xl animate-in slide-in-from-top-4 overflow-hidden">
+              <button onClick={() => setShowTemplateTray(!showTemplateTray)} className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
+                  <span className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-brand-yellow">
+                      <Zap size={16} /> Bulk Template Builder
+                  </span>
+                  <span className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                      {showTemplateTray ? 'Collapse' : 'Choose facilities, days, time & staff to bulk-create'}
+                      <ChevronDown size={16} className={`text-slate-400 transition-transform ${showTemplateTray ? 'rotate-180' : ''}`} />
+                  </span>
+              </button>
+          {showTemplateTray && (
+          <div className="p-6 pt-0 space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
                   <div className="space-y-4">
                       <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">1. Choose Facilities</span>
@@ -790,6 +802,8 @@ export default function ScheduleBuilderTab() {
                     </div>
                   )}
               </div>
+          </div>
+          )}
           </div>
       )}
 
