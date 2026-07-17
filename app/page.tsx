@@ -250,28 +250,12 @@ function MainDashboard({ session }: { session: any }) {
   const fetchAllCoreData = useAppStore(s => s.fetchAllCoreData);
   const fetchManagerData = useAppStore(s => s.fetchManagerData);
 
-  const showChecklistModal = useAppStore(s => s.showChecklistModal);
-  const setShowChecklistModal = useAppStore(s => s.setShowChecklistModal);
-  
   useEscapeKey(() => setSidebarOpen(false), sidebarOpen);
-  useEscapeKey(() => setShowChecklistModal(false), showChecklistModal);
 
   const[isMounted, setIsMounted] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false); 
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [lastViewedFeedback, setLastViewedFeedback] = useState('1970-01-01T00:00:00.000Z');
   const[lastViewedMessages, setLastViewedMessages] = useState('1970-01-01T00:00:00.000Z');
-
-  const reportTargetCard = useAppStore(s => s.reportTargetCard);
-  const setReportTargetCard = useAppStore(s => s.setReportTargetCard);
-  const editingChecklistId = useAppStore(s => s.editingChecklistId);
-  const setEditingChecklistId = useAppStore(s => s.setEditingChecklistId);
-  const clDynamicTasks = useAppStore(s => s.clDynamicTasks);
-  const clCompletedTasks = useAppStore(s => s.clCompletedTasks);
-  const setClCompletedTasks = useAppStore(s => s.setClCompletedTasks);
-  const clNotes = useAppStore(s => s.clNotes);
-  const setClNotes = useAppStore(s => s.setClNotes);
-  const fetchTimeCards = useAppStore(s => s.fetchTimeCards);
-  const fetchChecklists = useAppStore(s => s.fetchChecklists);
 
   useEffect(() => {
     setIsMounted(true);
@@ -380,17 +364,6 @@ function MainDashboard({ session }: { session: any }) {
   },[messages, announcements, lastViewedMessages, selectedUserId]);
 
   const unapprovedCount = isManager ? managerData.filter(c => (!c.status || c.status === 'PENDING') && c.clockOut).length : 0;
-
-  const toggleChecklistTask = (taskName: string) => clCompletedTasks.includes(taskName) ? setClCompletedTasks(clCompletedTasks.filter(t => t !== taskName)) : setClCompletedTasks([...clCompletedTasks, taskName]);
-
-  const submitShiftReport = async () => {
-    const missed = clDynamicTasks.filter(t => !clCompletedTasks.includes(t));
-    const body = { id: editingChecklistId, userId: reportTargetCard?.userId, locationId: reportTargetCard?.locationId, timeCardId: reportTargetCard?.id, notes: clNotes, completedTasks: clCompletedTasks, missedTasks: missed };
-    await fetch('/api/checklists', { method: editingChecklistId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    setShowChecklistModal(false); setReportTargetCard(null); setEditingChecklistId(null);
-    fetchTimeCards(selectedUserId); fetchChecklists(); 
-    notify.success("Report Saved!");
-  };
 
   const toggleSidebarCollapse = () => {
     const newVal = !isCollapsed;
@@ -570,31 +543,6 @@ function MainDashboard({ session }: { session: any }) {
 
       </div>
 
-      {/* Modals */}
-      {showChecklistModal && (
-        <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-[100] flex justify-center items-center p-4" onClick={(e) => { if(e.target===e.currentTarget) setShowChecklistModal(false); }}>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-lg w-full animate-in zoom-in duration-200">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-black">{editingChecklistId ? 'Edit Shift Report' : 'Shift Closing Checklist'}</h3>
-              <button onClick={() => setShowChecklistModal(false)} className="text-slate-400 hover:text-red-500"><X size={24}/></button>
-            </div>
-            <div className="space-y-3 mb-6 max-h-[40vh] overflow-y-auto pr-2">
-              {clDynamicTasks.map((t, i) => (
-                <label key={i} className={`flex items-start space-x-3 cursor-pointer p-3 rounded-xl border-2 transition-colors ${clCompletedTasks.includes(t) ? 'bg-green-50 border-green-300' : 'bg-white border-slate-200 hover:border-blue-400'}`}>
-                  <input type="checkbox" checked={clCompletedTasks.includes(t)} onChange={() => toggleChecklistTask(t)} className="w-5 h-5 rounded mt-0.5" />
-                  <span className={`text-sm font-bold ${clCompletedTasks.includes(t) ? 'text-green-900 line-through opacity-70' : 'text-slate-900'}`}>{t}</span>
-                </label>
-              ))}
-              {clDynamicTasks.length === 0 && <p className="text-sm font-bold text-slate-500 italic">No tasks assigned for this shift.</p>}
-            </div>
-            <textarea value={clNotes} onChange={(e) => setClNotes(e.target.value)} rows={3} placeholder="Add any final shift notes or pass-downs..." className="w-full border-2 border-slate-300 rounded-xl p-3 mb-6 font-medium text-sm focus:border-blue-500 outline-none resize-none"></textarea>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setShowChecklistModal(false)} className="px-5 py-2.5 bg-slate-200 text-slate-800 font-bold rounded-xl transition-colors hover:bg-slate-300">Cancel</button>
-              <button onClick={submitShiftReport} className="px-5 py-2.5 bg-slate-900 text-white font-black rounded-xl transition-colors hover:bg-black shadow-md">Save Report</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

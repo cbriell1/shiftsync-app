@@ -42,19 +42,6 @@ interface AppStore {
   manEmps: number[];
   setManEmps: (ids: number[]) => void;
 
-  showChecklistModal: boolean;
-  setShowChecklistModal: (show: boolean) => void;
-  reportTargetCard: TimeCard | null;
-  setReportTargetCard: (card: TimeCard | null) => void;
-  editingChecklistId: number | null;
-  setEditingChecklistId: (id: number | null) => void;
-  clDynamicTasks: string[];
-  setClDynamicTasks: (tasks: string[]) => void;
-  clCompletedTasks: string[];
-  setClCompletedTasks: (tasks: string[]) => void;
-  clNotes: string;
-  setClNotes: (notes: string) => void;
-
   users: User[];
   locations: Location[];
   timeCards: TimeCard[];
@@ -146,19 +133,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setManLocs: (ids) => set({ manLocs: ids }),
   manEmps:[],
   setManEmps: (ids) => set({ manEmps: ids }),
-  
-  showChecklistModal: false,
-  setShowChecklistModal: (show) => set({ showChecklistModal: show }),
-  reportTargetCard: null,
-  setReportTargetCard: (card) => set({ reportTargetCard: card }),
-  editingChecklistId: null,
-  setEditingChecklistId: (id) => set({ editingChecklistId: id }),
-  clDynamicTasks:[],
-  setClDynamicTasks: (tasks) => set({ clDynamicTasks: tasks }),
-  clCompletedTasks:[],
-  setClCompletedTasks: (tasks) => set({ clCompletedTasks: tasks }),
-  clNotes: '',
-  setClNotes: (notes) => set({ clNotes: notes }),
 
   users: [], locations:[], timeCards: [], shifts: [], members: [],
   templates: [], checklists:[], globalTasks: [], giftCards:[],
