@@ -265,6 +265,8 @@ export async function saveTemplatesAction(data: {
       await prisma.shiftTemplate.update({
         where: { id: data.id },
         data: {
+          ...(data.locationIds && data.locationIds.length > 0 && { locationId: data.locationIds[0] }),
+          ...(data.daysOfWeek && data.daysOfWeek.length > 0 && { dayOfWeek: data.daysOfWeek[0] }),
           startTime: data.startTime,
           endTime: data.endTime,
           startDate: data.startDate,

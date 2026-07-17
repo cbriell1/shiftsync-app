@@ -83,6 +83,7 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId
 
   const [showChecklist, setShowChecklist] = useState(false);
   const [repeatDays, setRepeatDays] = useState<string[]>([]);
+  const [templateDay, setTemplateDay] = useState<number>((editingItem as any)?.dayOfWeek ?? new Date().getDay());
 
   const confirmConflict = async (userId: number, startISO: string, endISO: string, excludeId: number | null, dateLabel?: string) => {
     const conflict = findShiftConflict(shifts, userId, startISO, endISO, excludeId, form.locationId);
@@ -98,7 +99,7 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId
         await saveTemplates({
             id: editingShiftId,
             locationIds: [form.locationId],
-            daysOfWeek: [new Date(`${form.date}T12:00:00`).getDay()],
+            daysOfWeek: [templateDay],
             startTime: form.startTime,
             endTime: form.endTime,
             userId: form.userId ? Number(form.userId) : null,
@@ -107,7 +108,7 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId
     } else if (isBlueprint && !editingShiftId) {
         await saveTemplates({
             locationIds: [form.locationId],
-            daysOfWeek: [new Date(`${form.date}T12:00:00`).getDay()],
+            daysOfWeek: [templateDay],
             startTime: form.startTime,
             endTime: form.endTime,
             userId: form.userId ? Number(form.userId) : null,
@@ -180,9 +181,23 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId
         </div>
 
         <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{isBlueprint ? 'Time Block' : 'Date & Time Block'}</label>
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{isBlueprint ? 'Day & Time Block' : 'Date & Time Block'}</label>
             <div className="bg-slate-50 border-4 border-slate-100 rounded-[24px] p-6 space-y-4 shadow-inner">
                 {!isBlueprint && <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full bg-white border-2 border-slate-200 rounded-xl p-3 font-black text-sm outline-none focus:border-slate-900" />}
+                {isBlueprint && (
+                    <div className="flex flex-wrap gap-1.5">
+                        {['S','M','T','W','T','F','S'].map((day, idx) => (
+                            <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setTemplateDay(idx)}
+                                className={`w-9 h-9 rounded-xl text-[11px] font-black border-2 transition-all ${templateDay === idx ? 'bg-slate-900 border-slate-900 text-brand-yellow shadow-lg scale-105' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}`}
+                            >
+                                {day}
+                            </button>
+                        ))}
+                    </div>
+                )}
                 <div className="flex gap-4">
                     <div className="flex-1 space-y-1">
                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Starts</span>
