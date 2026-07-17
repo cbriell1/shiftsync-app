@@ -7,6 +7,7 @@ import { DAYS_OF_WEEK, getLocationColor, MONTHS, YEARS, formatTimeSafe } from '@
 import { notify, customConfirm } from '@/lib/ui-utils';
 import { cloneShiftsAction } from '@/lib/actions';
 import { Calendar, ShieldAlert, XCircle, UserPlus, Save, Search, UserCheck, MapPin, Zap, Layout, Activity, Clock, X, ChevronLeft, ChevronRight, Plus, CheckCircle2, ChevronDown, ListChecks, Edit3, Trash2 } from 'lucide-react';
+import TaskChecklistPicker from './TaskChecklistPicker';
 
 // ==================================================================
 // HELPERS
@@ -63,7 +64,7 @@ const getDateForDayInSameWeek = (baseDateStr: string, targetDow: number) => {
 // SLIDE-OUT BUILDER COMPONENT
 // ==================================================================
 function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId }: any) {
-  const { shifts, templates, users, locations, globalTasks, builderMode, editingShiftId, createShift, updateShift, deleteShift, saveTemplates, deleteTemplate } = useAppStore();
+  const { shifts, templates, users, locations, builderMode, editingShiftId, createShift, updateShift, deleteShift, saveTemplates, deleteTemplate } = useAppStore();
   const isBlueprint = builderMode === 'blueprint';
   const editingItem = isBlueprint ? templates.find(t => t.id === editingShiftId) : shifts.find(s => s.id === editingShiftId);
 
@@ -135,13 +136,6 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId
         }
     }
     onClose();
-  };
-
-  const toggleTask = (name: string) => {
-    setForm(prev => ({
-        ...prev,
-        checklistTasks: prev.checklistTasks.includes(name) ? prev.checklistTasks.filter(t => t !== name) : [...prev.checklistTasks, name]
-    }));
   };
 
   const toggleRepeatDay = (id: string) => {
@@ -243,13 +237,8 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId
                     <ChevronDown size={16} className={showChecklist ? 'rotate-180 transition-transform' : ''}/>
                 </button>
                 {showChecklist && (
-                    <div className="bg-slate-50 border-4 border-slate-100 rounded-[24px] p-4 max-h-60 overflow-y-auto custom-scrollbar space-y-2 animate-in fade-in zoom-in-95 duration-200">
-                        {globalTasks.map(t => (
-                            <button key={t.id} onClick={() => toggleTask(t.name)} className={`w-full text-left p-3 rounded-xl border-2 transition-all flex items-center justify-between ${form.checklistTasks.includes(t.name) ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}`}>
-                                <span className="text-[10px] font-bold uppercase truncate">{t.name}</span>
-                                {form.checklistTasks.includes(t.name) && <CheckCircle2 size={12}/>}
-                            </button>
-                        ))}
+                    <div className="bg-slate-50 border-4 border-slate-100 rounded-[24px] p-4 animate-in fade-in zoom-in-95 duration-200">
+                        <TaskChecklistPicker selected={form.checklistTasks} onChange={next => setForm(prev => ({ ...prev, checklistTasks: next }))} variant="light" />
                     </div>
                 )}
             </div>
@@ -275,7 +264,7 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultLocationId
 // MAIN UNIFIED SCHEDULER
 // ==================================================================
 export default function ScheduleBuilderTab() {
-  const { shifts, templates, users, locations, globalTasks, builderMode, setBuilderMode, builderWeekStart, setBuilderWeekStart, calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter, sidebarBuilderOpen, setSidebarBuilderOpen, editingShiftId, setEditingShiftId, generateSchedule, saveTemplates, deleteTemplate, deleteShift, updateShift, selectedUserId, selectedShiftIds, setSelectedShiftIds, toggleShiftSelection, bulkDeleteByIds, bulkDeleteShifts, cloneShifts } = useAppStore();
+  const { shifts, templates, users, locations, builderMode, setBuilderMode, builderWeekStart, setBuilderWeekStart, calLocFilter, setCalLocFilter, calEmpFilter, setCalEmpFilter, sidebarBuilderOpen, setSidebarBuilderOpen, editingShiftId, setEditingShiftId, generateSchedule, saveTemplates, deleteTemplate, deleteShift, updateShift, selectedUserId, selectedShiftIds, setSelectedShiftIds, toggleShiftSelection, bulkDeleteByIds, bulkDeleteShifts, cloneShifts } = useAppStore();
 
   const activeUser = users.find(u => u.id.toString() === selectedUserId);
   const isManager = activeUser?.systemRoles?.includes('Manager') || activeUser?.systemRoles?.includes('Administrator');
@@ -491,7 +480,6 @@ export default function ScheduleBuilderTab() {
 
   const toggleCreatorLoc = (id: string) => setCreatorForm({...creatorForm, locationIds: creatorForm.locationIds.includes(id) ? creatorForm.locationIds.filter(x => x !== id) : [...creatorForm.locationIds, id]});
   const toggleCreatorDay = (id: string) => setCreatorForm({...creatorForm, daysOfWeek: creatorForm.daysOfWeek.includes(id) ? creatorForm.daysOfWeek.filter(x => x !== id) : [...creatorForm.daysOfWeek, id]});
-  const toggleCreatorTask = (name: string) => setCreatorForm({...creatorForm, checklistTasks: creatorForm.checklistTasks.includes(name) ? creatorForm.checklistTasks.filter(x => x !== name) : [...creatorForm.checklistTasks, name]});
 
   const hourHeight = 36; // Ultra-compact row height
   const totalGridHeight = HOURS.length * hourHeight;
@@ -783,22 +771,10 @@ export default function ScheduleBuilderTab() {
                         <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">Template Facility Checklist ({creatorForm.checklistTasks.length} selected)</span>
                         <ChevronDown size={16} className={`text-slate-600 group-hover:text-white transition-all ${showChecklist ? 'rotate-180' : ''}`} />
                     </button>
-                    {showChecklist && (
-                        <button onClick={() => setCreatorForm(prev => ({ ...prev, checklistTasks: prev.checklistTasks.length === globalTasks.length ? [] : globalTasks.map(t => t.name) }))} className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase bg-slate-800 border border-slate-700 text-brand-yellow hover:bg-slate-700 transition-all">
-                            {creatorForm.checklistTasks.length === globalTasks.length ? 'Deselect All' : 'Select All'}
-                        </button>
-                    )}
                   </div>
                   {showChecklist && (
-                    <div className="mt-4 bg-slate-800/50 rounded-2xl p-4 border-2 border-slate-800 max-h-60 overflow-y-auto custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 animate-in fade-in zoom-in-95 duration-200">
-                        {globalTasks.map(task => (
-                            <div key={task.id} onClick={() => toggleCreatorTask(task.name)} className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${creatorForm.checklistTasks.includes(task.name) ? 'bg-blue-600 border-blue-500 text-white shadow-lg' : 'bg-slate-900/50 border-slate-700 text-slate-500 hover:border-slate-500'}`}>
-                                <div className={`w-5 h-5 rounded flex items-center justify-center transition-all ${creatorForm.checklistTasks.includes(task.name) ? 'bg-white text-blue-600' : 'bg-slate-800 border border-slate-700'}`}>
-                                    {creatorForm.checklistTasks.includes(task.name) && <CheckCircle2 size={12}/>}
-                                </div>
-                                <span className="text-[10px] font-bold uppercase truncate">{task.name}</span>
-                            </div>
-                        ))}
+                    <div className="mt-4 bg-slate-800/50 rounded-2xl p-4 border-2 border-slate-800 animate-in fade-in zoom-in-95 duration-200">
+                        <TaskChecklistPicker selected={creatorForm.checklistTasks} onChange={next => setCreatorForm(prev => ({ ...prev, checklistTasks: next }))} variant="dark" />
                     </div>
                   )}
               </div>
