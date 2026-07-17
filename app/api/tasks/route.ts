@@ -98,6 +98,19 @@ export async function DELETE(request: Request) {
     const body = await request.json();
     const { id } = deleteTaskSchema.parse(body);
 
+    const existingTask = await prisma.globalTask.findUnique({ where: { id } });
+    if (!existingTask) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+
+    const templates = await prisma.shiftTemplate.findMany();
+    for (const tpl of templates) {
+      if (tpl.checklistTasks.includes(existingTask.name)) {
+        await prisma.shiftTemplate.update({
+          where: { id: tpl.id },
+          data: { checklistTasks: tpl.checklistTasks.filter(t => t !== existingTask.name) }
+        });
+      }
+    }
+
     await prisma.globalTask.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error: any) {

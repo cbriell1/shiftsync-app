@@ -7,6 +7,7 @@ import ScheduleBuilderTab from './ScheduleBuilderTab';
 import StaffTab from './StaffTab';
 import LocationsTab from './LocationsTab';
 import EventsTab from './EventsTab';
+import TasksTab from './TasksTab';
 
 export default function SetupTab({ appState }: any) {
   const [activeSubTab, setActiveSubTab] = useState<'builder' | 'events' | 'staff' | 'locations' | 'tasks'>('builder');
@@ -53,21 +54,7 @@ export default function SetupTab({ appState }: any) {
         {activeSubTab === 'locations' && <LocationsTab appState={appState} />}
         {activeSubTab === 'events' && <EventsTab />}
         
-        {activeSubTab === 'tasks' && (
-          <div className="p-10 space-y-10 animate-in fade-in slide-in-from-bottom-4">
-            <div className="bg-purple-600 text-white p-10 rounded-[48px] shadow-2xl relative overflow-hidden flex items-center justify-between">
-               <div className="relative z-10 space-y-4">
-                 <h2 className="text-4xl font-black uppercase italic sports-slant">Master Task Registry</h2>
-                 <p className="text-lg font-bold opacity-80 italic">Global shift items required for facility closing.</p>
-               </div>
-               <ListChecks size={200} className="absolute -bottom-10 -right-10 text-white/10 rotate-12" />
-            </div>
-            
-            <div className="bg-slate-50 rounded-[48px] border-4 border-slate-200 p-10 shadow-inner">
-               <p className="text-center font-black text-slate-400 uppercase italic tracking-widest py-20 border-4 border-dashed border-slate-200 rounded-[32px]">Task Management UI Coming in Phase 2</p>
-            </div>
-          </div>
-        )}
+        {activeSubTab === 'tasks' && <TasksTab />}
       </div>
       <style jsx>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
