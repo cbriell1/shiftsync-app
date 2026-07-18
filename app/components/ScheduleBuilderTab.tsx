@@ -788,6 +788,32 @@ export default function ScheduleBuilderTab() {
         </div>
       </div>
 
+      {/* LOCATION FILTER / LEGEND CHIPS */}
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        <button
+            onClick={() => setCalLocFilter([])}
+            className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border-2 transition-all ${calLocFilter.length === 0 ? 'bg-slate-900 border-slate-900 text-white shadow-md' : 'bg-white border-slate-300 text-slate-500 hover:border-slate-400'}`}
+        >
+            All Facilities
+        </button>
+        {activeLocations.map(loc => {
+            const color = getLocationColor(loc.id);
+            const dotClass = color.claim.split(' ')[0];
+            const isSelected = calLocFilter.includes(loc.id);
+            return (
+                <button
+                    key={loc.id}
+                    onClick={() => toggleLocFilter(loc.id)}
+                    title={`Filter to ${loc.name}`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border-2 transition-all ${isSelected ? `${dotClass} border-transparent text-white shadow-md` : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'}`}
+                >
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-white' : dotClass}`} />
+                    {loc.name.replace(/pnp\s+/i, '')}
+                </button>
+            );
+        })}
+      </div>
+
       {/* ... template builder tray ... */}
 
       {/* TEMPLATE BUILDER TRAY */}
@@ -890,32 +916,6 @@ export default function ScheduleBuilderTab() {
           )}
           </div>
       )}
-
-      {/* LOCATION FILTER / LEGEND CHIPS */}
-      <div className="flex flex-wrap items-center gap-2 px-1">
-        <button
-            onClick={() => setCalLocFilter([])}
-            className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border-2 transition-all ${calLocFilter.length === 0 ? 'bg-slate-900 border-slate-900 text-white shadow-md' : 'bg-white border-slate-300 text-slate-500 hover:border-slate-400'}`}
-        >
-            All Facilities
-        </button>
-        {activeLocations.map(loc => {
-            const color = getLocationColor(loc.id);
-            const dotClass = color.claim.split(' ')[0];
-            const isSelected = calLocFilter.includes(loc.id);
-            return (
-                <button
-                    key={loc.id}
-                    onClick={() => toggleLocFilter(loc.id)}
-                    title={`Filter to ${loc.name}`}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border-2 transition-all ${isSelected ? `${dotClass} border-transparent text-white shadow-md` : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'}`}
-                >
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-white' : dotClass}`} />
-                    {loc.name.replace(/pnp\s+/i, '')}
-                </button>
-            );
-        })}
-      </div>
 
       {/* STAFF WORKLOAD STRIP */}
       {isManager && weeklyWorkload.length > 0 && (
