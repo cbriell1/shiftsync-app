@@ -1008,17 +1008,17 @@ export default function ScheduleBuilderTab() {
                                                             } 
                                                         }} 
                                                         title="Permanently delete this item from the grid"
-                                                        className="absolute -top-2 -right-2 bg-white text-red-600 p-1.5 rounded-full shadow-lg z-30 border-2 border-red-100 hover:bg-red-600 hover:text-white transition-all scale-110"
+                                                        className="absolute top-1 right-1 bg-white text-red-600 p-1.5 rounded-full shadow-lg z-30 border-2 border-red-100 hover:bg-red-600 hover:text-white transition-all scale-110"
                                                     >
                                                         <Trash2 size={10} />
                                                     </button>
                                                 )}
                                                 {selectedShiftIds.includes(item.id) && (
-                                                    <div className="absolute -top-2 -right-2 bg-blue-600 text-white p-1 rounded-full shadow-lg z-30 animate-in zoom-in-50">
+                                                    <div className="absolute top-1 right-1 bg-blue-600 text-white p-1 rounded-full shadow-lg z-30 animate-in zoom-in-50">
                                                         <CheckCircle2 size={12} />
                                                     </div>
                                                 )}
-                                                <div className="font-black text-slate-900 text-[11px] mb-1">{isLive ? `${formatTimeSafe(item.startTime)} - ${formatTimeSafe(item.endTime)}` : `${formatTimeString12h(item.startTime)} - ${formatTimeString12h(item.endTime)}`}</div>
+                                                <div className="font-black text-slate-900 text-[11px] mb-1 pr-6">{isLive ? `${formatTimeSafe(item.startTime)} - ${formatTimeSafe(item.endTime)}` : `${formatTimeString12h(item.startTime)} - ${formatTimeString12h(item.endTime)}`}</div>
                                                 <div className={`text-[10px] font-black uppercase tracking-widest mb-1.5 truncate ${shiftColor.text} brightness-50`}>{item.location?.name?.replace(/pnp\s+/i, '') || locations.find(l=>l.id===item.locationId)?.name?.replace(/pnp\s+/i, '')}</div>
                                                 
                                                 <div className="mt-1 space-y-1.5">
