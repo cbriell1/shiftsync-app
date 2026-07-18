@@ -855,7 +855,7 @@ export default function ScheduleBuilderTab() {
                   <div className="space-y-4">
                       <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">3. Time & Staff</span>
                       <div className="space-y-2">
-                          <div className="flex items-center gap-1 bg-slate-800 border-2 border-slate-700 rounded-xl p-1.5">
+                          <div className="flex items-center gap-1 bg-slate-800 border-2 border-slate-700 rounded-xl p-1.5 min-w-0 overflow-hidden">
                             <TimeSelect value={creatorForm.startTime} onChange={v => setCreatorForm({...creatorForm, startTime: v})} variant="dark" />
                             <span className="text-slate-600 shrink-0">-</span>
                             <TimeSelect value={creatorForm.endTime} onChange={v => setCreatorForm({...creatorForm, endTime: v})} variant="dark" />
