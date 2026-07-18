@@ -109,7 +109,7 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultEnd, defau
 
   const [showChecklist, setShowChecklist] = useState(false);
   const [repeatDays, setRepeatDays] = useState<string[]>([]);
-  const [templateDay, setTemplateDay] = useState<number>((editingItem as any)?.dayOfWeek ?? new Date().getDay());
+  const [templateDay, setTemplateDay] = useState<number>((editingItem as any)?.dayOfWeek ?? new Date(`${form.date}T12:00:00`).getDay());
 
   const confirmConflict = async (userId: number, startISO: string, endISO: string, excludeId: number | null, dateLabel?: string) => {
     const conflict = findShiftConflict(shifts, userId, startISO, endISO, excludeId, form.locationId);
