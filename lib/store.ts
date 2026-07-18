@@ -196,77 +196,97 @@ export const useAppStore = create<AppStore>((set, get) => ({
         if (!(await customConfirm(msg, "Shift Conflict Detected", true))) return;
       }
     }
-    const res = await updateShiftAction({ shiftId, userId, startTime, endTime, action });
-    if (res.success) { await get().fetchShifts(); } else { notify.error(res.error || "Failed to update shift"); }
+    try {
+      const res = await updateShiftAction({ shiftId, userId, startTime, endTime, action });
+      if (res.success) { await get().fetchShifts(); } else { notify.error(res.error || "Failed to update shift"); }
+    } catch (err: any) { notify.error(err?.message || "Failed to update shift"); }
   },
 
   createShift: async (locationId, userId, startTime, endTime, tzOffset) => {
-    const { createShiftAction } = await import('./actions');
-    const res = await createShiftAction({
-        locationIds: [locationId],
-        userId,
-        daysOfWeek: [new Date(startTime).getDay()],
-        startTime: new Date(startTime).toTimeString().slice(0,5),
-        endTime: new Date(endTime).toTimeString().slice(0,5),
-        weeksToRepeat: 1,
-        tzOffset,
-        weekStart: getMonday(new Date(startTime)),
-    });
-    if (res.success) { notify.success("Shift created!"); await get().fetchShifts(); } else { notify.error(res.error || "Failed to create shift"); }
+    try {
+      const { createShiftAction } = await import('./actions');
+      const res = await createShiftAction({
+          locationIds: [locationId],
+          userId,
+          daysOfWeek: [new Date(startTime).getDay()],
+          startTime: new Date(startTime).toTimeString().slice(0,5),
+          endTime: new Date(endTime).toTimeString().slice(0,5),
+          weeksToRepeat: 1,
+          tzOffset,
+          weekStart: getMonday(new Date(startTime)),
+      });
+      if (res.success) { notify.success("Shift created!"); await get().fetchShifts(); } else { notify.error(res.error || "Failed to create shift"); }
+    } catch (err: any) { notify.error(err?.message || "Failed to create shift"); }
   },
 
   deleteShift: async (shiftId) => {
-    const res = await deleteShiftAction(shiftId);
-    if (res.success) { notify.success("Shift deleted"); await get().fetchShifts(); } else { notify.error(res.error || "Failed to delete shift"); }
+    try {
+      const res = await deleteShiftAction(shiftId);
+      if (res.success) { notify.success("Shift deleted"); await get().fetchShifts(); } else { notify.error(res.error || "Failed to delete shift"); }
+    } catch (err: any) { notify.error(err?.message || "Failed to delete shift"); }
   },
 
   bulkDeleteShifts: async (startDate, endDate, locationIds) => {
-    const res = await bulkDeleteShiftsAction({ startDate, endDate, locationIds });
-    if (res.success) { notify.success(`Successfully deleted ${res.count} shifts.`); await get().fetchShifts(); } else { notify.error(res.error || "Failed to clear shifts"); }
+    try {
+      const res = await bulkDeleteShiftsAction({ startDate, endDate, locationIds });
+      if (res.success) { notify.success(`Successfully deleted ${res.count} shifts.`); await get().fetchShifts(); } else { notify.error(res.error || "Failed to clear shifts"); }
+    } catch (err: any) { notify.error(err?.message || "Failed to clear shifts"); }
   },
 
   bulkDeleteByIds: async (ids) => {
-    const { bulkDeleteShiftsByIdsAction } = await import('./actions');
-    const res = await bulkDeleteShiftsByIdsAction(ids);
-    if (res.success) { 
-        notify.success(`Successfully deleted ${res.count} selected shifts.`); 
-        set({ selectedShiftIds: [] });
-        await get().fetchShifts(); 
-    } else { 
-        notify.error(res.error || "Failed to delete selected shifts"); 
-    }
+    try {
+      const { bulkDeleteShiftsByIdsAction } = await import('./actions');
+      const res = await bulkDeleteShiftsByIdsAction(ids);
+      if (res.success) {
+          notify.success(`Successfully deleted ${res.count} selected shifts.`);
+          set({ selectedShiftIds: [] });
+          await get().fetchShifts();
+      } else {
+          notify.error(res.error || "Failed to delete selected shifts");
+      }
+    } catch (err: any) { notify.error(err?.message || "Failed to delete selected shifts"); }
   },
 
   cloneShifts: async (data) => {
-    const { cloneShiftsAction } = await import('./actions');
-    const res = await cloneShiftsAction(data);
-    if (res.success) { 
-        notify.success(`Successfully cloned ${res.count} shifts!`); 
-        await get().fetchShifts(); 
-    } else { 
-        notify.error(res.error || "Cloning failed: " + res.error); 
-    }
+    try {
+      const { cloneShiftsAction } = await import('./actions');
+      const res = await cloneShiftsAction(data);
+      if (res.success) {
+          notify.success(`Successfully cloned ${res.count} shifts!`);
+          await get().fetchShifts();
+      } else {
+          notify.error(res.error || "Cloning failed: " + res.error);
+      }
+    } catch (err: any) { notify.error(err?.message || "Failed to clone shifts"); }
   },
 
   saveTemplates: async (data) => {
-    const res = await saveTemplatesAction(data);
-    if (res.success) { notify.success(data.id ? "Template updated!" : "Templates created!"); await get().fetchTemplates(); } else { notify.error(res.error || "Failed to save template"); }
+    try {
+      const res = await saveTemplatesAction(data);
+      if (res.success) { notify.success(data.id ? "Template updated!" : "Templates created!"); await get().fetchTemplates(); } else { notify.error(res.error || "Failed to save template"); }
+    } catch (err: any) { notify.error(err?.message || "Failed to save template"); }
   },
 
   deleteTemplate: async (id) => {
-    const { deleteTemplateAction } = await import('./actions');
-    const res = await deleteTemplateAction(id);
-    if (res.success) { notify.success("Template deleted"); await get().fetchTemplates(); } else { notify.error(res.error || "Failed to delete template"); }
+    try {
+      const { deleteTemplateAction } = await import('./actions');
+      const res = await deleteTemplateAction(id);
+      if (res.success) { notify.success("Template deleted"); await get().fetchTemplates(); } else { notify.error(res.error || "Failed to delete template"); }
+    } catch (err: any) { notify.error(err?.message || "Failed to delete template"); }
   },
 
   bulkTemplatesFromShifts: async (shifts) => {
-    const res = await bulkTemplatesFromShiftsAction(shifts);
-    if (res.success) { notify.success(`Success! Created master templates.`); await get().fetchTemplates(); } else { notify.error(res.error || "Failed to save week as template"); }
+    try {
+      const res = await bulkTemplatesFromShiftsAction(shifts);
+      if (res.success) { notify.success(`Success! Created master templates.`); await get().fetchTemplates(); } else { notify.error(res.error || "Failed to save week as template"); }
+    } catch (err: any) { notify.error(err?.message || "Failed to save week as template"); }
   },
 
   generateSchedule: async (startDate, endDate, locationIds, tzOffset) => {
-    const res = await generateScheduleAction({ startDate, endDate, locationIds, tzOffset });
-    if (res.success) { notify.success(`Success! Generated ${res.count} shifts.`); await get().fetchShifts(); } else { notify.error(res.error || "Failed to generate schedule"); }
+    try {
+      const res = await generateScheduleAction({ startDate, endDate, locationIds, tzOffset });
+      if (res.success) { notify.success(`Success! Generated ${res.count} shifts.`); await get().fetchShifts(); } else { notify.error(res.error || "Failed to generate schedule"); }
+    } catch (err: any) { notify.error(err?.message || "Failed to generate schedule"); }
   },
 
   fetchManagerData: async (isManager: boolean, userId: string) => {
