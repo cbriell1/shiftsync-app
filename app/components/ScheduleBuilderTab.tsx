@@ -8,6 +8,7 @@ import { notify, customConfirm } from '@/lib/ui-utils';
 import { cloneShiftsAction } from '@/lib/actions';
 import { Calendar, ShieldAlert, XCircle, UserPlus, Save, Search, UserCheck, MapPin, Zap, Layout, Activity, Clock, X, ChevronLeft, ChevronRight, Plus, CheckCircle2, ChevronDown, ListChecks, Edit3, Trash2 } from 'lucide-react';
 import TaskChecklistPicker from './TaskChecklistPicker';
+import TimeSelect from './TimeSelect';
 
 // ==================================================================
 // HELPERS
@@ -220,11 +221,11 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultEnd, defau
                 <div className="flex gap-4">
                     <div className="flex-1 space-y-1">
                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Starts</span>
-                        <input type="time" value={form.startTime} onChange={e => setForm({...form, startTime: e.target.value})} className="w-full bg-white border-2 border-slate-200 rounded-xl p-3 font-black text-sm outline-none focus:border-slate-900" />
+                        <TimeSelect value={form.startTime} onChange={v => setForm({...form, startTime: v})} variant="light" />
                     </div>
                     <div className="flex-1 space-y-1">
                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Ends</span>
-                        <input type="time" value={form.endTime} onChange={e => setForm({...form, endTime: e.target.value})} className="w-full bg-white border-2 border-slate-200 rounded-xl p-3 font-black text-sm outline-none focus:border-slate-900" />
+                        <TimeSelect value={form.endTime} onChange={v => setForm({...form, endTime: v})} variant="light" />
                     </div>
                 </div>
             </div>
@@ -855,9 +856,9 @@ export default function ScheduleBuilderTab() {
                       <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">3. Time & Staff</span>
                       <div className="space-y-2">
                           <div className="flex items-center gap-1 bg-slate-800 border-2 border-slate-700 rounded-xl p-1.5">
-                            <input type="time" value={creatorForm.startTime} onChange={e => setCreatorForm({...creatorForm, startTime: e.target.value})} className="flex-1 min-w-0 w-full bg-transparent p-1 font-black text-xs text-blue-400 outline-none" />
+                            <TimeSelect value={creatorForm.startTime} onChange={v => setCreatorForm({...creatorForm, startTime: v})} variant="dark" />
                             <span className="text-slate-600 shrink-0">-</span>
-                            <input type="time" value={creatorForm.endTime} onChange={e => setCreatorForm({...creatorForm, endTime: e.target.value})} className="flex-1 min-w-0 w-full bg-transparent p-1 font-black text-xs text-blue-400 outline-none" />
+                            <TimeSelect value={creatorForm.endTime} onChange={v => setCreatorForm({...creatorForm, endTime: v})} variant="dark" />
                           </div>
                           <select value={creatorForm.userId} onChange={e => setCreatorForm({...creatorForm, userId: e.target.value})} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl p-2.5 font-black text-[10px] uppercase text-white outline-none focus:border-blue-500">
                             <option value="">-- Vacant Slot --</option>
