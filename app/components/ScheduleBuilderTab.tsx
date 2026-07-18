@@ -1000,13 +1000,11 @@ export default function ScheduleBuilderTab() {
                                                 className={`relative p-2.5 rounded-xl border-l-[8px] shadow-lg transition-all hover:scale-105 group/card bg-white ${selectedShiftIds.includes(item.id) ? 'ring-4 ring-blue-500 border-blue-600 scale-[1.02] z-20' : shiftColor.border.replace('500','600')}`}
                                             >
                                                 {isManager && !isSelectionMode && (
-                                                    <button 
-                                                        onClick={async (e) => { 
-                                                            e.stopPropagation(); 
-                                                            if (await customConfirm(`Delete this ${isLive ? 'shift' : 'template'}?`, "Delete Item", true)) {
-                                                                if(isLive) deleteShift(item.id); else deleteTemplate(item.id); 
-                                                            } 
-                                                        }} 
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (isLive) deleteShift(item.id); else deleteTemplate(item.id);
+                                                        }}
                                                         title="Permanently delete this item from the grid"
                                                         className="absolute top-1 right-1 bg-white text-red-600 p-1.5 rounded-full shadow-lg z-30 border-2 border-red-100 hover:bg-red-600 hover:text-white transition-all scale-110"
                                                     >
@@ -1142,7 +1140,7 @@ export default function ScheduleBuilderTab() {
                                                             className={`absolute m-1 rounded-xl shadow-xl border-l-[10px] border border-slate-300 overflow-hidden pointer-events-auto cursor-pointer hover:scale-[1.02] active:scale-95 transition-all z-10 p-2 flex flex-col justify-center leading-none group/card ${selectedShiftIds.includes(item.id) ? 'ring-4 ring-blue-500 border-blue-600 scale-[1.02] z-30' : shiftColor.bg} ${!isLive ? 'border-dashed' : ''} ${shiftColor.border.replace('500','600')}`}
                                                         >
                                                             {isManager && !isSelectionMode && (
-                                                                <button onClick={async (e) => { e.stopPropagation(); if (await customConfirm("Delete this item?")) { if(isLive) deleteShift(item.id); else deleteTemplate(item.id); } }} className="absolute top-1 right-1 bg-white text-red-600 p-0.5 rounded-full shadow-md opacity-0 group-hover/card:opacity-100 transition-opacity z-20 border border-red-100 hover:bg-red-600 hover:text-white"><X size={8} /></button>
+                                                                <button onClick={(e) => { e.stopPropagation(); if (isLive) deleteShift(item.id); else deleteTemplate(item.id); }} title="Permanently delete this item" className="absolute top-1 right-1 bg-white text-red-600 p-0.5 rounded-full shadow-md opacity-0 group-hover/card:opacity-100 transition-opacity z-20 border border-red-100 hover:bg-red-600 hover:text-white"><X size={8} /></button>
                                                             )}
                                                             {selectedShiftIds.includes(item.id) && (
                                                                 <div className="absolute top-1 right-1 bg-blue-600 text-white p-0.5 rounded-full shadow-md z-30 animate-in zoom-in-50">
