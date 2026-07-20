@@ -156,9 +156,8 @@ export interface TimeCard {
 
 export interface GlobalTask {
   id: number;
-  locationId: number;
-  taskName: string;
   name: string;
+  category: string;
 }
 
 export interface GiftCard {

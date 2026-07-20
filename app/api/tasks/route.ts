@@ -4,16 +4,19 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/auth';
 import { isManagement } from '@/lib/api-auth';
+import { TASK_CATEGORIES } from '@/lib/common';
 
 export const dynamic = 'force-dynamic';
 
 const createTaskSchema = z.object({
   name: z.string().min(2, "Task name must be at least 2 characters long").max(100),
+  category: z.enum(TASK_CATEGORIES).optional().default('General'),
 });
 
 const editTaskSchema = z.object({
   id: z.coerce.number(),
   name: z.string().min(2, "Task name must be at least 2 characters long").max(100),
+  category: z.enum(TASK_CATEGORIES).optional(),
 });
 
 const deleteTaskSchema = z.object({
@@ -40,10 +43,10 @@ export async function POST(request: Request) {
     if (!(await isManagement())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const body = await request.json();
-    const { name } = createTaskSchema.parse(body);
+    const { name, category } = createTaskSchema.parse(body);
 
-    const newTask = await prisma.globalTask.create({ 
-      data: { name: name.trim() } 
+    const newTask = await prisma.globalTask.create({
+      data: { name: name.trim(), category }
     });
     
     return NextResponse.json(newTask);
@@ -59,7 +62,7 @@ export async function PUT(request: Request) {
     if (!(await isManagement())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const body = await request.json();
-    const { id, name } = editTaskSchema.parse(body);
+    const { id, name, category } = editTaskSchema.parse(body);
     const trimmedName = name.trim();
 
     const existingTask = await prisma.globalTask.findUnique({ where: { id } });
@@ -67,7 +70,7 @@ export async function PUT(request: Request) {
 
     const updatedTask = await prisma.globalTask.update({
       where: { id },
-      data: { name: trimmedName }
+      data: { name: trimmedName, ...(category !== undefined && { category }) }
     });
 
     if (existingTask.name !== trimmedName) {

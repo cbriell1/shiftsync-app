@@ -4,6 +4,18 @@ export const MONTHS =['January', 'February', 'March', 'April', 'May', 'June', 'J
 export const YEARS = [new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1];
 export const AVAILABLE_ROLES = ['Administrator', 'Manager', 'Front Desk', 'Trainer'];
 
+export const TASK_CATEGORIES = ['Opening', 'Closing', 'General'] as const;
+export type TaskCategory = typeof TASK_CATEGORIES[number];
+
+const TASK_CATEGORY_COLORS: Record<string, { dot: string; text: string; badge: string }> = {
+  Opening: { dot: 'bg-amber-500', text: 'text-amber-700', badge: 'bg-amber-100 text-amber-800 border-amber-300' },
+  Closing: { dot: 'bg-purple-500', text: 'text-purple-700', badge: 'bg-purple-100 text-purple-800 border-purple-300' },
+  General: { dot: 'bg-slate-400', text: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 border-slate-300' },
+};
+
+export const getTaskCategoryColor = (category: string | null | undefined) =>
+  TASK_CATEGORY_COLORS[category || 'General'] || TASK_CATEGORY_COLORS.General;
+
 export const formatTimeSafe = (dStr: string | null | undefined) => {
   if (!dStr) return 'Active';
   const d = new Date(dStr);

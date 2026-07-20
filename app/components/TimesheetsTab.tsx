@@ -3,18 +3,21 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { TimeCard, ShiftTemplate, Checklist } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
-import { formatDateSafe, formatTimeSafe, generatePeriods } from '@/lib/common';
+import { formatDateSafe, formatTimeSafe, generatePeriods, TASK_CATEGORIES, getTaskCategoryColor } from '@/lib/common';
 import { notify } from '@/lib/ui-utils';
+import { ChevronDown } from 'lucide-react';
 
 // ==================================================================
 // 1. ISOLATED REPORT EDITOR
 // ==================================================================
 function ShiftReportEditor({ card, globalReport, assignedTasks, fetchChecklists }: any) {
+  const globalTasks = useAppStore(state => state.globalTasks);
   const [completedTasks, setCompletedTasks] = useState<string[]>(globalReport?.completedTasks || []);
   const [notes, setNotes] = useState(globalReport?.notes || '');
   const [prevNotes, setPrevNotes] = useState(globalReport?.previousShiftNotes || '');
   const [isSaving, setIsSaving] = useState(false);
   const[savedOnce, setSavedOnce] = useState(!!globalReport);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (globalReport && !savedOnce) {
@@ -64,18 +67,46 @@ function ShiftReportEditor({ card, globalReport, assignedTasks, fetchChecklists 
     saveReport(updated, notes, prevNotes);
   };
 
+  const toggleCollapsed = (category: string) => setCollapsed(prev => ({ ...prev, [category]: !prev[category] }));
+  const categoryOf = (taskName: string) => globalTasks.find(gt => gt.name === taskName)?.category || 'General';
+  const taskGroups = TASK_CATEGORIES.map(category => ({
+    category,
+    tasks: assignedTasks.filter((t: string) => categoryOf(t) === category)
+  })).filter(g => g.tasks.length > 0);
+
   return (
     <div className="p-4 md:p-6 bg-slate-50 space-y-6">
       <div>
         <h4 className="text-xs font-black text-slate-700 uppercase mb-3 italic tracking-widest">Facility Checklist ({progressPct}% Done)</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-2">
-          {assignedTasks.map((t: string, idx: number) => (
-            <label key={idx} className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${completedTasks.includes(t) ? 'bg-green-50 border-green-300' : 'bg-white border-slate-300 hover:border-blue-400'}`}>
-              <input type="checkbox" checked={completedTasks.includes(t)} onChange={() => toggleTask(t)} className="w-5 h-5 rounded shrink-0 mt-0.5" />
-              <span className={`text-sm font-bold ${completedTasks.includes(t) ? 'text-green-900 line-through opacity-70' : 'text-slate-900'}`}>{t}</span>
-            </label>
-          ))}
-          {assignedTasks.length === 0 && <p className="text-sm font-bold text-slate-500 italic col-span-2">No tasks assigned for this shift.</p>}
+        <div className="space-y-2 max-h-72 overflow-y-auto pr-2">
+          {taskGroups.map(({ category, tasks }) => {
+            const color = getTaskCategoryColor(category);
+            const groupDone = tasks.filter((t: string) => completedTasks.includes(t)).length;
+            const isCollapsed = collapsed[category];
+            return (
+              <div key={category} className="rounded-xl border-2 border-slate-200 overflow-hidden bg-white">
+                <button type="button" onClick={() => toggleCollapsed(category)} className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors">
+                  <span className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${color.dot}`} />
+                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-700">{category}</span>
+                    <span className="text-[10px] font-bold text-slate-400">({groupDone}/{tasks.length})</span>
+                  </span>
+                  <ChevronDown size={15} className={`text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                </button>
+                {!isCollapsed && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2">
+                    {tasks.map((t: string, idx: number) => (
+                      <label key={idx} className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${completedTasks.includes(t) ? 'bg-green-50 border-green-300' : 'bg-white border-slate-300 hover:border-blue-400'}`}>
+                        <input type="checkbox" checked={completedTasks.includes(t)} onChange={() => toggleTask(t)} className="w-5 h-5 rounded shrink-0 mt-0.5" />
+                        <span className={`text-sm font-bold ${completedTasks.includes(t) ? 'text-green-900 line-through opacity-70' : 'text-slate-900'}`}>{t}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {assignedTasks.length === 0 && <p className="text-sm font-bold text-slate-500 italic">No tasks assigned for this shift.</p>}
         </div>
       </div>
 
