@@ -1157,10 +1157,17 @@ export default function ScheduleBuilderTab() {
                   <div className="space-y-4">
                       <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">3. Time & Staff</span>
                       <div className="space-y-2">
-                          <div className="flex items-center gap-1 bg-slate-800 border-2 border-slate-700 rounded-xl p-1.5 min-w-0 overflow-hidden">
-                            <TimeSelect value={creatorForm.startTime} onChange={v => setCreatorForm({...creatorForm, startTime: v})} variant="dark" />
-                            <span className="text-slate-600 shrink-0">-</span>
-                            <TimeSelect value={creatorForm.endTime} onChange={v => setCreatorForm({...creatorForm, endTime: v})} variant="dark" />
+                          <div className="space-y-1">
+                              <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Starts</span>
+                              <div className="flex items-center bg-slate-800 border-2 border-slate-700 rounded-xl p-1.5 min-w-0 overflow-hidden">
+                                <TimeSelect value={creatorForm.startTime} onChange={v => setCreatorForm({...creatorForm, startTime: v})} variant="dark" />
+                              </div>
+                          </div>
+                          <div className="space-y-1">
+                              <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Ends</span>
+                              <div className="flex items-center bg-slate-800 border-2 border-slate-700 rounded-xl p-1.5 min-w-0 overflow-hidden">
+                                <TimeSelect value={creatorForm.endTime} onChange={v => setCreatorForm({...creatorForm, endTime: v})} variant="dark" />
+                              </div>
                           </div>
                           <select value={creatorForm.userId} onChange={e => setCreatorForm({...creatorForm, userId: e.target.value})} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl p-2.5 font-black text-[10px] uppercase text-white outline-none focus:border-blue-500">
                             <option value="">-- Vacant Slot --</option>
