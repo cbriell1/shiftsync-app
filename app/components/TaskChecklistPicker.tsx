@@ -82,7 +82,7 @@ export default function TaskChecklistPicker({ selected, onChange, variant = 'lig
         )}
       </div>
 
-      <div className="max-h-72 overflow-y-auto custom-scrollbar space-y-2">
+      <div className="space-y-2">
         {groups.map(({ category, tasks }) => {
           const color = getTaskCategoryColor(category);
           const isCollapsed = !hasQuery && collapsed[category];
