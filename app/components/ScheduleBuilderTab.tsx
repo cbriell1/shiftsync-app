@@ -99,6 +99,15 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultEnd, defau
     ? [...activeLocations, ...locations.filter(l => l.id === editingItem.locationId)]
     : activeLocations;
 
+  const staffForLocation = (locationId: number) => {
+    let eligible = users.filter(u => u.isActive !== false && (!locationId || u.locationIds?.includes(locationId)));
+    if (editingItem?.userId && !eligible.some(u => u.id === editingItem.userId)) {
+      const currentlyAssigned = users.find(u => u.id === editingItem.userId);
+      if (currentlyAssigned) eligible = [...eligible, currentlyAssigned];
+    }
+    return eligible.sort((a, b) => a.name.localeCompare(b.name));
+  };
+
   const [form, setForm] = useState({
     locationId: editingItem?.locationId || defaultLocationId || pickerLocations[0]?.id || 0,
     userId: editingItem?.userId || '',
@@ -194,7 +203,7 @@ function SlideOutBuilder({ onClose, defaultDate, defaultStart, defaultEnd, defau
             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Assign Staff Member</label>
             <select value={form.userId} onChange={e => setForm({...form, userId: e.target.value})} className="w-full bg-slate-50 border-4 border-slate-100 rounded-[20px] p-4 font-black text-sm uppercase outline-none focus:border-slate-900 transition-all cursor-pointer">
                 <option value="">-- Open Slot --</option>
-                {users.filter(u => u.isActive !== false).sort((a,b) => a.name.localeCompare(b.name)).map(u => (
+                {staffForLocation(form.locationId).map(u => (
                     <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
             </select>
@@ -296,6 +305,28 @@ export default function ScheduleBuilderTab() {
   const isManager = activeUser?.systemRoles?.includes('Manager') || activeUser?.systemRoles?.includes('Administrator');
 
   const activeLocations = useMemo(() => locations.filter(l => l.isActive !== false), [locations]);
+
+  // Scopes staff pickers to whichever facility/facilities are selected via the
+  // location chips, so managers only see people who actually work there.
+  const staffForLocations = (locationIds: number[]) => {
+    if (locationIds.length === 0) return users;
+    return users.filter(u => u.locationIds?.some(id => locationIds.includes(id)));
+  };
+  const filterableStaff = useMemo(() => staffForLocations(calLocFilter), [users, calLocFilter]);
+
+  // Same idea, scoped to a single shift/template's own facility - used on the
+  // inline card dropdowns so they stay accurate regardless of which chips are
+  // active. Keeps whoever is already assigned selectable even if their
+  // locationIds no longer match, so reassigning away doesn't require a
+  // separate step.
+  const staffForCard = (item: any) => {
+    let eligible = users.filter(u => u.isActive !== false && (!item.locationId || u.locationIds?.includes(item.locationId)));
+    if (item.userId && !eligible.some(u => u.id === item.userId)) {
+      const currentlyAssigned = users.find(u => u.id === item.userId);
+      if (currentlyAssigned) eligible = [...eligible, currentlyAssigned];
+    }
+    return eligible.sort((a, b) => a.name.localeCompare(b.name));
+  };
 
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('week');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -677,7 +708,7 @@ export default function ScheduleBuilderTab() {
                         <input type="checkbox" checked={calEmpFilter.length === 0} onChange={() => setCalEmpFilter([])} className="w-3.5 h-3.5" />
                         <span className="font-black text-xs text-slate-900">All Staff</span>
                     </label>
-                    {users.map(u => (
+                    {filterableStaff.map(u => (
                         <label key={u.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
                         <input type="checkbox" checked={calEmpFilter.includes(u.id)} onChange={() => toggleEmpFilter(u.id)} className="w-3.5 h-3.5" />
                         <span className="font-bold text-xs text-slate-700">{u.name}</span>
@@ -691,7 +722,7 @@ export default function ScheduleBuilderTab() {
 
           {isManager && (
               <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto bg-slate-200/50 p-1 rounded-xl border border-slate-300">
-               {builderMode === 'live' ? (
+               {builderMode === 'live' && (
                  <>
                     {isSelectionMode ? (
                       <>
@@ -749,43 +780,44 @@ export default function ScheduleBuilderTab() {
                       </div>
                     )}
                  </>
-               ) : (
-                 <button
-                   onClick={async () => {
-                      let start: string, end: string, label: string, rangeStr: string;
-                      const offset = new Date().getTimezoneOffset();
-
-                      if (activeView === 'month') {
-                         const first = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1, 12, 0, 0);
-                         const last = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth() + 1, 0, 12, 0, 0);
-                         start = first.toISOString().split('T')[0];
-                         end = last.toISOString().split('T')[0];
-                         label = `the entire month of ${MONTHS[currentBaseDate.getMonth()]}`;
-                         rangeStr = `${first.toLocaleDateString()} - ${last.toLocaleDateString()}`;
-                      } else {
-                         const [y, m, d] = builderWeekStart.split('-').map(Number);
-                         const ws = new Date(y, m - 1, d); ws.setDate(ws.getDate() - ws.getDay());
-                         const we = new Date(ws); we.setDate(we.getDate() + 6);
-                         start = ws.toISOString().split('T')[0];
-                         end = we.toISOString().split('T')[0];
-                         label = "this week";
-                         rangeStr = `${ws.toLocaleDateString()} - ${we.toLocaleDateString()}`;
-                      }
-
-                      const msg = `Deploy all Templates for ${label} (${rangeStr}) to the Schedule? Existing identical shifts will be skipped.`;
-                      if (await customConfirm(msg, "Deploy Templates to Schedule", true)) {
-                        await generateSchedule(start, end, calLocFilter, offset);
-                        setBuilderMode('live');
-                      }
-                   }}
-                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-yellow text-slate-900 hover:bg-yellow-500 transition-all animate-pulse"
-                 >
-                   <Zap size={12} /> Deploy {activeView === 'month' ? 'Month' : 'Week'} Templates
-                 </button>
                )}
                <button onClick={() => handleOpenBuilder()} title={builderMode === 'blueprint' ? 'Create a single template for one facility and day' : undefined} className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-green text-white hover:bg-green-700 transition-all"><Plus size={12} /> {builderMode === 'live' ? 'Add Shift' : 'Quick Add Single Day Template'}</button>
                {builderMode === 'blueprint' && (
+                 <>
                    <button onClick={() => setShowBulkModal(true)} title="Create templates across multiple facilities and days at once" className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-all"><Zap size={12} /> Multi Day Bulk Template</button>
+                   <button
+                     onClick={async () => {
+                        let start: string, end: string, label: string, rangeStr: string;
+                        const offset = new Date().getTimezoneOffset();
+
+                        if (activeView === 'month') {
+                           const first = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth(), 1, 12, 0, 0);
+                           const last = new Date(currentBaseDate.getFullYear(), currentBaseDate.getMonth() + 1, 0, 12, 0, 0);
+                           start = first.toISOString().split('T')[0];
+                           end = last.toISOString().split('T')[0];
+                           label = `the entire month of ${MONTHS[currentBaseDate.getMonth()]}`;
+                           rangeStr = `${first.toLocaleDateString()} - ${last.toLocaleDateString()}`;
+                        } else {
+                           const [y, m, d] = builderWeekStart.split('-').map(Number);
+                           const ws = new Date(y, m - 1, d); ws.setDate(ws.getDate() - ws.getDay());
+                           const we = new Date(ws); we.setDate(we.getDate() + 6);
+                           start = ws.toISOString().split('T')[0];
+                           end = we.toISOString().split('T')[0];
+                           label = "this week";
+                           rangeStr = `${ws.toLocaleDateString()} - ${we.toLocaleDateString()}`;
+                        }
+
+                        const msg = `Deploy all Templates for ${label} (${rangeStr}) to the Schedule? Existing identical shifts will be skipped.`;
+                        if (await customConfirm(msg, "Deploy Templates to Schedule", true)) {
+                          await generateSchedule(start, end, calLocFilter, offset);
+                          setBuilderMode('live');
+                        }
+                     }}
+                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-yellow text-slate-900 hover:bg-yellow-500 transition-all animate-pulse"
+                   >
+                     <Zap size={12} /> Deploy {activeView === 'month' ? 'Month' : 'Week'} Templates
+                   </button>
+                 </>
                )}
              </div>
          )}
@@ -931,7 +963,7 @@ export default function ScheduleBuilderTab() {
                                                         className={`w-full font-black text-center truncate px-1 py-2 rounded-xl shadow-sm border-2 outline-none cursor-pointer text-[10px] transition-all ${item.userId === null ? 'bg-green-100 text-green-900 border-green-300 hover:bg-green-200' : 'bg-purple-100 text-purple-900 border-purple-200 hover:bg-purple-200'}`}
                                                     >
                                                         <option value="">{isLive ? '-- Open Shift --' : '-- Open Template --'}</option>
-                                                        {users.filter(u=>u.isActive!==false).sort((a,b)=>a.name.localeCompare(b.name)).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                                        {staffForCard(item).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                                                     </select>
 
                                                     {isLive && item.status === 'COVERAGE_REQUESTED' && (
@@ -1065,7 +1097,7 @@ export default function ScheduleBuilderTab() {
                                                                     className={`w-full font-bold text-center truncate px-0.5 py-1 rounded shadow-sm border outline-none cursor-pointer text-[9px] transition-colors ${item.userId === null ? 'bg-green-100 text-green-900 border-green-300 hover:bg-green-200' : 'bg-purple-100 text-purple-900 border-purple-200 hover:bg-purple-200'}`}
                                                                 >
                                                                     <option value="">{isLive ? '-- Open Shift --' : '-- Open Template --'}</option>
-                                                                    {users.filter(u=>u.isActive!==false).sort((a,b)=>a.name.localeCompare(b.name)).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                                                    {staffForCard(item).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                                                                 </select>
 
                                                                 {isLive && item.status === 'COVERAGE_REQUESTED' && (
@@ -1132,7 +1164,7 @@ export default function ScheduleBuilderTab() {
                           </div>
                           <select value={creatorForm.userId} onChange={e => setCreatorForm({...creatorForm, userId: e.target.value})} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl p-2.5 font-black text-[10px] uppercase text-white outline-none focus:border-blue-500">
                             <option value="">-- Vacant Slot --</option>
-                            {users.filter(u => u.isActive !== false).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            {staffForLocations(creatorForm.locationIds.map(Number)).filter(u => u.isActive !== false).sort((a,b) => a.name.localeCompare(b.name)).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                           </select>
                       </div>
                   </div>
