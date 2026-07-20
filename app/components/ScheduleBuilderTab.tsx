@@ -308,7 +308,7 @@ export default function ScheduleBuilderTab() {
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
 
   // Template Creation State
-  const [showTemplateTray, setShowTemplateTray] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const [showChecklist, setShowChecklist] = useState(true);
   const [creatorForm, setCreatorForm] = useState({
     locationIds: [] as string[],
@@ -783,7 +783,10 @@ export default function ScheduleBuilderTab() {
                    <Zap size={12} /> Deploy {activeView === 'month' ? 'Month' : 'Week'} Templates
                  </button>
                )}
-               <button onClick={() => handleOpenBuilder()} title={builderMode === 'blueprint' ? 'Create a single template for one facility and day' : undefined} className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-green text-white hover:bg-green-700 transition-all"><Plus size={12} /> {builderMode === 'live' ? 'Add Shift' : 'Quick Add Template'}</button>
+               <button onClick={() => handleOpenBuilder()} title={builderMode === 'blueprint' ? 'Create a single template for one facility and day' : undefined} className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-brand-green text-white hover:bg-green-700 transition-all"><Plus size={12} /> {builderMode === 'live' ? 'Add Shift' : 'Quick Add Single Day Template'}</button>
+               {builderMode === 'blueprint' && (
+                   <button onClick={() => setShowBulkModal(true)} title="Create templates across multiple facilities and days at once" className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-all"><Zap size={12} /> Multi Day Bulk Template</button>
+               )}
              </div>
          )}
         </div>
@@ -814,109 +817,6 @@ export default function ScheduleBuilderTab() {
             );
         })}
       </div>
-
-      {/* ... template builder tray ... */}
-
-      {/* TEMPLATE BUILDER TRAY */}
-      {builderMode === 'blueprint' && isManager && (
-          <div className="bg-slate-900 text-white rounded-[28px] border-4 border-slate-900 shadow-2xl animate-in slide-in-from-top-4 overflow-hidden">
-              <button onClick={() => setShowTemplateTray(!showTemplateTray)} className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
-                  <span className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-brand-yellow">
-                      <Zap size={16} /> Bulk Template Builder
-                  </span>
-                  <span className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                      {showTemplateTray ? 'Collapse' : 'Choose facilities, days, time & staff to bulk-create'}
-                      <ChevronDown size={16} className={`text-slate-400 transition-transform ${showTemplateTray ? 'rotate-180' : ''}`} />
-                  </span>
-              </button>
-          {showTemplateTray && (
-          <div className="p-6 pt-0 space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
-                  <div className="space-y-4">
-                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">1. Choose Facilities</span>
-                      <div className="flex flex-wrap gap-2">
-                        {activeLocations.map(loc => {
-                            const initMap: any = { 'PnP Wake Forest': 'WF', 'PnP Garner': 'GN', 'Pnp Chapel Hill': 'CH', 'PnP Brier Creek': 'BC' };
-                            const init = initMap[loc.name] || loc.name.substring(0,2).toUpperCase();
-                            return (
-                                <button key={loc.id} onClick={() => toggleCreatorLoc(loc.id.toString())} title={loc.name} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase border-2 transition-all ${creatorForm.locationIds.includes(loc.id.toString()) ? 'bg-blue-600 border-blue-500 text-white shadow-lg' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>{init}</button>
-                            );
-                        })}
-                      </div>
-                  </div>
-                  <div className="space-y-4">
-                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">2. Template Days</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {['S','M','T','W','T','F','S'].map((day, idx) => (
-                            <button key={idx} onClick={() => toggleCreatorDay(idx.toString())} className={`w-9 h-9 rounded-xl text-[11px] font-black border-2 transition-all ${creatorForm.daysOfWeek.includes(idx.toString()) ? 'bg-brand-yellow border-brand-yellow text-slate-900 shadow-lg scale-105' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>{day}</button>
-                        ))}
-                      </div>
-                  </div>
-                  <div className="space-y-4">
-                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">3. Time & Staff</span>
-                      <div className="space-y-2">
-                          <div className="flex items-center gap-1 bg-slate-800 border-2 border-slate-700 rounded-xl p-1.5 min-w-0 overflow-hidden">
-                            <TimeSelect value={creatorForm.startTime} onChange={v => setCreatorForm({...creatorForm, startTime: v})} variant="dark" />
-                            <span className="text-slate-600 shrink-0">-</span>
-                            <TimeSelect value={creatorForm.endTime} onChange={v => setCreatorForm({...creatorForm, endTime: v})} variant="dark" />
-                          </div>
-                          <select value={creatorForm.userId} onChange={e => setCreatorForm({...creatorForm, userId: e.target.value})} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl p-2.5 font-black text-[10px] uppercase text-white outline-none focus:border-blue-500">
-                            <option value="">-- Vacant Slot --</option>
-                            {users.filter(u => u.isActive !== false).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                          </select>
-                      </div>
-                  </div>
-                  <div className="flex flex-col gap-4">
-                        <button
-                            onClick={handleCreateBlueprint}
-                            disabled={creatorForm.locationIds.length === 0 || creatorForm.daysOfWeek.length === 0}
-                            title="Creates one template per facility x day combination selected above"
-                            className="bg-brand-yellow text-slate-900 font-black px-6 py-4 rounded-2xl shadow-xl hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 transition-all uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-2 border-b-4 border-slate-900"
-                        >
-                            <CheckCircle2 size={16} /> Create {creatorForm.locationIds.length * creatorForm.daysOfWeek.length || ''} Template{creatorForm.locationIds.length * creatorForm.daysOfWeek.length === 1 ? '' : 's'}
-                        </button>
-                        <div className="bg-brand-yellow/10 border-2 border-brand-yellow/30 p-3 rounded-2xl flex items-center gap-2">
-                            <div className="flex-1 min-w-0">
-                                <span className="text-[7px] font-black text-brand-yellow uppercase tracking-widest block mb-1">Deploy Range</span>
-                                <div className="flex items-center gap-1">
-                                    <input type="date" value={genStart} onChange={e => setGenStart(e.target.value)} className="flex-1 min-w-0 w-full bg-transparent font-black text-[10px] text-brand-yellow outline-none" />
-                                    <span className="text-brand-yellow/40 shrink-0">-</span>
-                                    <input type="date" value={genEnd} onChange={e => setGenEnd(e.target.value)} className="flex-1 min-w-0 w-full bg-transparent font-black text-[10px] text-brand-yellow outline-none" />
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => {
-                                    if (!genStart || !genEnd) { notify.error("Select range!"); return; }
-                                    const offset = new Date().getTimezoneOffset();
-                                    generateSchedule(genStart, genEnd, calLocFilter, offset);
-                                }}
-                                title="Deploy to Schedule"
-                                className="bg-brand-yellow text-slate-900 p-2 rounded-lg hover:bg-white transition-all shadow-md"
-                            >
-                                <Zap size={14}/>
-                            </button>
-                        </div>
-                  </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-800">
-                  <div className="flex items-center justify-between mb-3">
-                    <button onClick={() => setShowChecklist(!showChecklist)} className="flex items-center gap-3 group">
-                        <ListChecks size={18} className="text-brand-yellow" />
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">Template Facility Checklist ({creatorForm.checklistTasks.length} selected)</span>
-                        <ChevronDown size={16} className={`text-slate-600 group-hover:text-white transition-all ${showChecklist ? 'rotate-180' : ''}`} />
-                    </button>
-                  </div>
-                  {showChecklist && (
-                    <div className="mt-4 bg-slate-800/50 rounded-2xl p-4 border-2 border-slate-800 animate-in fade-in zoom-in-95 duration-200">
-                        <TaskChecklistPicker selected={creatorForm.checklistTasks} onChange={next => setCreatorForm(prev => ({ ...prev, checklistTasks: next }))} variant="dark" />
-                    </div>
-                  )}
-              </div>
-          </div>
-          )}
-          </div>
-      )}
 
       {/* STAFF WORKLOAD STRIP */}
       {isManager && weeklyWorkload.length > 0 && (
@@ -1188,6 +1088,105 @@ export default function ScheduleBuilderTab() {
       </div>
 
       {sidebarBuilderOpen && <SlideOutBuilder onClose={() => setSidebarBuilderOpen(false)} defaultDate={preFill.date} defaultStart={preFill.start} defaultEnd={preFill.end} defaultLocationId={preFill.locationId} />}
+
+      {/* MULTI DAY BULK TEMPLATE MODAL */}
+      {showBulkModal && builderMode === 'blueprint' && isManager && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-slate-900 text-white rounded-[28px] w-full max-w-5xl max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl border-4 border-slate-900 animate-in zoom-in duration-200">
+            <div className="sticky top-0 z-10 flex items-center justify-between p-5 bg-slate-900 border-b border-slate-800">
+              <span className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-brand-yellow">
+                <Zap size={18} /> Multi Day Bulk Template
+              </span>
+              <button onClick={() => setShowBulkModal(false)} className="text-2xl font-black text-slate-500 hover:text-white transition-colors leading-none">&times;</button>
+            </div>
+            <div className="p-6 space-y-6">
+              <p className="text-[11px] font-bold text-slate-400 -mt-2">Choose facilities, days, time &amp; staff to create multiple templates at once.</p>
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+                  <div className="space-y-4">
+                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">1. Choose Facilities</span>
+                      <div className="flex flex-wrap gap-2">
+                        {activeLocations.map(loc => {
+                            const initMap: any = { 'PnP Wake Forest': 'WF', 'PnP Garner': 'GN', 'Pnp Chapel Hill': 'CH', 'PnP Brier Creek': 'BC' };
+                            const init = initMap[loc.name] || loc.name.substring(0,2).toUpperCase();
+                            return (
+                                <button key={loc.id} onClick={() => toggleCreatorLoc(loc.id.toString())} title={loc.name} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase border-2 transition-all ${creatorForm.locationIds.includes(loc.id.toString()) ? 'bg-blue-600 border-blue-500 text-white shadow-lg' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>{init}</button>
+                            );
+                        })}
+                      </div>
+                  </div>
+                  <div className="space-y-4">
+                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">2. Template Days</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {['S','M','T','W','T','F','S'].map((day, idx) => (
+                            <button key={idx} onClick={() => toggleCreatorDay(idx.toString())} className={`w-9 h-9 rounded-xl text-[11px] font-black border-2 transition-all ${creatorForm.daysOfWeek.includes(idx.toString()) ? 'bg-brand-yellow border-brand-yellow text-slate-900 shadow-lg scale-105' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>{day}</button>
+                        ))}
+                      </div>
+                  </div>
+                  <div className="space-y-4">
+                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block ml-1">3. Time & Staff</span>
+                      <div className="space-y-2">
+                          <div className="flex items-center gap-1 bg-slate-800 border-2 border-slate-700 rounded-xl p-1.5 min-w-0 overflow-hidden">
+                            <TimeSelect value={creatorForm.startTime} onChange={v => setCreatorForm({...creatorForm, startTime: v})} variant="dark" />
+                            <span className="text-slate-600 shrink-0">-</span>
+                            <TimeSelect value={creatorForm.endTime} onChange={v => setCreatorForm({...creatorForm, endTime: v})} variant="dark" />
+                          </div>
+                          <select value={creatorForm.userId} onChange={e => setCreatorForm({...creatorForm, userId: e.target.value})} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl p-2.5 font-black text-[10px] uppercase text-white outline-none focus:border-blue-500">
+                            <option value="">-- Vacant Slot --</option>
+                            {users.filter(u => u.isActive !== false).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                          </select>
+                      </div>
+                  </div>
+                  <div className="flex flex-col gap-4">
+                        <button
+                            onClick={handleCreateBlueprint}
+                            disabled={creatorForm.locationIds.length === 0 || creatorForm.daysOfWeek.length === 0}
+                            title="Creates one template per facility x day combination selected above"
+                            className="bg-brand-yellow text-slate-900 font-black px-6 py-4 rounded-2xl shadow-xl hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 transition-all uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-2 border-b-4 border-slate-900"
+                        >
+                            <CheckCircle2 size={16} /> Create {creatorForm.locationIds.length * creatorForm.daysOfWeek.length || ''} Template{creatorForm.locationIds.length * creatorForm.daysOfWeek.length === 1 ? '' : 's'}
+                        </button>
+                        <div className="bg-brand-yellow/10 border-2 border-brand-yellow/30 p-3 rounded-2xl flex items-center gap-2">
+                            <div className="flex-1 min-w-0">
+                                <span className="text-[7px] font-black text-brand-yellow uppercase tracking-widest block mb-1">Deploy Range</span>
+                                <div className="flex items-center gap-1">
+                                    <input type="date" value={genStart} onChange={e => setGenStart(e.target.value)} className="flex-1 min-w-0 w-full bg-transparent font-black text-[10px] text-brand-yellow outline-none" />
+                                    <span className="text-brand-yellow/40 shrink-0">-</span>
+                                    <input type="date" value={genEnd} onChange={e => setGenEnd(e.target.value)} className="flex-1 min-w-0 w-full bg-transparent font-black text-[10px] text-brand-yellow outline-none" />
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    if (!genStart || !genEnd) { notify.error("Select range!"); return; }
+                                    const offset = new Date().getTimezoneOffset();
+                                    generateSchedule(genStart, genEnd, calLocFilter, offset);
+                                }}
+                                title="Deploy to Schedule"
+                                className="bg-brand-yellow text-slate-900 p-2 rounded-lg hover:bg-white transition-all shadow-md"
+                            >
+                                <Zap size={14}/>
+                            </button>
+                        </div>
+                  </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-800">
+                  <div className="flex items-center justify-between mb-3">
+                    <button onClick={() => setShowChecklist(!showChecklist)} className="flex items-center gap-3 group">
+                        <ListChecks size={18} className="text-brand-yellow" />
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">Template Facility Checklist ({creatorForm.checklistTasks.length} selected)</span>
+                        <ChevronDown size={16} className={`text-slate-600 group-hover:text-white transition-all ${showChecklist ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+                  {showChecklist && (
+                    <div className="mt-4 bg-slate-800/50 rounded-2xl p-4 border-2 border-slate-800 animate-in fade-in zoom-in-95 duration-200">
+                        <TaskChecklistPicker selected={creatorForm.checklistTasks} onChange={next => setCreatorForm(prev => ({ ...prev, checklistTasks: next }))} variant="dark" />
+                    </div>
+                  )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* GENERATE FROM TEMPLATES DIALOG */}
       {showGenerateDialog && (
